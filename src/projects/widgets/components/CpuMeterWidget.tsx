@@ -8,7 +8,7 @@ interface CpuMeterWidgetProps {
 }
 
 export const CpuMeterWidget: React.FC<CpuMeterWidgetProps> = () => {
-  const { systemMetrics, fetchSystemMetrics } = useWidgetsStore();
+  const { systemMetrics, fetchSystemMetrics, metricsUnavailable } = useWidgetsStore();
 
   useEffect(() => {
     fetchSystemMetrics();
@@ -16,9 +16,10 @@ export const CpuMeterWidget: React.FC<CpuMeterWidgetProps> = () => {
     return () => clearInterval(interval);
   }, [fetchSystemMetrics]);
 
-  const cpuPercent = systemMetrics?.cpu_percent ?? 12.0;
+  const cpuPercent = systemMetrics?.cpu_percent;
+  const known = typeof cpuPercent === "number";
   // Speedometer needle angle: -120deg (0%) to +120deg (100%)
-  const needleAngle = -120 + (cpuPercent / 100) * 240;
+  const needleAngle = -120 + ((known ? cpuPercent : 0) / 100) * 240;
 
   return (
     <div className="flex flex-col items-center justify-between w-full h-full select-none py-1">
@@ -59,7 +60,7 @@ export const CpuMeterWidget: React.FC<CpuMeterWidgetProps> = () => {
         {/* Value Overlay */}
         <div className="absolute bottom-6 flex flex-col items-center z-20">
           <span className="text-base font-extrabold text-slate-800 dark:text-white font-mono drop-shadow-sm">
-            {cpuPercent.toFixed(0)}%
+            {known ? `${cpuPercent.toFixed(0)}%` : "—"}
           </span>
         </div>
       </div>
@@ -67,7 +68,7 @@ export const CpuMeterWidget: React.FC<CpuMeterWidgetProps> = () => {
       {/* Label and Processor Info */}
       <div className="flex items-center gap-1.5 mt-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
         <Cpu size={13} className="text-pink-500" />
-        <span>CPU METER</span>
+        <span>{metricsUnavailable && !known ? "CPU · sem dados" : "CPU METER"}</span>
       </div>
     </div>
   );

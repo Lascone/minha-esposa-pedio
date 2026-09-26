@@ -270,7 +270,7 @@ pub fn widget_get_system_metrics() -> Result<SystemMetrics, String> {
 
 /// Spawns or focuses an independent native transparent desktop widget window
 #[tauri::command]
-pub fn widget_open_window(
+pub async fn widget_open_window(
     app: AppHandle,
     widget_id: String,
     title: String,
@@ -278,8 +278,9 @@ pub fn widget_open_window(
     y: i32,
     width: u32,
     height: u32,
-    _always_on_top: bool,
+    always_on_top: Option<bool>,
 ) -> Result<(), String> {
+    let is_ontop = always_on_top.unwrap_or(false);
     let safe_id: String = widget_id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
@@ -290,41 +291,67 @@ pub fn widget_open_window(
         format!("widget-{}", safe_id)
     };
 
-    println!("[Rust] widget_open_window: label='{}', size={}x{}, pos=({}, {})", label, width, height, x, y);
+    let log_msg = format!("[{}] widget_open_window called: label='{}', size={}x{}, pos=({}, {}), ontop={}\n", 
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+        label, width, height, x, y, is_ontop);
+    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
+        .and_then(|mut f| std::io::Write::write_all(&mut f, log_msg.as_bytes()));
 
     if let Some(existing) = app.get_webview_window(&label) {
-        let _ = existing.set_always_on_top(true);
+        let _ = existing.set_always_on_top(is_ontop);
         let _ = existing.show();
         let _ = existing.unminimize();
-        let _ = existing.set_focus();
-        let _ = existing.eval(&format!("window.location.hash = '/widget/{}';", label));
+        let _ = existing.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}';", label, label));
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
+            .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> Existing window shown\n"));
         return Ok(());
     }
 
-    let win = tauri::WebviewWindowBuilder::new(
+    let init_script = format!(
+        "window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}'; if (document.documentElement) {{ document.documentElement.classList.add('is-transparent-window', 'is-widget'); }}",
+        label, label
+    );
+
+    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
+        .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> Invoking WebviewWindowBuilder::build()...\n"));
+
+    let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
         &label,
         tauri::WebviewUrl::default(),
     )
+    .initialization_script(&init_script)
     .title(&title)
     .inner_size(width as f64, height as f64)
     .position(x as f64, y as f64)
     .resizable(true)
     .decorations(false)
     .transparent(true)
-    .always_on_top(true)
+    .always_on_top(is_ontop)
     .skip_taskbar(true)
-    .shadow(false)
+    .shadow(false);
+
+    // Mini console games need room for the picture plus the control bar.
+    if label.contains("console-snes") || label.contains("console-game-") {
+        builder = builder.min_inner_size(320.0, 300.0);
+    }
+
+    let win = builder
     .build()
     .map_err(|e| {
+        let err_msg = format!("  -> ERRO ao criar janela do widget {}: {}\n", label, e);
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
+            .and_then(|mut f| std::io::Write::write_all(&mut f, err_msg.as_bytes()));
         eprintln!("[Rust] Erro ao criar janela do widget {}: {}", label, e);
         format!("Erro ao criar janela do widget: {}", e)
     })?;
 
-    let _ = win.eval(&format!("window.location.hash = '/widget/{}';", label));
+    let _ = win.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}';", label, label));
     let _ = win.show();
     let _ = win.unminimize();
-    let _ = win.set_focus();
+    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
+        .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> SUCESSO: janela criada e exibida com sucesso!\n"));
+
     Ok(())
 }
 
@@ -348,7 +375,7 @@ pub fn widget_close_window(app: AppHandle, widget_id: String) -> Result<(), Stri
 
 /// Spawns or focuses an independent native transparent desktop companion window
 #[tauri::command]
-pub fn companion_open_window(
+pub async fn companion_open_window(
     app: AppHandle,
     companion_id: String,
     title: String,
@@ -356,8 +383,9 @@ pub fn companion_open_window(
     y: i32,
     width: u32,
     height: u32,
-    _always_on_top: bool,
+    always_on_top: Option<bool>,
 ) -> Result<(), String> {
+    let is_ontop = always_on_top.unwrap_or(false);
     let safe_id: String = companion_id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
@@ -371,26 +399,31 @@ pub fn companion_open_window(
     println!("[Rust] companion_open_window: label='{}', size={}x{}, pos=({}, {})", label, width, height, x, y);
 
     if let Some(existing) = app.get_webview_window(&label) {
-        let _ = existing.set_always_on_top(true);
+        let _ = existing.set_always_on_top(is_ontop);
         let _ = existing.show();
         let _ = existing.unminimize();
-        let _ = existing.set_focus();
-        let _ = existing.eval(&format!("window.location.hash = '/companion/{}';", label));
+        let _ = existing.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/companion/{}';", label, label));
         return Ok(());
     }
+
+    let init_script = format!(
+        "window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/companion/{}'; if (document.documentElement) {{ document.documentElement.classList.add('is-transparent-window', 'is-companion'); }}",
+        label, label
+    );
 
     let win = tauri::WebviewWindowBuilder::new(
         &app,
         &label,
         tauri::WebviewUrl::default(),
     )
+    .initialization_script(&init_script)
     .title(&title)
     .inner_size(width as f64, height as f64)
     .position(x as f64, y as f64)
     .resizable(false)
     .decorations(false)
     .transparent(true)
-    .always_on_top(true)
+    .always_on_top(is_ontop)
     .skip_taskbar(true)
     .shadow(false)
     .build()
@@ -399,10 +432,10 @@ pub fn companion_open_window(
         format!("Erro ao criar janela do companheiro: {}", e)
     })?;
 
-    let _ = win.eval(&format!("window.location.hash = '/companion/{}';", label));
+    let _ = win.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/companion/{}';", label, label));
     let _ = win.show();
     let _ = win.unminimize();
-    let _ = win.set_focus();
+
     Ok(())
 }
 
@@ -489,7 +522,8 @@ pub fn widget_set_position(
         format!("widget-{}", widget_id)
     };
     if let Some(win) = app.get_webview_window(&label) {
-        let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
+        // Logical, to match the logical position used by WebviewWindowBuilder in widget_open_window.
+        let _ = win.set_position(tauri::LogicalPosition::new(x as f64, y as f64));
     }
     Ok(())
 }

@@ -17,25 +17,44 @@ import { LoveQuotesWidget } from "./LoveQuotesWidget";
 import { PhotoFrameWidget } from "./PhotoFrameWidget";
 import { WorldClockWidget } from "./WorldClockWidget";
 import { VolumeMeterWidget } from "./VolumeMeterWidget";
+import { CalculatorWidget } from "./CalculatorWidget";
+import { CryptoCurrencyWidget } from "./CryptoCurrencyWidget";
+import { RssNewsWidget } from "./RssNewsWidget";
+import { HydrationWidget } from "./HydrationWidget";
+import { AmbientAudioWidget } from "./AmbientAudioWidget";
 import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
 import { WidgetSandbox } from "../custom/WidgetSandbox";
 import { useWidgetsStore } from "../store/widgetsStore";
+import { ConsoleSnesWidget } from "../console/components/ConsoleSnesWidget";
+import { isConsoleWidgetType } from "../console/types";
 
 interface WidgetRendererProps {
   widget: WidgetInstance;
   onOpenSettings?: () => void;
   isDesktopPreview?: boolean;
+  fillWindow?: boolean;
+  thumbnail?: boolean;
 }
 
 export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
   widget,
   onOpenSettings,
   isDesktopPreview = false,
+  fillWindow = false,
+  thumbnail = false,
 }) => {
   const { packages } = useCustomWidgetsStore();
   const { updateWidgetSettings, updateWidgetSize } = useWidgetsStore();
 
-  const customPkg = packages.find((p) => p.manifest.id === widget.type);
+  const isConsoleGame = isConsoleWidgetType(widget.type);
+
+  const customPkg = isConsoleGame ? undefined : packages.find(
+    (p) =>
+      p.manifest.id === widget.type ||
+      `custom-${p.manifest.id}` === widget.type ||
+      p.manifest.id === widget.type.replace(/^custom-/, "") ||
+      (widget.id && widget.id.includes(p.manifest.id))
+  );
 
   const renderInner = () => {
     if (customPkg) {
@@ -89,6 +108,16 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
         return <WorldClockWidget widget={widget} />;
       case "volume-meter":
         return <VolumeMeterWidget widget={widget} />;
+      case "calculator":
+        return <CalculatorWidget widget={widget} />;
+      case "crypto-currency":
+        return <CryptoCurrencyWidget widget={widget} />;
+      case "rss-news":
+        return <RssNewsWidget widget={widget} />;
+      case "hydration-reminder":
+        return <HydrationWidget widget={widget} />;
+      case "ambient-audio":
+        return <AmbientAudioWidget widget={widget} />;
       default:
         return (
           <div className="text-xs text-slate-400 p-4 text-center">
@@ -98,11 +127,23 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
     }
   };
 
+  if (isConsoleGame) {
+    // The mini console fills its own resizable window and draws its own chrome.
+    return isDesktopPreview ? (
+      <div className="text-xs text-slate-400 p-4 text-center">🎮 {widget.title}</div>
+    ) : (
+      <ConsoleSnesWidget widget={widget} />
+    );
+  }
+
   return (
     <WidgetContainer
       widget={widget}
       onOpenSettings={onOpenSettings}
       isDesktopPreview={isDesktopPreview}
+      fillWindow={fillWindow}
+      thumbnail={thumbnail}
+      frameless={Boolean(customPkg)}
     >
       {renderInner()}
     </WidgetContainer>

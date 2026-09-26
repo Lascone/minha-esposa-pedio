@@ -8,7 +8,7 @@ interface BatteryMeterWidgetProps {
 }
 
 export const BatteryMeterWidget: React.FC<BatteryMeterWidgetProps> = () => {
-  const { systemMetrics, fetchSystemMetrics } = useWidgetsStore();
+  const { systemMetrics, fetchSystemMetrics, metricsUnavailable } = useWidgetsStore();
 
   useEffect(() => {
     fetchSystemMetrics();
@@ -29,7 +29,12 @@ export const BatteryMeterWidget: React.FC<BatteryMeterWidgetProps> = () => {
         Status de Energia
       </span>
 
-      {hasBattery ? (
+      {!battery ? (
+        <div className="flex flex-col items-center my-auto text-xs text-slate-500 dark:text-slate-400">
+          <Battery size={40} className="opacity-40 mb-1" />
+          {metricsUnavailable ? "Status de energia indisponível" : "Lendo energia…"}
+        </div>
+      ) : hasBattery ? (
         <div className="flex flex-col items-center my-auto">
           {/* Battery Icon & Percentage */}
           <div className="relative flex items-center justify-center">
@@ -74,7 +79,7 @@ export const BatteryMeterWidget: React.FC<BatteryMeterWidgetProps> = () => {
 
       {/* Footer */}
       <div className="text-[10px] text-slate-400 border-t border-black/5 dark:border-white/10 w-full pt-1">
-        {hasBattery ? (isOnBattery ? "Modo econômico disponível" : "Desempenho máximo") : "Energia estável"}
+        {!battery ? "—" : hasBattery ? (isOnBattery ? "Modo econômico disponível" : "Desempenho máximo") : "Energia estável"}
       </div>
     </div>
   );

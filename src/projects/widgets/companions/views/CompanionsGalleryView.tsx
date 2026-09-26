@@ -19,6 +19,7 @@ import { DEFAULT_COMPANIONS } from "../registry";
 import { useCompanionsStore } from "../store/companionsStore";
 import { CompanionImportModal } from "../components/CompanionImportModal";
 import { CompanionDetailsModal } from "../components/CompanionDetailsModal";
+import { CompanionPreview } from "../components/CompanionPreview";
 
 export const CompanionsGalleryView: React.FC = () => {
   const {
@@ -258,10 +259,10 @@ export const CompanionsGalleryView: React.FC = () => {
                 className="relative h-36 flex items-center justify-center bg-gradient-to-b from-white/5 to-white/0 rounded-2xl mb-4 overflow-hidden border border-white/5 cursor-pointer hover:border-pink-500/40 transition-colors group/preview"
                 title="Clique para ver animações e detalhes"
               >
-                <img
-                  src={comp.preview}
-                  alt={comp.name}
-                  className="h-24 w-24 object-contain transition-transform duration-300 group-hover/preview:scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]"
+                <CompanionPreview
+                  companion={comp}
+                  size={96}
+                  className="transition-transform duration-300 group-hover/preview:scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]"
                 />
                 <div className="absolute inset-0 bg-pink-500/10 opacity-0 group-hover/preview:opacity-100 flex items-center justify-center transition-opacity">
                   <span className="px-2.5 py-1 rounded-xl bg-black/60 text-pink-300 font-bold text-[10px] backdrop-blur-sm border border-pink-500/30">

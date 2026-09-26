@@ -9,10 +9,15 @@
     "core:window:allow-show",
     "core:window:allow-hide",
     "core:window:allow-set-size",
+    "core:window:allow-set-min-size",
     "core:window:allow-set-position",
     "core:window:allow-set-focus",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-close",
+    "core:window:allow-start-resize-dragging",
     "autostart:default",
     "global-shortcut:default"
   ]

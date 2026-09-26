@@ -15,6 +15,11 @@ export type WidgetType =
   | "photo-frame"
   | "world-clock"
   | "volume-meter"
+  | "calculator"
+  | "crypto-currency"
+  | "rss-news"
+  | "hydration-reminder"
+  | "ambient-audio"
   | (string & {});
 
 export type WidgetTheme =

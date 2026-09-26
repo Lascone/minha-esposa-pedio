@@ -13,8 +13,10 @@ import {
   FileText,
   AlertCircle,
   CheckCircle,
+  Wand2,
 } from "lucide-react";
 import { CustomWidgetPackage, CustomWidgetManifest } from "./types";
+import { parseAiWidgetResponse } from "./aiPrompt";
 import { useCustomWidgetsStore } from "./customWidgetsStore";
 import { TEMPLATE_NEON_CLOCK, TEMPLATE_TODO_MINI } from "./templates";
 import { WidgetSandbox } from "./WidgetSandbox";
@@ -32,7 +34,7 @@ export const CustomWidgetEditorModal: React.FC<CustomWidgetEditorModalProps> = (
   onClose,
   onSaved,
 }) => {
-  const { savePackage, importPackageFromJson } = useCustomWidgetsStore();
+  const { packages, savePackage, importPackageFromJson } = useCustomWidgetsStore();
 
   const [activeTab, setActiveTab] = useState<TabType>("html");
 
@@ -56,6 +58,33 @@ export const CustomWidgetEditorModal: React.FC<CustomWidgetEditorModalProps> = (
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [aiPasteOpen, setAiPasteOpen] = useState(false);
+  const [aiPasteText, setAiPasteText] = useState("");
+  const [aiPasteError, setAiPasteError] = useState<string | null>(null);
+
+  const handleApplyAiResponse = () => {
+    try {
+      const result = parseAiWidgetResponse(aiPasteText);
+      const taken = packages.some(
+        (p) => p.manifest.id === result.manifest.id && p.manifest.id !== initialPackage?.manifest.id
+      );
+      if (taken) {
+        result.manifest.id = `${result.manifest.id}-${Date.now().toString(36)}`;
+      }
+      setManifestText(JSON.stringify(result.manifest, null, 2));
+      setHtmlCode(result.html);
+      setCssCode(result.css);
+      setJsCode(result.js);
+      setAiPasteError(null);
+      setErrorMsg(null);
+      setAiPasteOpen(false);
+      setAiPasteText("");
+      setActiveTab("html");
+      setSuccessMsg(`Widget "${result.manifest.name}" carregado da IA! Confira a prévia e clique em Salvar no Catálogo.`);
+    } catch (e: any) {
+      setAiPasteError(e.message || "Não consegui ler a resposta da IA.");
+    }
+  };
 
   // Live preview package constructed on the fly
   const previewPkg: CustomWidgetPackage = useMemo(() => {
@@ -199,6 +228,18 @@ export const CustomWidgetEditorModal: React.FC<CustomWidgetEditorModalProps> = (
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setAiPasteOpen((v) => !v);
+                setAiPasteError(null);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-[11px] shadow-md shadow-pink-500/25 active:scale-95 transition-all mr-2"
+              title="Cole aqui o JSON que a IA devolveu"
+            >
+              <Wand2 size={13} />
+              <span>Colar resposta da IA</span>
+            </button>
+
             {/* Quick Templates Dropdown / Buttons */}
             <div className="flex items-center gap-1.5 mr-2">
               <span className="text-[10px] text-white/50">Modelos:</span>
@@ -244,6 +285,48 @@ export const CustomWidgetEditorModal: React.FC<CustomWidgetEditorModalProps> = (
             </button>
           </div>
         </div>
+
+        {aiPasteOpen && (
+          <div className="mx-6 mt-3 p-4 rounded-2xl bg-gradient-to-br from-pink-500/15 via-purple-500/10 to-sky-500/10 border border-pink-400/40 space-y-2 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-pink-200 flex items-center gap-1.5">
+                <Wand2 size={14} /> Cole aqui a resposta inteira da IA
+              </span>
+              <span className="text-[10px] text-white/50">
+                O prompt fica em “Como Criar” → “Copiar prompt para IA”
+              </span>
+            </div>
+            <textarea
+              value={aiPasteText}
+              onChange={(e) => setAiPasteText(e.target.value)}
+              rows={6}
+              autoFocus
+              spellCheck={false}
+              placeholder='{ "manifest": { ... }, "html": "...", "css": "...", "js": "..." }'
+              className="w-full p-3 rounded-xl bg-black/40 border border-white/15 focus:border-pink-400/70 text-emerald-200 placeholder:text-white/30 font-mono text-[11px] resize-y outline-none custom-scrollbar"
+            />
+            {aiPasteError && (
+              <p className="text-[11px] text-red-300 flex items-center gap-1.5">
+                <AlertCircle size={12} className="shrink-0" /> {aiPasteError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setAiPasteOpen(false)}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleApplyAiResponse}
+                disabled={!aiPasteText.trim()}
+                className="px-4 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-bold transition-colors"
+              >
+                Aplicar no editor
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Notifications */}
         {errorMsg && (

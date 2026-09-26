@@ -8,6 +8,12 @@ interface WidgetContainerProps {
   children: React.ReactNode;
   onOpenSettings?: () => void;
   isDesktopPreview?: boolean;
+  /** Own native window: the frame always matches the window, whatever its size. */
+  fillWindow?: boolean;
+  /** Static gallery thumbnail: no toolbar, no interaction. */
+  thumbnail?: boolean;
+  /** Custom widgets draw their own card, so the glass frame would double it. */
+  frameless?: boolean;
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({
@@ -15,6 +21,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   children,
   onOpenSettings,
   isDesktopPreview = false,
+  fillWindow = false,
+  thumbnail = false,
+  frameless = false,
 }) => {
   const {
     removeWidget,
@@ -30,6 +39,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   // Theme styling presets
   const getThemeClass = () => {
+    if (frameless) return "bg-transparent text-white";
     switch (widget.theme) {
       case "dark-modern":
         return "bg-slate-900/85 backdrop-blur-xl border border-slate-700/60 text-slate-100 shadow-2xl";
@@ -70,6 +80,15 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
     setIsDragging(false);
   };
 
+  const scale = widget.scale || 1;
+  // A native window is resized to (width × scale); the unscaled layout box is
+  // then 100%/scale of the window, so content never overflows or gets clipped.
+  const sizeStyle: React.CSSProperties = fillWindow
+    ? { width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})` }
+    : thumbnail
+    ? { width: `${widget.width}px`, height: `${widget.height}px` }
+    : { width: `${widget.width}px`, height: `${widget.height}px`, transform: `scale(${scale})` };
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
@@ -81,10 +100,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       style={{
-        width: `${widget.width}px`,
-        height: `${widget.height}px`,
-        opacity: widget.opacity,
-        transform: `scale(${widget.scale})`,
+        ...sizeStyle,
+        opacity: thumbnail ? 1 : widget.opacity,
         transformOrigin: "top left",
         ...(isDesktopPreview
           ? {
@@ -100,11 +117,12 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       }`}
     >
       {/* Aero Glass Specular Highlight (Windows 7 classic gloss effect) */}
-      {widget.theme === "aero-glass" && (
+      {widget.theme === "aero-glass" && !frameless && (
         <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent rounded-t-3xl pointer-events-none" />
       )}
 
       {/* Floating Hover Controls (Windows 7 Gadget toolbar) */}
+      {!thumbnail && (
       <div
         className={`absolute top-2 right-2 flex items-center gap-1 z-30 transition-opacity duration-200 ${
           isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -161,9 +179,14 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           <X size={12} />
         </button>
       </div>
+      )}
 
       {/* Widget Body Content */}
-      <div className="relative z-10 w-full h-full p-4 flex flex-col items-center justify-center">
+      <div
+        className={`relative z-10 w-full h-full flex flex-col items-center justify-center ${
+          frameless ? "" : "p-4"
+        }`}
+      >
         {children}
       </div>
     </div>

@@ -45,6 +45,25 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
 
 ---
 
+## 🎮 2.1 Mini Console (EmulatorJS)
+
+Um único widget **Mini Console SNES** (tipo `console-snes`) com biblioteca interna: o usuário adiciona quantos jogos `.sfc/.smc` quiser, escolhe qual jogar dentro da própria janela e usa **Trocar jogo** para voltar à biblioteca. **Nenhum jogo vem com o app** (nem Super Mario World); o jogo selecionado fica em `settings.gameId`.
+
+- **Migração:** widgets antigos `console-game-<id>` viram um único `console-snes` com `settings.gameId = <id>` (`migrateWidgetsState`, versão 3 da store). Um placeholder "smw" sem arquivo é descartado; um já configurado vira jogo normal.
+- **Adicionar jogo:** `AddGameWizard` (arquivo → patch opcional/"já traduzido" → nome e capa). Detectar Super Mario World só sugere o nome; nunca bloqueia.
+
+- **Código:** `src/projects/widgets/console/` (domínio, patcher IPS/BPS/UPS, telas) e `public/console/player.html` + `player.js` (iframe isolado que roda o EmulatorJS).
+- **Armazenamento privado (Rust):** `src-tauri/src/console_library.rs` guarda em `app_data_dir/console/`:
+  - `files/<sha1>.<ext>`: jogos, patches, cópias traduzidas e capas (deduplicados por SHA-1; o original nunca é alterado).
+  - `library.json`: biblioteca; mudanças emitem o evento `console-library-changed` para todas as janelas.
+  - `saves/<id-do-jogo>/`: `sram.srm` (salvamento do próprio jogo, gravado a cada 10 s e ao fechar) e `state-N.state/.png` (estados 1–4).
+- **Emulador:** EmulatorJS (GPL-3.0) carregado do CDN oficial numa versão fixa (`EMULATORJS_VERSION` em `systems.ts`). Sem internet, o widget mostra "Sem internet" com botão para tentar de novo, sem simular nada.
+- **Consoles:** somente os listados em `SUPPORTED_SYSTEMS` (hoje SNES com núcleo `snes9x`, licença de uso não comercial). Para adicionar outro console, inclua uma entrada com núcleo, extensões e mapa de botões.
+- **Gerenciar jogos:** Configurações → Mini Console (rota `#/settings/console`): adicionar, editar, abrir, trocar capa, remover.
+- **Nunca** coloque jogos, capas oficiais, músicas ou traduções no repositório ou no instalador: o usuário seleciona os próprios arquivos.
+
+---
+
 ## 🐾 3. Catálogo de Companheiros da Área de Trabalho
 
 Personagens fofos que andam, dormem e reagem a cliques na tela do Windows:

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { CompanionManifest, CompanionActionState } from "../types";
 import { useCompanionsStore } from "../store/companionsStore";
+import { frameCount, spriteStyle } from "../sprite";
 
 interface CompanionDetailsModalProps {
   companion: CompanionManifest;
@@ -56,9 +57,7 @@ export const CompanionDetailsModal: React.FC<CompanionDetailsModalProps> = ({
   const animDef = companion.animations[activeTestState] || companion.animations.idle;
   const isSpritesheet = Boolean(animDef?.spritesheet);
   const frames = animDef?.frames || [companion.preview];
-  const totalFrames = isSpritesheet
-    ? animDef?.spritesheet?.totalFrames || 1
-    : frames.length;
+  const totalFrames = isSpritesheet ? frameCount(animDef, 1) : frames.length;
 
   // Frame ticker
   useEffect(() => {
@@ -79,18 +78,7 @@ export const CompanionDetailsModal: React.FC<CompanionDetailsModalProps> = ({
   // Spritesheet background position
   const getSpritesheetStyle = (): React.CSSProperties => {
     if (!isSpritesheet || !animDef?.spritesheet) return {};
-    const { src, frameWidth, frameHeight, columns = 1, row = 0 } = animDef.spritesheet;
-    const colIndex = frameIndex % columns;
-    const rowIndex = Math.floor(frameIndex / columns) + row;
-
-    return {
-      backgroundImage: `url(${src})`,
-      backgroundPosition: `-${colIndex * frameWidth}px -${rowIndex * frameHeight}px`,
-      width: `${frameWidth}px`,
-      height: `${frameHeight}px`,
-      backgroundRepeat: "no-repeat",
-      imageRendering: "pixelated",
-    };
+    return spriteStyle(animDef.spritesheet, frameIndex, 128, 128);
   };
 
   const handleDelete = () => {
@@ -170,7 +158,7 @@ export const CompanionDetailsModal: React.FC<CompanionDetailsModalProps> = ({
               {isSpritesheet ? (
                 <div
                   style={getSpritesheetStyle()}
-                  className="transition-transform drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transform scale-125"
+                  className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
                 />
               ) : (
                 <img

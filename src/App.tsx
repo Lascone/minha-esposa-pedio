@@ -14,6 +14,7 @@ import { useWidgetsStore } from "./projects/widgets/store/widgetsStore";
 import { DesktopCompanionWindow } from "./projects/widgets/companions/views/DesktopCompanionWindow";
 import { useCompanionsStore } from "./projects/widgets/companions/store/companionsStore";
 import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
+import { ManageGamesView } from "./projects/widgets/console/components/ManageGamesView";
 import { OverlayApp } from "./overlay/OverlayApp";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
@@ -185,12 +186,22 @@ export const App: React.FC = () => {
   // Determine current Tauri window label synchronously with reactive fallback
   const getDetectedWindowLabel = (): string => {
     try {
-      const internals = (window as any).__TAURI_INTERNALS__;
-      if (internals?.metadata?.currentWindow?.label) {
-        return internals.metadata.currentWindow.label;
+      if ((window as any).__TAURI_WINDOW_LABEL__) {
+        return (window as any).__TAURI_WINDOW_LABEL__;
       }
+      const hash = window.location.hash;
+      const widgetMatch = hash.match(/\/widget\/([^/?#]+)/);
+      if (widgetMatch) return widgetMatch[1];
+      const compMatch = hash.match(/\/companion\/([^/?#]+)/);
+      if (compMatch) return compMatch[1];
+      if (hash.includes("overlay")) return "overlay";
+
+      const internals = (window as any).__TAURI_INTERNALS__;
       if (internals?.metadata?.currentWebview?.label) {
         return internals.metadata.currentWebview.label;
+      }
+      if (internals?.metadata?.currentWindow?.label) {
+        return internals.metadata.currentWindow.label;
       }
       const currentWin = getCurrentWebviewWindow();
       if (currentWin && currentWin.label) {
@@ -210,21 +221,21 @@ export const App: React.FC = () => {
   }, [windowLabel]);
 
   const isWidgetWindow =
-    windowLabel !== "main" &&
-    (windowLabel.startsWith("widget-") ||
-      currentRoute.startsWith("/widget/") ||
-      window.location.hash.startsWith("#/widget/"));
+    (typeof window !== "undefined" && (window as any).__TAURI_WINDOW_LABEL__?.startsWith("widget-")) ||
+    windowLabel.startsWith("widget-") ||
+    currentRoute.startsWith("/widget/") ||
+    window.location.hash.startsWith("#/widget/");
 
   const isCompanionWindow =
-    windowLabel !== "main" &&
-    (windowLabel.startsWith("companion-") ||
-      currentRoute.startsWith("/companion/") ||
-      window.location.hash.startsWith("#/companion/"));
+    (typeof window !== "undefined" && (window as any).__TAURI_WINDOW_LABEL__?.startsWith("companion-")) ||
+    windowLabel.startsWith("companion-") ||
+    currentRoute.startsWith("/companion/") ||
+    window.location.hash.startsWith("#/companion/");
 
   const isOverlayWindow =
     windowLabel === "overlay" ||
-    (windowLabel !== "main" &&
-      (currentRoute === "/overlay" || window.location.hash.startsWith("#/overlay")));
+    currentRoute === "/overlay" ||
+    window.location.hash.startsWith("#/overlay");
 
   // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
@@ -293,6 +304,9 @@ export const App: React.FC = () => {
     }
     if (currentRoute === "/settings") {
       return <SettingsView />;
+    }
+    if (currentRoute === "/settings/console") {
+      return <ManageGamesView />;
     }
     if (currentRoute === "/about") {
       return <AboutView />;

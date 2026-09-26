@@ -3,6 +3,21 @@ import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { WidgetInstance, WidgetType, WidgetTheme, SystemMetrics } from "../types";
 import { getWidgetDefinition } from "../registry";
+import { isConsoleWidgetType, migrateConsoleWidget } from "../console/types";
+
+/** v2: widgets stop being always-on-top by default. v3: one Mini Console SNES widget instead of one per game. */
+export function migrateWidgetsState(persistedState: any, version: number): any {
+  if (!persistedState || !Array.isArray(persistedState.activeWidgets)) return persistedState;
+  let widgets: any[] = persistedState.activeWidgets;
+  if (version < 2) widgets = widgets.map((w) => ({ ...w, alwaysOnTop: false }));
+  if (version < 3) {
+    widgets = widgets.map(migrateConsoleWidget);
+    const consoles = widgets.filter((w) => isConsoleWidgetType(w.type));
+    const keep = consoles.find((w) => w.visible) || consoles[0];
+    widgets = widgets.filter((w) => !isConsoleWidgetType(w.type) || w === keep);
+  }
+  return { ...persistedState, activeWidgets: widgets };
+}
 
 interface WidgetsState {
   activeWidgets: WidgetInstance[];
@@ -12,10 +27,14 @@ interface WidgetsState {
   globalOpacity: number;
   systemMetrics: SystemMetrics | null;
   isMetricsLoading: boolean;
+  /** The native metrics command failed; widgets must say so rather than show numbers. */
+  metricsUnavailable: boolean;
   selectedWidgetId: string | null;
 
   // Actions
-  addWidget: (type: WidgetType) => WidgetInstance;
+  addWidget: (type: WidgetType, overrides?: Partial<WidgetInstance>) => WidgetInstance;
+  /** Stores bounds reported by the native window without moving it again. */
+  recordWidgetBounds: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   removeWidget: (id: string) => void;
   updateWidgetPosition: (id: string, x: number, y: number) => void;
   updateWidgetSize: (id: string, width: number, height: number) => void;
@@ -53,7 +72,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     locked: false,
     settings: {
       faceStyle: "aero",
@@ -74,7 +93,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     locked: false,
     settings: {
       city: "São Paulo",
@@ -96,7 +115,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     locked: false,
     settings: {},
   },
@@ -113,7 +132,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "cute-pastel",
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     locked: false,
     settings: {
       noteColor: "yellow",
@@ -134,9 +153,10 @@ export const useWidgetsStore = create<WidgetsState>()(
       globalOpacity: 0.95,
       systemMetrics: null,
       isMetricsLoading: false,
+      metricsUnavailable: false,
       selectedWidgetId: null,
 
-      addWidget: (type: WidgetType) => {
+      addWidget: (type: WidgetType, overrides?: Partial<WidgetInstance>) => {
         const def = getWidgetDefinition(type);
         const count = get().activeWidgets.filter((w) => w.type === type).length;
         const id = `widget-${type}-${Date.now()}`;
@@ -160,9 +180,10 @@ export const useWidgetsStore = create<WidgetsState>()(
           scale: get().globalScale || 1.0,
           opacity: get().globalOpacity || 0.95,
           theme: get().globalTheme || "aero-glass",
-          alwaysOnTop: true,
+          alwaysOnTop: false,
           locked: false,
           settings: {},
+          ...overrides,
         };
 
         set((state) => ({
@@ -192,6 +213,22 @@ export const useWidgetsStore = create<WidgetsState>()(
         }));
         // Sync native window position if in Tauri
         invoke("widget_set_position", { widgetId: id, x: Math.round(x), y: Math.round(y) }).catch(() => {});
+      },
+
+      recordWidgetBounds: (id, bounds) => {
+        set((state) => ({
+          activeWidgets: state.activeWidgets.map((w) =>
+            w.id === id
+              ? {
+                  ...w,
+                  x: Math.round(bounds.x),
+                  y: Math.round(bounds.y),
+                  width: Math.round(bounds.width),
+                  height: Math.round(bounds.height),
+                }
+              : w
+          ),
+        }));
       },
 
       updateWidgetSize: (id: string, width: number, height: number) => {
@@ -338,40 +375,11 @@ export const useWidgetsStore = create<WidgetsState>()(
         try {
           const metrics = await invoke<SystemMetrics>("widget_get_system_metrics");
           if (metrics) {
-            set({ systemMetrics: metrics, isMetricsLoading: false });
+            set({ systemMetrics: metrics, isMetricsLoading: false, metricsUnavailable: false });
           }
         } catch {
-          // Graceful fallback for browser dev mode
-          const ramTotal = 16384;
-          const ramUsed = 7420;
-          set({
-            isMetricsLoading: false,
-            systemMetrics: {
-              cpu_percent: Math.round((15 + Math.random() * 20) * 10) / 10,
-              cpu_name: "Intel / AMD Processor",
-              ram: {
-                total_mb: ramTotal,
-                used_mb: ramUsed,
-                free_mb: ramTotal - ramUsed,
-                used_percent: 45.3,
-              },
-              disks: [
-                {
-                  drive: "C:",
-                  total_gb: 476.0,
-                  free_gb: 215.4,
-                  used_gb: 260.6,
-                  used_percent: 54.7,
-                },
-              ],
-              battery: {
-                has_battery: true,
-                is_on_battery: false,
-                is_charging: true,
-                percentage: 92,
-              },
-            },
-          });
+          // Never invent numbers: widgets show "sem dados" instead.
+          set({ isMetricsLoading: false, systemMetrics: null, metricsUnavailable: true });
         }
       },
 
@@ -379,8 +387,9 @@ export const useWidgetsStore = create<WidgetsState>()(
         try {
           const posX = Math.max(20, Math.round(widget.x));
           const posY = Math.max(20, Math.round(widget.y));
-          const width = Math.max(160, Math.round(widget.width));
-          const height = Math.max(120, Math.round(widget.height));
+          const scale = widget.scale || 1;
+          const width = Math.max(120, Math.round(widget.width * scale));
+          const height = Math.max(90, Math.round(widget.height * scale));
 
           console.log(`[Widgets] Lançando janela nativa para '${widget.title}' (${widget.id}) em (${posX}, ${posY})`);
           await invoke("widget_open_window", {
@@ -417,6 +426,8 @@ export const useWidgetsStore = create<WidgetsState>()(
     }),
     {
       name: "pmm_desktop_widgets",
+      version: 3,
+      migrate: (persistedState: any, version: number) => migrateWidgetsState(persistedState, version),
       partialize: (state) => ({
         activeWidgets: state.activeWidgets,
         allWidgetsVisible: state.allWidgetsVisible,
@@ -427,3 +438,12 @@ export const useWidgetsStore = create<WidgetsState>()(
     }
   )
 );
+
+// Each widget runs in its own webview; pick up writes made by other windows.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === "pmm_desktop_widgets") {
+      useWidgetsStore.persist.rehydrate();
+    }
+  });
+}

@@ -15,6 +15,13 @@ use widget_system::{
     companion_set_position, companion_set_always_on_top,
 };
 
+mod console_library;
+use console_library::{
+    console_store_file, console_read_file, console_file_exists, console_library_get,
+    console_library_save, console_remove_game, console_write_save, console_read_save,
+    console_list_saves, console_delete_save, console_get_data_dir,
+};
+
 mod autoclick_engine;
 mod autoclick_db;
 use autoclick_engine::{AutoClickEngine, AutoClickEngineConfig, EngineStatus};
@@ -543,6 +550,17 @@ pub fn run() {
             companion_close_window,
             companion_set_position,
             companion_set_always_on_top,
+            console_store_file,
+            console_read_file,
+            console_file_exists,
+            console_library_get,
+            console_library_save,
+            console_remove_game,
+            console_write_save,
+            console_read_save,
+            console_list_saves,
+            console_delete_save,
+            console_get_data_dir,
             autoclick_start,
             autoclick_stop,
             autoclick_pause,

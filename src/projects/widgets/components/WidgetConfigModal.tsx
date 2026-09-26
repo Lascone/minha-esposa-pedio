@@ -6,11 +6,14 @@ import { X, Sparkles, Pin, Lock, Sliders, Trash2, RotateCcw } from "lucide-react
 interface WidgetConfigModalProps {
   widget: WidgetInstance | null;
   onClose: () => void;
+  /** Rendered inside the widget's own small window: fill it instead of floating over a backdrop. */
+  inWindow?: boolean;
 }
 
 export const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
   widget,
   onClose,
+  inWindow = false,
 }) => {
   const {
     updateWidgetSettings,
@@ -34,8 +37,21 @@ export const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm select-none">
-      <div className="relative w-full max-w-md rounded-cuter bg-theme-surface border border-theme-border/80 shadow-2xl p-6 flex flex-col gap-5 overflow-hidden">
+    <div
+      data-no-drag
+      className={
+        inWindow
+          ? "fixed inset-0 z-50 flex select-none"
+          : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm select-none"
+      }
+    >
+      <div
+        className={
+          inWindow
+            ? "relative w-full h-full rounded-3xl bg-theme-surface border border-theme-border/80 p-4 flex flex-col gap-4 overflow-hidden"
+            : "relative w-full max-w-md rounded-cuter bg-theme-surface border border-theme-border/80 shadow-2xl p-6 flex flex-col gap-5 overflow-hidden"
+        }
+      >
         {/* Top Header */}
         <div className="flex items-center justify-between pb-3 border-b border-theme-border/60">
           <div className="flex items-center gap-2.5">
@@ -60,7 +76,7 @@ export const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className={`flex flex-col gap-4 overflow-y-auto pr-1 ${inWindow ? "flex-1 min-h-0" : "max-h-[60vh]"}`}>
           {/* Theme Selector */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold text-theme-text flex items-center gap-1.5">
@@ -110,8 +126,8 @@ export const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
             </div>
             <input
               type="range"
-              min="0.8"
-              max="1.5"
+              min="0.5"
+              max="2"
               step="0.05"
               value={widget.scale}
               onChange={(e) => setWidgetScale(widget.id, parseFloat(e.target.value))}

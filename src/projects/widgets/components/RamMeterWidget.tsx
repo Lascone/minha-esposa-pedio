@@ -8,7 +8,7 @@ interface RamMeterWidgetProps {
 }
 
 export const RamMeterWidget: React.FC<RamMeterWidgetProps> = () => {
-  const { systemMetrics, fetchSystemMetrics } = useWidgetsStore();
+  const { systemMetrics, fetchSystemMetrics, metricsUnavailable } = useWidgetsStore();
 
   useEffect(() => {
     fetchSystemMetrics();
@@ -17,9 +17,9 @@ export const RamMeterWidget: React.FC<RamMeterWidgetProps> = () => {
   }, [fetchSystemMetrics]);
 
   const ram = systemMetrics?.ram;
-  const usedPercent = ram?.used_percent ?? 45.0;
-  const usedGb = ram ? (ram.used_mb / 1024).toFixed(1) : "7.2";
-  const totalGb = ram ? (ram.total_mb / 1024).toFixed(0) : "16";
+  const usedPercent = ram?.used_percent ?? 0;
+  const usedGb = ram ? (ram.used_mb / 1024).toFixed(1) : "—";
+  const totalGb = ram ? (ram.total_mb / 1024).toFixed(0) : "—";
 
   const needleAngle = -120 + (usedPercent / 100) * 240;
 
@@ -62,7 +62,7 @@ export const RamMeterWidget: React.FC<RamMeterWidgetProps> = () => {
         {/* Value Overlay */}
         <div className="absolute bottom-6 flex flex-col items-center z-20">
           <span className="text-base font-extrabold text-slate-800 dark:text-white font-mono drop-shadow-sm">
-            {usedPercent.toFixed(0)}%
+            {ram ? `${usedPercent.toFixed(0)}%` : "—"}
           </span>
         </div>
       </div>
@@ -70,7 +70,7 @@ export const RamMeterWidget: React.FC<RamMeterWidgetProps> = () => {
       {/* Label and Info */}
       <div className="flex flex-col items-center mt-1">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-          RAM: {usedGb} GB / {totalGb} GB
+          {ram ? `RAM: ${usedGb} GB / ${totalGb} GB` : metricsUnavailable ? "RAM · sem dados" : "RAM · lendo…"}
         </span>
       </div>
     </div>

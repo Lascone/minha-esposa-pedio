@@ -134,10 +134,14 @@ html, body {
   background-color: transparent;
 }
 
-body:not(.is-overlay):not(.is-transparent-window):not(:has(#widget-desktop-root)):not(:has(#companion-desktop-root)) {
+body:not(.is-overlay):not(.is-transparent-window):not(.is-widget):not(.is-companion):not(:has(#widget-desktop-root)):not(:has(#companion-desktop-root)) {
   background-color: var(--theme-bg);
 }
 
+html.is-widget, body.is-widget,
+html.is-companion, body.is-companion,
+html.is-overlay, body.is-overlay,
+html.is-transparent-window, body.is-transparent-window,
 html:has(#widget-desktop-root),
 body:has(#widget-desktop-root),
 html:has(#companion-desktop-root),

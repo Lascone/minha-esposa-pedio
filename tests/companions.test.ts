@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { DEFAULT_COMPANIONS, getCompanionManifest } from "../src/projects/widgets/companions/registry";
 import { useCompanionsStore } from "../src/projects/widgets/companions/store/companionsStore";
 import { CompanionManifest } from "../src/projects/widgets/companions/types";
+import { frameCount, spriteCell } from "../src/projects/widgets/companions/sprite";
 
 describe("Desktop Companions Module", () => {
   beforeEach(() => {
@@ -22,8 +23,24 @@ describe("Desktop Companions Module", () => {
       expect(comp.author).toBeTruthy();
       expect(comp.license).toBeTruthy();
       expect(comp.preview).toBeTruthy();
-      expect(comp.animations.idle.frames.length).toBeGreaterThan(0);
-      expect(comp.animations.walk.frames.length).toBeGreaterThan(0);
+      expect(frameCount(comp.animations.idle, comp.animations.idle.frames?.length ?? 0)).toBeGreaterThan(0);
+      expect(frameCount(comp.animations.walk, comp.animations.walk.frames?.length ?? 0)).toBeGreaterThan(0);
+    }
+  });
+
+  it("should address sprite-sheet frames by explicit cells or by sequence", () => {
+    const sheet = { src: "/s.gif", frameWidth: 32, frameHeight: 32, totalFrames: 4 };
+    expect(spriteCell({ ...sheet, cells: [[3, 3], [7, 3]] }, 3)).toEqual([7, 3]);
+    expect(spriteCell({ ...sheet, row: 2 }, 1)).toEqual([1, 2]);
+    expect(spriteCell({ ...sheet, columns: 2 }, 3)).toEqual([1, 1]);
+
+    const oneko = getCompanionManifest("cat-oneko")!;
+    expect(oneko.animations.idle.spritesheet?.cells?.length).toBeGreaterThan(0);
+    for (const anim of Object.values(oneko.animations)) {
+      for (const [col, row] of anim?.spritesheet?.cells ?? []) {
+        expect(col).toBeLessThan(8);
+        expect(row).toBeLessThan(4);
+      }
     }
   });
 
@@ -81,7 +98,7 @@ describe("Desktop Companions Module", () => {
     store.updateSettings({ maxCompanions: 2 });
 
     const id1 = await store.spawnCompanion("waifu-sakura");
-    const id2 = await store.spawnCompanion("cat-mimi");
+    const id2 = await store.spawnCompanion("cat-oneko");
     const id3 = await store.spawnCompanion("dog-hachi");
 
     expect(id1).toBeTruthy();

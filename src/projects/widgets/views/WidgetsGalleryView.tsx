@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { WIDGET_REGISTRY } from "../registry";
 import { WidgetType, WidgetDefinition } from "../types";
 import { useWidgetsStore } from "../store/widgetsStore";
@@ -6,6 +6,12 @@ import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
 import { CustomWidgetPackage } from "../custom/types";
 import { CustomWidgetEditorModal } from "../custom/CustomWidgetEditorModal";
 import { CustomWidgetDocsModal } from "../custom/CustomWidgetDocsModal";
+import { ConsoleSnesCard } from "../console/components/ConsoleSnesCard";
+import { WidgetThumbnail } from "../components/WidgetThumbnail";
+import { AddGameWizard } from "../console/components/AddGameWizard";
+import { useConsoleLibraryStore, initConsoleLibrarySync } from "../console/consoleLibraryStore";
+import { openConsole } from "../console/launcher";
+import { ConsoleGame } from "../console/types";
 import {
   Plus,
   Check,
@@ -44,9 +50,25 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
   const [editingPackage, setEditingPackage] = useState<CustomWidgetPackage | undefined>(undefined);
   const [docsOpen, setDocsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const consoleGames = useConsoleLibraryStore((s) => s.games);
+
+  useEffect(() => initConsoleLibrarySync(), []);
+
+  const showNotice = (msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice(null), 2500);
+  };
+
+  const handleOpenConsole = (game?: ConsoleGame) => {
+    openConsole(game ? game.id : undefined);
+    showNotice(game ? `${game.name} aberto na área de trabalho! 🎮` : "Mini Console SNES aberto na área de trabalho! 🎮");
+    if (onWidgetAdded) onWidgetAdded();
+  };
 
   const categories = [
     { id: "all", label: "Todos os Gadgets" },
+    { id: "console", label: "Mini Console 🎮" },
     { id: "custom", label: "Personalizados ✨" },
     { id: "time", label: "Relógio & Calendário" },
     { id: "system", label: "Monitor do PC" },
@@ -74,9 +96,13 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
   const filteredWidgets =
     selectedCategory === "all"
       ? allAvailableWidgets
+      : selectedCategory === "console"
+      ? []
       : selectedCategory === "custom"
       ? customWidgetDefs
       : allAvailableWidgets.filter((w) => w.category === selectedCategory);
+
+  const showConsoleCards = selectedCategory === "all" || selectedCategory === "console";
 
   const handleAdd = (type: string) => {
     addWidget(type as WidgetType);
@@ -232,6 +258,14 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
 
       {/* Gallery Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {showConsoleCards && (
+          <ConsoleSnesCard
+            games={consoleGames}
+            onOpen={() => handleOpenConsole()}
+            onAddGame={() => setWizardOpen(true)}
+            onManage={() => (window.location.hash = "/settings/console")}
+          />
+        )}
         {filteredWidgets.map((def) => {
           const isCustom = customPackages.some((p) => p.manifest.id === def.type);
           const activeCount = activeWidgets.filter((w) => w.type === def.type).length;
@@ -247,8 +281,8 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
               }`}
             >
               {/* Card Top: Icon, Badges & Custom Actions */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-400 via-rose-400 to-purple-500 text-white flex items-center justify-center text-2xl shadow-soft group-hover:scale-110 transition-transform">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-400 via-rose-400 to-purple-500 text-white flex items-center justify-center text-lg shadow-soft group-hover:scale-110 transition-transform">
                   {def.icon}
                 </div>
 
@@ -264,6 +298,10 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
                     </span>
                   )}
                 </div>
+              </div>
+
+              <div className="mb-3">
+                <WidgetThumbnail def={def} />
               </div>
 
               {/* Title and Description */}
@@ -349,7 +387,7 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
         })}
       </div>
 
-      {filteredWidgets.length === 0 && (
+      {filteredWidgets.length === 0 && !showConsoleCards && (
         <div className="text-center py-16 bg-theme-surface rounded-cuter border border-theme-border text-theme-text-muted">
           <p className="text-sm">Nenhum gadget encontrado nesta categoria.</p>
         </div>
@@ -367,8 +405,27 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
         />
       )}
 
+      {wizardOpen && (
+        <AddGameWizard
+          onClose={() => setWizardOpen(false)}
+          onDone={(game, playNow) => {
+            setWizardOpen(false);
+            if (playNow) handleOpenConsole(game);
+            else showNotice(`${game.name} adicionado à biblioteca do Mini Console!`);
+          }}
+        />
+      )}
+
       {/* Docs Modal */}
-      {docsOpen && <CustomWidgetDocsModal onClose={() => setDocsOpen(false)} />}
+      {docsOpen && (
+        <CustomWidgetDocsModal
+          onClose={() => setDocsOpen(false)}
+          onOpenEditor={() => {
+            setDocsOpen(false);
+            handleOpenNewEditor();
+          }}
+        />
+      )}
     </div>
   );
 };

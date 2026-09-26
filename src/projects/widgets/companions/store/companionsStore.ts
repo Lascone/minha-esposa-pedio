@@ -49,7 +49,7 @@ const INITIAL_ACTIVE_COMPANIONS: CompanionInstance[] = [
     y: 380,
     scale: 1.0,
     opacity: 1.0,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     isPaused: false,
     facing: "right",
     currentState: "idle",
@@ -62,7 +62,7 @@ export const useCompanionsStore = create<CompanionsState>()(
     (set, get) => ({
       customCompanions: [],
       activeCompanions: INITIAL_ACTIVE_COMPANIONS,
-      favoriteIds: ["waifu-sakura", "cat-mimi"],
+      favoriteIds: ["waifu-sakura", "dog-akita"],
       settings: DEFAULT_SETTINGS,
 
       spawnCompanion: async (companionId: string) => {
@@ -91,7 +91,7 @@ export const useCompanionsStore = create<CompanionsState>()(
           y,
           scale: manifest.defaultScale || 1.0,
           opacity: 1.0,
-          alwaysOnTop: true,
+          alwaysOnTop: false,
           isPaused: false,
           facing: "right",
           currentState: "idle",

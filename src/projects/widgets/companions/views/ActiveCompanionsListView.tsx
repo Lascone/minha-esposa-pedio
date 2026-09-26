@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCompanionsStore } from "../store/companionsStore";
+import { CompanionPreview } from "../components/CompanionPreview";
 import { getCompanionManifest } from "../registry";
 
 export const ActiveCompanionsListView: React.FC = () => {
@@ -130,11 +131,7 @@ export const ActiveCompanionsListView: React.FC = () => {
                 {/* Left: Thumbnail & Info */}
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center overflow-hidden shrink-0">
-                    <img
-                      src={manifest?.preview || ""}
-                      alt={comp.customName}
-                      className="w-10 h-10 object-contain drop-shadow"
-                    />
+                    {manifest && <CompanionPreview companion={manifest} size={40} className="drop-shadow" />}
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-white">

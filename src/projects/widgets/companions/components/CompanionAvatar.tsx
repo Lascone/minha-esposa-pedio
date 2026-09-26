@@ -9,6 +9,7 @@ import {
 import { useCompanionsStore } from "../store/companionsStore";
 import { getCompanionManifest } from "../registry";
 import { CompanionContextMenu } from "./CompanionContextMenu";
+import { frameCount, spriteStyle } from "../sprite";
 
 interface CompanionAvatarProps {
   instance: CompanionInstance;
@@ -72,9 +73,7 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
   const frames = animDef?.frames && animDef.frames.length > 0
     ? animDef.frames
     : [manifest?.preview || ""];
-  const totalFrames = isSpritesheet
-    ? animDef?.spritesheet?.totalFrames || 1
-    : frames.length;
+  const totalFrames = isSpritesheet ? frameCount(animDef, 1) : frames.length;
   const frameDuration = animDef?.frameDuration || 300;
 
   // 1. Frame Animation Loop
@@ -281,17 +280,13 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
       {/* Sprite / Frame with Direction Flipping */}
       {animDef?.spritesheet ? (
         <div
-          style={{
-            width: `${animDef.spritesheet.frameWidth}px`,
-            height: `${animDef.spritesheet.frameHeight}px`,
-            backgroundImage: `url(${animDef.spritesheet.src})`,
-            backgroundPosition: `-${frameIndex * animDef.spritesheet.frameWidth}px -${(animDef.spritesheet.row || 0) * animDef.spritesheet.frameHeight}px`,
-            backgroundRepeat: "no-repeat",
-            imageRendering: "pixelated",
-            transform: `${instance.facing === "left" ? "scaleX(-1)" : "scaleX(1)"} scale(${finalScale})`,
-            transformOrigin: "center center",
-            pointerEvents: "none",
-          }}
+          style={spriteStyle(
+            animDef.spritesheet,
+            frameIndex,
+            baseWidth * finalScale,
+            baseHeight * finalScale,
+            instance.facing === "left"
+          )}
           className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)]"
         />
       ) : (

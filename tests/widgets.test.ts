@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { WIDGET_REGISTRY, getWidgetDefinition } from "../src/projects/widgets/registry";
 import { useWidgetsStore } from "../src/projects/widgets/store/widgetsStore";
 
 describe("Windows Desktop Widgets Module", () => {
-  it("should have all 16 standard widgets registered with complete metadata", () => {
-    expect(WIDGET_REGISTRY.length).toBe(16);
+  it("should have all 21 standard widgets registered with complete metadata", () => {
+    expect(WIDGET_REGISTRY.length).toBe(21);
 
     const types = [
       "analog-clock",
@@ -23,6 +23,11 @@ describe("Windows Desktop Widgets Module", () => {
       "photo-frame",
       "world-clock",
       "volume-meter",
+      "calculator",
+      "crypto-currency",
+      "rss-news",
+      "hydration-reminder",
+      "ambient-audio",
     ];
 
     for (const type of types) {
@@ -92,16 +97,29 @@ describe("Windows Desktop Widgets Module", () => {
     }
   });
 
-  it("should fetch and update system metrics with realistic values", async () => {
-    const store = useWidgetsStore.getState();
-    await store.fetchSystemMetrics();
+  it("should never invent system metrics when the native command is unavailable", async () => {
+    await useWidgetsStore.getState().fetchSystemMetrics();
 
-    const metrics = useWidgetsStore.getState().systemMetrics;
-    expect(metrics).toBeDefined();
-    expect(metrics?.cpu_percent).toBeGreaterThanOrEqual(0);
-    expect(metrics?.cpu_percent).toBeLessThanOrEqual(100);
-    expect(metrics?.ram.total_mb).toBeGreaterThan(0);
-    expect(metrics?.disks.length).toBeGreaterThan(0);
-    expect(metrics?.battery).toBeDefined();
+    const state = useWidgetsStore.getState();
+    expect(state.systemMetrics).toBeNull();
+    expect(state.metricsUnavailable).toBe(true);
+  });
+
+  it("should store real metrics returned by the native command", async () => {
+    const real = {
+      cpu_percent: 37.5,
+      cpu_name: "Test CPU",
+      ram: { total_mb: 8192, used_mb: 4096, free_mb: 4096, used_percent: 50 },
+      disks: [{ drive: "C:", total_gb: 100, free_gb: 40, used_gb: 60, used_percent: 60 }],
+      battery: { has_battery: false, is_on_battery: false, is_charging: false, percentage: 0 },
+    };
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(real) }));
+    vi.resetModules();
+    const { useWidgetsStore: freshStore } = await import("../src/projects/widgets/store/widgetsStore");
+    await freshStore.getState().fetchSystemMetrics();
+
+    expect(freshStore.getState().systemMetrics).toEqual(real);
+    expect(freshStore.getState().metricsUnavailable).toBe(false);
+    vi.doUnmock("@tauri-apps/api/core");
   });
 });

@@ -20,6 +20,8 @@ export interface CompanionSpritesheetDef {
   totalFrames: number;
   columns?: number;
   row?: number;
+  /** Explicit [column, row] of each frame, for sheets whose frames aren't laid out in sequence. */
+  cells?: [number, number][];
 }
 
 export interface CompanionAnimationDef {

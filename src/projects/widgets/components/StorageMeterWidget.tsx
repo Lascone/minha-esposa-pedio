@@ -8,7 +8,7 @@ interface StorageMeterWidgetProps {
 }
 
 export const StorageMeterWidget: React.FC<StorageMeterWidgetProps> = () => {
-  const { systemMetrics, fetchSystemMetrics } = useWidgetsStore();
+  const { systemMetrics, fetchSystemMetrics, metricsUnavailable } = useWidgetsStore();
 
   useEffect(() => {
     fetchSystemMetrics();
@@ -16,15 +16,7 @@ export const StorageMeterWidget: React.FC<StorageMeterWidgetProps> = () => {
     return () => clearInterval(interval);
   }, [fetchSystemMetrics]);
 
-  const disks = systemMetrics?.disks ?? [
-    {
-      drive: "C:",
-      total_gb: 476.0,
-      free_gb: 215.4,
-      used_gb: 260.6,
-      used_percent: 54.7,
-    },
-  ];
+  const disks = systemMetrics?.disks ?? [];
 
   return (
     <div className="flex flex-col w-full h-full select-none justify-between py-1">
@@ -38,6 +30,11 @@ export const StorageMeterWidget: React.FC<StorageMeterWidgetProps> = () => {
 
       {/* Disks List */}
       <div className="flex flex-col gap-2.5 my-auto overflow-y-auto pr-1">
+        {disks.length === 0 && (
+          <p className="text-xs text-center text-slate-500 dark:text-slate-400">
+            {metricsUnavailable ? "Não foi possível ler os discos agora." : "Lendo discos…"}
+          </p>
+        )}
         {disks.map((d) => {
           const isWarning = d.used_percent >= 85;
           const isCritical = d.used_percent >= 92;

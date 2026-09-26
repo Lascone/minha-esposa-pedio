@@ -22,6 +22,7 @@ import {
   X,
   ShieldCheck,
   RefreshCw,
+  Gamepad2,
 } from "lucide-react";
 import { checkForUpdates, getCurrentVersion, UpdateInfo } from "@/core/services/updateService";
 import { UpdateModal } from "@/core/components/UpdateModal";
@@ -383,6 +384,32 @@ export const SettingsView: React.FC = () => {
           className="flex items-center gap-2 flex-shrink-0"
         >
           <span>Abrir Central de Atalhos</span>
+          <ExternalLink size={14} />
+        </Button>
+      </Card>
+
+      {/* Mini Console: jogos do dono */}
+      <Card className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-gradient-to-r from-indigo-500/10 via-theme-surface to-pink-500/10 border-indigo-400/30">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <Gamepad2 size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-theme-text">Mini Console · Gerenciar jogos</h3>
+            <p className="text-xs text-theme-text-muted">
+              Adicione, edite, troque a capa ou remova os jogos que aparecem como widgets na galeria.
+            </p>
+          </div>
+        </div>
+
+        <Button
+          size="sm"
+          onClick={() => {
+            window.location.hash = "/settings/console";
+          }}
+          className="flex items-center gap-2 flex-shrink-0"
+        >
+          <span>Gerenciar jogos</span>
           <ExternalLink size={14} />
         </Button>
       </Card>

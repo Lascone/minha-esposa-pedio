@@ -1,17 +1,36 @@
 import React, { useState } from "react";
-import { X, BookOpen, Code, Copy, Check, ShieldCheck, Cpu, Sparkles } from "lucide-react";
+import { X, BookOpen, Code, Copy, Check, ShieldCheck, Cpu, Sparkles, Wand2, ChevronLeft, Image as ImageIcon } from "lucide-react";
+import { buildCustomWidgetAiPrompt } from "./aiPrompt";
 
 interface CustomWidgetDocsModalProps {
   onClose: () => void;
+  onOpenEditor?: () => void;
 }
 
-export const CustomWidgetDocsModal: React.FC<CustomWidgetDocsModalProps> = ({ onClose }) => {
+export const CustomWidgetDocsModal: React.FC<CustomWidgetDocsModalProps> = ({ onClose, onOpenEditor }) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiWish, setAiWish] = useState("");
+  const [aiImageUrl, setAiImageUrl] = useState("");
+  const [copyError, setCopyError] = useState<string | null>(null);
 
-  const handleCopy = (code: string, id: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedSection(id);
-    setTimeout(() => setCopiedSection(null), 2000);
+  const handleCopy = async (code: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopyError(null);
+      setCopiedSection(id);
+      setTimeout(() => setCopiedSection(null), 2000);
+    } catch {
+      setCopyError("Não consegui copiar automaticamente. Tente de novo ou selecione o texto manualmente.");
+    }
+  };
+
+  const handleCopyAiPrompt = () => {
+    if (!aiWish.trim()) return;
+    handleCopy(
+      buildCustomWidgetAiPrompt({ description: aiWish, backgroundImageUrl: aiImageUrl }),
+      "ai-prompt"
+    );
   };
 
   const sampleManifest = `{
@@ -120,6 +139,94 @@ WidgetAPI.emitReady();`;
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto mt-4 pr-2 space-y-6 text-xs custom-scrollbar">
+          {/* Section: Create with AI (no code) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-pink-500/15 via-purple-500/10 to-sky-500/10 border border-pink-400/40 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="text-sm font-bold text-pink-200 flex items-center gap-1.5">
+                <Wand2 size={16} /> Não sabe programar? Crie com uma IA!
+              </h3>
+              {!aiPanelOpen && (
+                <button
+                  onClick={() => setAiPanelOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-[11px] shadow-md shadow-pink-500/25 active:scale-95 transition-all"
+                >
+                  <Copy size={13} />
+                  <span>Copiar prompt para IA</span>
+                </button>
+              )}
+            </div>
+
+            {aiPanelOpen ? (
+              <div className="space-y-3 animate-in fade-in duration-200">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-white/90 text-[12px]">💭 O que eu quero</label>
+                  <textarea
+                    value={aiWish}
+                    onChange={(e) => setAiWish(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    placeholder="Ex.: Quero um relógio estilo mangá, com letras grandes brancas e contorno preto, mostrando o dia da semana e uma frase fofa embaixo."
+                    className="w-full p-3 rounded-xl bg-black/40 border border-white/15 focus:border-pink-400/70 text-white placeholder:text-white/35 text-[12px] leading-relaxed resize-y outline-none transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-white/90 text-[12px] flex items-center gap-1.5">
+                    <ImageIcon size={13} className="text-sky-300" /> Link da imagem de fundo <span className="font-normal text-white/50">(opcional)</span>
+                  </label>
+                  <input
+                    value={aiImageUrl}
+                    onChange={(e) => setAiImageUrl(e.target.value)}
+                    placeholder="https://exemplo.com/minha-imagem.jpg"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 focus:border-sky-400/70 text-white placeholder:text-white/35 text-[12px] outline-none transition-colors"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    onClick={() => setAiPanelOpen(false)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/10 text-[11px] transition-colors"
+                  >
+                    <ChevronLeft size={13} /> Voltar
+                  </button>
+                  <button
+                    onClick={handleCopyAiPrompt}
+                    disabled={!aiWish.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-[11px] shadow-md shadow-pink-500/25 active:scale-95 transition-all"
+                  >
+                    {copiedSection === "ai-prompt" ? <Check size={13} /> : <Copy size={13} />}
+                    <span>{copiedSection === "ai-prompt" ? "Prompt copiado! Agora cole na IA 💕" : "Copiar prompt completo"}</span>
+                  </button>
+                </div>
+                {copyError && <p className="text-[11px] text-red-300">{copyError}</p>}
+              </div>
+            ) : (
+              <p className="text-white/80 leading-relaxed">
+                Você não precisa entender nada de código. Escreva o que quer, copie o prompt pronto e peça para qualquer IA fazer o widget por você.
+              </p>
+            )}
+
+            <ol className="space-y-1.5 text-white/80 leading-relaxed list-none">
+              <li><strong className="text-pink-300">1.</strong> Clique em <strong>Copiar prompt para IA</strong> e escreva em <strong>“O que eu quero”</strong> como você imagina o widget (cores, estilo, o que ele mostra). Se quiser, cole o link de uma imagem de fundo.</li>
+              <li><strong className="text-pink-300">2.</strong> Clique em <strong>Copiar prompt completo</strong>. Já vai tudo junto: seu pedido e as regras técnicas que a IA precisa seguir.</li>
+              <li><strong className="text-pink-300">3.</strong> Abra a IA que você usa (ChatGPT, Gemini, Claude, Copilot…), cole com <kbd className="px-1 rounded bg-white/15">Ctrl</kbd>+<kbd className="px-1 rounded bg-white/15">V</kbd> e envie.</li>
+              <li><strong className="text-pink-300">4.</strong> Copie a resposta inteira da IA (um bloco que começa com <code>{"{"}</code> e termina com <code>{"}"}</code>).</li>
+              <li><strong className="text-pink-300">5.</strong> Aqui no app, vá em <strong>Criar com Modelo</strong>, clique em <strong>Colar resposta da IA</strong>, cole e confira a prévia. Gostou? <strong>Salvar no Catálogo</strong>!</li>
+            </ol>
+            <p className="text-[11px] text-white/50">
+              Deu erro ao colar? Peça para a IA: “responda só com o JSON válido, sem texto extra”.
+            </p>
+
+            {onOpenEditor && (
+              <button
+                onClick={onOpenEditor}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors"
+              >
+                <Code size={13} /> Já tenho a resposta, abrir o criador
+              </button>
+            )}
+          </div>
+
           {/* Section: Overview */}
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
             <h3 className="text-sm font-bold text-pink-300 flex items-center gap-1.5">

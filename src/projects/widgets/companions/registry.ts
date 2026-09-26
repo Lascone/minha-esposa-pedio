@@ -95,96 +95,85 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     },
   },
 
-  // 3. Mimi (Gatos - Acervo)
+  // 3. Oneko Neko (Gatos - Clássico Desktop Pet)
   {
-    id: "cat-mimi",
-    name: "Mimi (Gatinha Flor) 🐱🌸",
+    id: "cat-oneko",
+    name: "Oneko (Gatinho Retrô) 🐱🐾",
     category: "cats",
-    author: "Projeto Pedi para meu marido (Acervo de Arte do Projeto)",
-    license: "Uso Livre com Atribuição (CC-BY-SA)",
-    sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
-    description: "Uma gatinha branca fofinha dos sonhos, com bochechas rosinhas e uma florzinha na ponta do rabinho.",
-    preview: "/companions/cats/gatinho branco 1.png",
-    dimensions: { width: 100, height: 100 },
-    defaultScale: 1.0,
-    speed: 30,
+    author: "Masayuki Koba & Comunidade Open Source",
+    license: "Domínio Público / Livre Redistribuição",
+    sourceUrl: "https://github.com/adryd325/oneko.js",
+    description: "O lendário gatinho desktop dos anos 90 que segue seu cursor, dorme e se espreguiça na sua tela.",
+    preview: "/companions/cats/oneko.gif",
+    dimensions: { width: 64, height: 64 },
+    defaultScale: 1.2,
+    speed: 35,
+    // oneko.gif is an 8×4 sheet of 32px frames; cells follow oneko.js.
     animations: {
       idle: {
-        frames: [
-          "/companions/cats/gatinho branco 1.png",
-          "/companions/cats/mimi/click_1.svg",
-        ],
-        frameDuration: 550,
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 5, cells: [[3, 3], [3, 3], [3, 3], [3, 3], [7, 3]] },
+        frameDuration: 400,
       },
       walk: {
-        frames: [
-          "/companions/cats/gatinho branco 2.png",
-          "/companions/cats/gatinho branco 1.png",
-        ],
-        frameDuration: 260,
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 2, cells: [[3, 0], [3, 1]] },
+        frameDuration: 220,
       },
       sit: {
-        frames: ["/companions/cats/gatinho branco 1.png"],
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 1, cells: [[3, 2]] },
         frameDuration: 500,
       },
       sleep: {
-        frames: ["/companions/cats/mimi/sleep_1.svg"],
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 2, cells: [[2, 0], [2, 1]] },
         frameDuration: 600,
       },
       drag: {
-        frames: ["/companions/cats/mimi/drag_1.svg"],
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 1, cells: [[7, 3]] },
         frameDuration: 200,
       },
       click: {
-        frames: ["/companions/cats/mimi/click_1.svg"],
-        frameDuration: 600,
+        spritesheet: { src: "/companions/cats/oneko.gif", frameWidth: 32, frameHeight: 32, totalFrames: 3, cells: [[5, 0], [6, 0], [7, 0]] },
+        frameDuration: 150,
       },
     },
   },
 
-  // 4. Kuro (Gatos - Acervo)
+  // 4. Akita Amigo (Cachorros - Pronto Oficial)
   {
-    id: "cat-kuro",
-    name: "Kuro (Gatinho Noturno) 🐾✨",
-    category: "cats",
-    author: "Projeto Pedi para meu marido (Acervo de Arte do Projeto)",
-    license: "Uso Livre com Atribuição (CC-BY-SA)",
-    sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
-    description: "Um gatinho preto carinhoso com orelhas arroxeadas e olhos brilhantes, curioso por cada cantinho do seu monitor.",
-    preview: "/companions/cats/gatinho preto 2.png",
-    dimensions: { width: 100, height: 100 },
-    defaultScale: 1.0,
-    speed: 32,
+    id: "dog-akita",
+    name: "Akita Amigão 🐕🎾",
+    category: "dogs",
+    author: "Comunidade VSCode-Pets (Anthony Shaw)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "Um leal cãozinho Akita com animações completas: anda, senta, corre e alegra o seu desktop.",
+    preview: "/companions/dogs/akita_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 36,
     animations: {
       idle: {
-        frames: [
-          "/companions/cats/gatinho preto 2.png",
-          "/companions/cats/gatinho preto 1.png",
-        ],
+        frames: ["/companions/dogs/akita_idle.gif"],
         frameDuration: 500,
       },
       walk: {
-        frames: [
-          "/companions/cats/gatinho preto 3.png",
-          "/companions/cats/gatinho preto 1.png",
-        ],
-        frameDuration: 250,
+        frames: ["/companions/dogs/akita_walk.gif"],
+        frameDuration: 200,
       },
       sit: {
-        frames: ["/companions/cats/gatinho preto 2.png"],
+        frames: ["/companions/dogs/akita_sit.gif"],
         frameDuration: 500,
       },
       sleep: {
-        frames: ["/companions/cats/mimi/sleep_1.svg"],
+        frames: ["/companions/dogs/akita_sit.gif"],
         frameDuration: 600,
       },
       drag: {
-        frames: ["/companions/cats/mimi/drag_1.svg"],
-        frameDuration: 200,
+        frames: ["/companions/dogs/akita_run.gif"],
+        frameDuration: 180,
       },
       click: {
-        frames: ["/companions/cats/mimi/click_1.svg"],
-        frameDuration: 500,
+        frames: ["/companions/dogs/akita_run.gif"],
+        frameDuration: 400,
       },
     },
   },
@@ -502,6 +491,211 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       click: {
         frames: ["/companions/creatures/frog/click_1.svg"],
         frameDuration: 500,
+      },
+    },
+  },
+
+  // 12. Raposinha (Animais - VSCode Pets Oficial)
+  {
+    id: "animal-fox",
+    name: "Raposinha Vermelha 🦊🍁",
+    category: "other",
+    author: "Anthony Shaw (VSCode Pets)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "Uma graciosa raposinha com passos ligeiros e rabo fofo passeando pelo seu monitor.",
+    preview: "/companions/animals/fox_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 38,
+    animations: {
+      idle: {
+        frames: ["/companions/animals/fox_idle.gif"],
+        frameDuration: 500,
+      },
+      walk: {
+        frames: ["/companions/animals/fox_walk.gif"],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/animals/fox_idle.gif"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/animals/fox_idle.gif"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/animals/fox_walk.gif"],
+        frameDuration: 180,
+      },
+      click: {
+        frames: ["/companions/animals/fox_walk.gif"],
+        frameDuration: 400,
+      },
+    },
+  },
+
+  // 13. Patinho Amarelo (Animais - VSCode Pets Oficial)
+  {
+    id: "animal-duck",
+    name: "Patinho de Borracha 🐥🛁",
+    category: "other",
+    author: "Anthony Shaw (VSCode Pets)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "O patinho clássico de depuração e companheiro fiel que nada suavemente pela sua tela.",
+    preview: "/companions/animals/duck_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 34,
+    animations: {
+      idle: {
+        frames: ["/companions/animals/duck_idle.gif"],
+        frameDuration: 500,
+      },
+      walk: {
+        frames: ["/companions/animals/duck_walk.gif"],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/animals/duck_idle.gif"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/animals/duck_idle.gif"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/animals/duck_walk.gif"],
+        frameDuration: 180,
+      },
+      click: {
+        frames: ["/companions/animals/duck_walk.gif"],
+        frameDuration: 400,
+      },
+    },
+  },
+
+  // 14. Panda Fofo (Animais - VSCode Pets Oficial)
+  {
+    id: "animal-panda",
+    name: "Panda Preguiçoso 🐼🎋",
+    category: "other",
+    author: "Anthony Shaw (VSCode Pets)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "Um panda rechonchudo e carinhoso que adora tirar sonecas perto das suas janelas.",
+    preview: "/companions/animals/panda_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 30,
+    animations: {
+      idle: {
+        frames: ["/companions/animals/panda_idle.gif"],
+        frameDuration: 500,
+      },
+      walk: {
+        frames: ["/companions/animals/panda_walk.gif"],
+        frameDuration: 240,
+      },
+      sit: {
+        frames: ["/companions/animals/panda_idle.gif"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/animals/panda_idle.gif"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/animals/panda_walk.gif"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/animals/panda_walk.gif"],
+        frameDuration: 400,
+      },
+    },
+  },
+
+  // 15. Clippy Assistente (Criaturas - VSCode Pets)
+  {
+    id: "creature-clippy",
+    name: "Clippy Retrô 📎✨",
+    category: "creatures",
+    author: "Anthony Shaw (VSCode Pets)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "O assistente de escritório mais amado do mundo agora te ajudando com suas tarefas no desktop.",
+    preview: "/companions/creatures/clippy_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 32,
+    animations: {
+      idle: {
+        frames: ["/companions/creatures/clippy_idle.gif"],
+        frameDuration: 500,
+      },
+      walk: {
+        frames: ["/companions/creatures/clippy_walk.gif"],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/creatures/clippy_idle.gif"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/creatures/clippy_idle.gif"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/creatures/clippy_walk.gif"],
+        frameDuration: 180,
+      },
+      click: {
+        frames: ["/companions/creatures/clippy_walk.gif"],
+        frameDuration: 400,
+      },
+    },
+  },
+
+  // 16. Totoro Guardião (Criaturas - VSCode Pets)
+  {
+    id: "creature-totoro",
+    name: "Totoro dos Bosques 🍃🌧️",
+    category: "creatures",
+    author: "Anthony Shaw (VSCode Pets)",
+    license: "MIT License / Open Source",
+    sourceUrl: "https://github.com/tonybaloney/vscode-pets",
+    description: "O espírito da floresta com sua folha mágica, trazendo paz e aconchego ao seu computador.",
+    preview: "/companions/creatures/totoro_idle.gif",
+    dimensions: { width: 90, height: 90 },
+    defaultScale: 1.2,
+    speed: 32,
+    animations: {
+      idle: {
+        frames: ["/companions/creatures/totoro_idle.gif"],
+        frameDuration: 500,
+      },
+      walk: {
+        frames: ["/companions/creatures/totoro_walk.gif"],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/creatures/totoro_idle.gif"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/creatures/totoro_idle.gif"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/creatures/totoro_walk.gif"],
+        frameDuration: 180,
+      },
+      click: {
+        frames: ["/companions/creatures/totoro_walk.gif"],
+        frameDuration: 400,
       },
     },
   },

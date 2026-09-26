@@ -14,16 +14,13 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
 }) => {
   const { activeCompanions, customCompanions } = useCompanionsStore();
 
-  // Extract instance ID from prop, Tauri window label, or hash
+  // Extract instance ID from prop, global window label, URL hash, or Tauri window label
   let targetInstanceId = propCompanionId;
   let windowLabel = "";
 
-  try {
-    const currentWin = getCurrentWebviewWindow();
-    if (currentWin && currentWin.label) {
-      windowLabel = currentWin.label;
-    }
-  } catch {}
+  if (typeof window !== "undefined" && (window as any).__TAURI_WINDOW_LABEL__) {
+    windowLabel = (window as any).__TAURI_WINDOW_LABEL__;
+  }
 
   if (!targetInstanceId && windowLabel) {
     targetInstanceId = windowLabel;
@@ -33,6 +30,16 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
     const hash = window.location.hash;
     const match = hash.match(/\/companion\/([^/?#]+)/);
     targetInstanceId = match ? match[1] : undefined;
+  }
+
+  if (!targetInstanceId) {
+    try {
+      const currentWin = getCurrentWebviewWindow();
+      if (currentWin && currentWin.label && currentWin.label !== "main") {
+        targetInstanceId = currentWin.label;
+        windowLabel = currentWin.label;
+      }
+    } catch {}
   }
 
   const resolvedInstance: CompanionInstance = useMemo(() => {
@@ -61,7 +68,7 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
       y: 100,
       scale: manifest?.defaultScale || 1.0,
       opacity: 1.0,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
       isPaused: false,
       facing: "right",
       currentState: "idle",

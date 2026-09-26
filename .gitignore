@@ -59,3 +59,13 @@ pnpm-debug.log*
 *.sqlite3
 *.sqlite-journal
 .gemini/
+
+# Mini Console: game files, patches and saves belong to the user, never to the repo/installer
+roms/
+*.sfc
+*.smc
+*.ips
+*.bps
+*.ups
+*.srm
+*.state
