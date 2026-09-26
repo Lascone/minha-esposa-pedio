@@ -1,7 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCompanionsStore } from "../store/companionsStore";
 import { CompanionAvatar } from "../components/CompanionAvatar";
+import { CompanionInstance } from "../types";
+import { getCompanionManifest } from "../registry";
 
 interface DesktopCompanionWindowProps {
   companionId?: string;
@@ -10,25 +12,21 @@ interface DesktopCompanionWindowProps {
 export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
   companionId: propCompanionId,
 }) => {
-  const { activeCompanions } = useCompanionsStore();
+  const { activeCompanions, customCompanions } = useCompanionsStore();
 
   // Extract instance ID from prop, Tauri window label, or hash
   let targetInstanceId = propCompanionId;
-  if (!targetInstanceId) {
-    try {
-      const label = getCurrentWebviewWindow().label;
-      if (label && label.startsWith("companion-")) {
-        // e.g. "companion-companion-waifu-sakura-1" or "companion-waifu-sakura-1"
-        const rawId = label.replace("companion-", "");
-        if (activeCompanions.some((c) => c.instanceId === label)) {
-          targetInstanceId = label;
-        } else if (activeCompanions.some((c) => c.instanceId === rawId)) {
-          targetInstanceId = rawId;
-        } else {
-          targetInstanceId = label;
-        }
-      }
-    } catch {}
+  let windowLabel = "";
+
+  try {
+    const currentWin = getCurrentWebviewWindow();
+    if (currentWin && currentWin.label) {
+      windowLabel = currentWin.label;
+    }
+  } catch {}
+
+  if (!targetInstanceId && windowLabel) {
+    targetInstanceId = windowLabel;
   }
 
   if (!targetInstanceId) {
@@ -37,13 +35,39 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
     targetInstanceId = match ? match[1] : undefined;
   }
 
-  const instance =
-    activeCompanions.find(
+  const resolvedInstance: CompanionInstance = useMemo(() => {
+    // 1. Try finding in activeCompanions store
+    const exact = activeCompanions.find(
       (c) =>
         c.instanceId === targetInstanceId ||
-        c.instanceId === `companion-${targetInstanceId}` ||
-        `companion-${c.instanceId}` === targetInstanceId
-    ) || activeCompanions[0];
+        `companion-${c.instanceId}` === targetInstanceId ||
+        (targetInstanceId && targetInstanceId.replace("companion-", "") === c.instanceId)
+    );
+    if (exact) return exact;
+
+    // 2. Infer companion ID from label (e.g. "companion-waifu-sakura-1" -> "waifu-sakura")
+    const cleanId = (targetInstanceId || windowLabel || "waifu-sakura").replace("companion-", "");
+    // Remove trailing timestamp or index number (e.g., "-1" or "-1727389123")
+    const inferredCompId = cleanId.replace(/-\d+$/, "");
+    const manifest = getCompanionManifest(inferredCompId, customCompanions) ||
+      getCompanionManifest(cleanId, customCompanions) ||
+      getCompanionManifest("waifu-sakura", customCompanions);
+
+    return {
+      instanceId: targetInstanceId || `companion-${manifest?.id || "waifu-sakura"}`,
+      companionId: manifest?.id || "waifu-sakura",
+      customName: manifest?.name || "Companheiro",
+      x: 100,
+      y: 100,
+      scale: manifest?.defaultScale || 1.0,
+      opacity: 1.0,
+      alwaysOnTop: true,
+      isPaused: false,
+      facing: "right",
+      currentState: "idle",
+      stateTimer: 0,
+    };
+  }, [activeCompanions, targetInstanceId, windowLabel, customCompanions]);
 
   // Set window background to 100% transparent in WebView2
   useEffect(() => {
@@ -65,16 +89,13 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
     };
   }, []);
 
-  if (!instance) {
-    return null;
-  }
-
   return (
     <div
+      id="companion-desktop-root"
       className="w-screen h-screen flex items-center justify-center select-none overflow-hidden"
       style={{ background: "transparent" }}
     >
-      <CompanionAvatar instance={instance} interactive={true} />
+      <CompanionAvatar instance={resolvedInstance} interactive={true} />
     </div>
   );
 };

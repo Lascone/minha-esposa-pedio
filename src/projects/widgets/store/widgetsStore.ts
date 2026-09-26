@@ -53,7 +53,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: false,
+    alwaysOnTop: true,
     locked: false,
     settings: {
       faceStyle: "aero",
@@ -74,7 +74,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: false,
+    alwaysOnTop: true,
     locked: false,
     settings: {
       city: "São Paulo",
@@ -96,7 +96,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "aero-glass",
-    alwaysOnTop: false,
+    alwaysOnTop: true,
     locked: false,
     settings: {},
   },
@@ -113,7 +113,7 @@ const DEFAULT_INITIAL_WIDGETS: WidgetInstance[] = [
     scale: 1,
     opacity: 0.95,
     theme: "cute-pastel",
-    alwaysOnTop: false,
+    alwaysOnTop: true,
     locked: false,
     settings: {
       noteColor: "yellow",
@@ -160,7 +160,7 @@ export const useWidgetsStore = create<WidgetsState>()(
           scale: get().globalScale || 1.0,
           opacity: get().globalOpacity || 0.95,
           theme: get().globalTheme || "aero-glass",
-          alwaysOnTop: false,
+          alwaysOnTop: true,
           locked: false,
           settings: {},
         };
@@ -377,22 +377,32 @@ export const useWidgetsStore = create<WidgetsState>()(
 
       launchNativeWidgetWindow: async (widget: WidgetInstance) => {
         try {
+          const posX = Math.max(20, Math.round(widget.x));
+          const posY = Math.max(20, Math.round(widget.y));
+          const width = Math.max(160, Math.round(widget.width));
+          const height = Math.max(120, Math.round(widget.height));
+
+          console.log(`[Widgets] Lançando janela nativa para '${widget.title}' (${widget.id}) em (${posX}, ${posY})`);
           await invoke("widget_open_window", {
             widgetId: widget.id,
             title: widget.title,
-            x: Math.round(widget.x),
-            y: Math.round(widget.y),
-            width: Math.round(widget.width),
-            height: Math.round(widget.height),
+            x: posX,
+            y: posY,
+            width,
+            height,
             alwaysOnTop: widget.alwaysOnTop,
           });
-        } catch {}
+        } catch (err) {
+          console.error(`[Widgets] Falha ao abrir janela nativa do widget ${widget.id}:`, err);
+        }
       },
 
       closeNativeWidgetWindow: async (widgetId: string) => {
         try {
           await invoke("widget_close_window", { widgetId });
-        } catch {}
+        } catch (err) {
+          console.warn(`[Widgets] Falha ao fechar janela nativa ${widgetId}:`, err);
+        }
       },
 
       launchAllActiveWidgets: () => {

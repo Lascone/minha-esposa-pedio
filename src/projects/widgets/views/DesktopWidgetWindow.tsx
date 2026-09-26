@@ -1,35 +1,36 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useWidgetsStore } from "../store/widgetsStore";
 import { WidgetRenderer } from "../components/WidgetRenderer";
 import { WidgetConfigModal } from "../components/WidgetConfigModal";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getWidgetDefinition } from "../registry";
+import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
+import { WidgetInstance, WidgetType } from "../types";
 
 interface DesktopWidgetWindowProps {
   widgetId?: string;
 }
 
-export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widgetId: propWidgetId }) => {
-  const { activeWidgets } = useWidgetsStore();
+export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
+  widgetId: propWidgetId,
+}) => {
+  const { activeWidgets, globalTheme, globalScale, globalOpacity } = useWidgetsStore();
+  const { packages: customPackages } = useCustomWidgetsStore();
   const [modalOpen, setModalOpen] = useState(false);
 
   // Extract widget ID from prop, Tauri window label, or URL hash
   let targetId = propWidgetId;
-  if (!targetId) {
-    try {
-      const label = getCurrentWebviewWindow().label;
-      if (label && label.startsWith("widget-")) {
-        // e.g. "widget-analog-clock-1" -> "analog-clock-1" or exact widget ID
-        const rawId = label.replace("widget-", "");
-        // Check if there is an active widget matching rawId or full label
-        if (activeWidgets.some((w) => w.id === rawId)) {
-          targetId = rawId;
-        } else if (activeWidgets.some((w) => w.id === label)) {
-          targetId = label;
-        } else {
-          targetId = rawId;
-        }
-      }
-    } catch {}
+  let windowLabel = "";
+
+  try {
+    const currentWin = getCurrentWebviewWindow();
+    if (currentWin && currentWin.label) {
+      windowLabel = currentWin.label;
+    }
+  } catch {}
+
+  if (!targetId && windowLabel) {
+    targetId = windowLabel;
   }
 
   if (!targetId) {
@@ -38,9 +39,49 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widget
     targetId = match ? match[1] : undefined;
   }
 
-  const widget =
-    activeWidgets.find((w) => w.id === targetId || w.id === `widget-${targetId}`) ||
-    activeWidgets[0];
+  // Resolve widget instance with ultra-resilient fallback
+  const resolvedWidget: WidgetInstance = useMemo(() => {
+    // 1. Try finding in activeWidgets store
+    const exact = activeWidgets.find(
+      (w) =>
+        w.id === targetId ||
+        `widget-${w.id}` === targetId ||
+        (targetId && targetId.replace("widget-", "") === w.id)
+    );
+    if (exact) return exact;
+
+    // 2. Infer type from label / targetId (e.g. "widget-pomodoro-12345" -> "pomodoro")
+    const cleanId = (targetId || windowLabel || "widget-analog-clock-1").replace("widget-", "");
+    const candidateId = cleanId.replace(/-\d+$/, "");
+    const matchType = cleanId.split("-")[0] + (cleanId.split("-")[1] && isNaN(Number(cleanId.split("-")[1])) ? `-${cleanId.split("-")[1]}` : "");
+    const def = getWidgetDefinition(candidateId) || getWidgetDefinition(matchType) || getWidgetDefinition(cleanId);
+    const customPkg = customPackages.find(
+      (p) => p.manifest.id === candidateId || p.manifest.id === cleanId || p.manifest.id === targetId || p.manifest.id === matchType
+    );
+
+    const finalType = (customPkg ? customPkg.manifest.id : def ? def.type : "analog-clock") as WidgetType;
+    const finalTitle = customPkg ? customPkg.manifest.name : def ? def.name : "Gadget";
+    const width = customPkg ? customPkg.manifest.defaultWidth : def ? def.defaultWidth : 240;
+    const height = customPkg ? customPkg.manifest.defaultHeight : def ? def.defaultHeight : 240;
+
+    return {
+      id: targetId || `widget-${finalType}`,
+      type: finalType,
+      title: finalTitle,
+      enabled: true,
+      visible: true,
+      x: 0,
+      y: 0,
+      width,
+      height,
+      scale: globalScale || 1.0,
+      opacity: globalOpacity || 0.95,
+      theme: globalTheme || "aero-glass",
+      alwaysOnTop: true,
+      locked: false,
+      settings: {},
+    };
+  }, [activeWidgets, targetId, windowLabel, customPackages, globalTheme, globalScale, globalOpacity]);
 
   // Set window background to 100% transparent in WebView2
   useEffect(() => {
@@ -70,16 +111,10 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widget
     } catch {}
   };
 
-  if (!widget) {
-    return (
-      <div className="p-4 text-center text-xs text-white/70 bg-black/40 rounded-2xl backdrop-blur-md">
-        Gadget não encontrado
-      </div>
-    );
-  }
-
   return (
     <div
+      id="widget-desktop-root"
+      data-tauri-drag-region
       onMouseDown={(e) => {
         // Only start dragging if not clicking on interactive buttons or form fields
         if (!(e.target as HTMLElement).closest("button, input, textarea, a")) {
@@ -90,13 +125,13 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widget
       style={{ background: "transparent" }}
     >
       <WidgetRenderer
-        widget={widget}
+        widget={resolvedWidget}
         onOpenSettings={() => setModalOpen(true)}
       />
 
       {modalOpen && (
         <WidgetConfigModal
-          widget={widget}
+          widget={resolvedWidget}
           onClose={() => setModalOpen(false)}
         />
       )}

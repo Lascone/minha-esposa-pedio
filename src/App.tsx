@@ -182,38 +182,75 @@ export const App: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOverlayActive, setOverlayActive]);
 
-  // Determine current Tauri window label
-  let windowLabel = "main";
-  try {
-    const currentWin = getCurrentWebviewWindow();
-    if (currentWin && currentWin.label) {
-      windowLabel = currentWin.label;
-    }
-  } catch {}
+  // Determine current Tauri window label synchronously with reactive fallback
+  const getDetectedWindowLabel = (): string => {
+    try {
+      const internals = (window as any).__TAURI_INTERNALS__;
+      if (internals?.metadata?.currentWindow?.label) {
+        return internals.metadata.currentWindow.label;
+      }
+      if (internals?.metadata?.currentWebview?.label) {
+        return internals.metadata.currentWebview.label;
+      }
+      const currentWin = getCurrentWebviewWindow();
+      if (currentWin && currentWin.label) {
+        return currentWin.label;
+      }
+    } catch {}
+    return "main";
+  };
 
-  // Auto-launch active desktop widgets and companions when main window loads
+  const [windowLabel, setWindowLabel] = useState<string>(getDetectedWindowLabel);
+
   useEffect(() => {
-    if (windowLabel === "main") {
-      const timer = setTimeout(() => {
-        useWidgetsStore.getState().launchAllActiveWidgets();
-        useCompanionsStore.getState().launchAllActiveCompanions();
-      }, 600);
-      return () => clearTimeout(timer);
+    const detected = getDetectedWindowLabel();
+    if (detected !== windowLabel) {
+      setWindowLabel(detected);
     }
   }, [windowLabel]);
 
+  const isWidgetWindow =
+    windowLabel.startsWith("widget-") ||
+    currentRoute === "/widget" ||
+    currentRoute.startsWith("/widget/") ||
+    window.location.hash.startsWith("#/widget") ||
+    window.location.href.includes("/widget");
+
+  const isCompanionWindow =
+    windowLabel.startsWith("companion-") ||
+    currentRoute === "/companion" ||
+    currentRoute.startsWith("/companion/") ||
+    window.location.hash.startsWith("#/companion") ||
+    window.location.href.includes("/companion");
+
+  const isOverlayWindow =
+    windowLabel === "overlay" ||
+    currentRoute === "/overlay" ||
+    window.location.hash.startsWith("#/overlay");
+
+  // Auto-launch active desktop widgets and companions ONLY in the real main window
+  useEffect(() => {
+    if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow) {
+      const timer = setTimeout(() => {
+        useWidgetsStore.getState().launchAllActiveWidgets();
+        useCompanionsStore.getState().launchAllActiveCompanions();
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [windowLabel, isWidgetWindow, isCompanionWindow, isOverlayWindow]);
+
   // If this window is the dedicated overlay window, render only the overlay canvas
-  if (windowLabel === "overlay" || currentRoute === "/overlay") {
+  if (isOverlayWindow) {
     return <OverlayApp />;
   }
 
   // If this window is an independent native desktop widget window
-  if (windowLabel.startsWith("widget-") || currentRoute === "/widget" || currentRoute.startsWith("/widget/")) {
+  if (isWidgetWindow) {
     return <DesktopWidgetWindow />;
   }
 
   // If this window is an independent native desktop companion mascot window
-  if (windowLabel.startsWith("companion-") || currentRoute === "/companion" || currentRoute.startsWith("/companion/")) {
+  if (isCompanionWindow) {
     return <DesktopCompanionWindow />;
   }
 

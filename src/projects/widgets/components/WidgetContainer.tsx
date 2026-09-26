@@ -41,8 +41,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         return "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100 shadow-lg";
       case "aero-glass":
       default:
-        // Windows 7 Iconic Aero Glass gradient & reflection
-        return "bg-gradient-to-b from-white/35 via-white/20 to-white/10 dark:from-slate-800/50 dark:via-slate-900/40 dark:to-slate-950/30 backdrop-blur-2xl border border-white/60 dark:border-white/20 text-slate-900 dark:text-white shadow-2xl shadow-black/25";
+        // Windows 7 Iconic Aero Glass gradient & reflection with rich contrast
+        return "bg-gradient-to-b from-white/75 via-white/55 to-white/45 dark:from-slate-900/85 dark:via-slate-900/75 dark:to-slate-950/65 backdrop-blur-2xl border border-white/80 dark:border-white/20 text-slate-900 dark:text-white shadow-2xl shadow-black/35";
     }
   };
 
@@ -94,6 +94,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
             }
           : {}),
       }}
+      data-tauri-drag-region
       className={`group relative rounded-3xl transition-shadow select-none overflow-hidden ${getThemeClass()} ${
         isDragging ? "cursor-grabbing ring-2 ring-pink-400" : isDesktopPreview && !widget.locked ? "cursor-grab" : ""
       }`}

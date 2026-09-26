@@ -92,9 +92,19 @@ if ($occupied) {
     Start-Sleep -Milliseconds 400
 }
 
+# 4.5 Executar suite de testes antes de buildar
+Write-Host ""
+Write-Host "  [1/5] Executando testes automatizados do projeto (npm test)..." -ForegroundColor Cyan
+npm test
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  [ERRO] A suite de testes falhou! Corrija os testes antes de buildar e enviar a release." -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Todos os testes passaram com sucesso!" -ForegroundColor Green
+
 # 5. Compilar frontend Vite
 Write-Host ""
-Write-Host "  [1/4] Compilando frontend otimizado com Vite..." -ForegroundColor Cyan
+Write-Host "  [2/5] Compilando frontend otimizado com Vite..." -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [ERRO] Falha ao compilar o frontend." -ForegroundColor Red
@@ -103,7 +113,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 6. Compilar Tauri NSIS
 Write-Host ""
-Write-Host "  [2/4] Compilando instalador nativo Tauri NSIS (.exe)..." -ForegroundColor Cyan
+Write-Host "  [3/5] Compilando instalador nativo Tauri NSIS (.exe)..." -ForegroundColor Cyan
 npx tauri build --bundles nsis
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [ERRO] Falha ao gerar o bundle NSIS do Tauri." -ForegroundColor Red

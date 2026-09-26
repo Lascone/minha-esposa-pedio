@@ -182,23 +182,31 @@ export const useCompanionsStore = create<CompanionsState>()(
         const width = Math.round(baseWidth * instance.scale * 1.3); // extra padding for context menus & speech
         const height = Math.round(baseHeight * instance.scale * 1.3);
 
+        const posX = Math.max(20, Math.round(instance.x));
+        const posY = Math.max(20, Math.round(instance.y));
+
         try {
+          console.log(`[Companions] Lançando janela nativa para '${instance.customName}' (${instance.instanceId})`);
           await invoke("companion_open_window", {
             companionId: instance.instanceId,
             title: instance.customName || "Desktop Companion",
-            x: Math.round(instance.x),
-            y: Math.round(instance.y),
+            x: posX,
+            y: posY,
             width: Math.max(120, width),
             height: Math.max(120, height),
             alwaysOnTop: instance.alwaysOnTop,
           });
-        } catch {}
+        } catch (err) {
+          console.error(`[Companions] Falha ao abrir janela do companheiro ${instance.instanceId}:`, err);
+        }
       },
 
       closeNativeCompanionWindow: async (instanceId: string) => {
         try {
           await invoke("companion_close_window", { companionId: instanceId });
-        } catch {}
+        } catch (err) {
+          console.warn(`[Companions] Falha ao fechar janela do companheiro ${instanceId}:`, err);
+        }
       },
 
       launchAllActiveCompanions: () => {

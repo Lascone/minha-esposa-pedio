@@ -134,8 +134,16 @@ html, body {
   background-color: transparent;
 }
 
-body:not(.is-overlay):not(.is-transparent-window) {
+body:not(.is-overlay):not(.is-transparent-window):not(:has(#widget-desktop-root)):not(:has(#companion-desktop-root)) {
   background-color: var(--theme-bg);
+}
+
+html:has(#widget-desktop-root),
+body:has(#widget-desktop-root),
+html:has(#companion-desktop-root),
+body:has(#companion-desktop-root) {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 body {

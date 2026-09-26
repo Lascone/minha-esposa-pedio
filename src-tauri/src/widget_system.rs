@@ -310,7 +310,10 @@ pub fn widget_open_window(
     .build()
     .map_err(|e| format!("Erro ao criar janela do widget: {}", e))?;
 
+    let _ = win.eval(&format!("window.location.hash = '/widget/{}';", label));
     let _ = win.show();
+    let _ = win.unminimize();
+    let _ = win.set_focus();
     Ok(())
 }
 
@@ -370,7 +373,10 @@ pub fn companion_open_window(
     .build()
     .map_err(|e| format!("Erro ao criar janela do companheiro: {}", e))?;
 
+    let _ = win.eval(&format!("window.location.hash = '/companion/{}';", label));
     let _ = win.show();
+    let _ = win.unminimize();
+    let _ = win.set_focus();
     Ok(())
 }
 
