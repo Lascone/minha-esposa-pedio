@@ -210,23 +210,21 @@ export const App: React.FC = () => {
   }, [windowLabel]);
 
   const isWidgetWindow =
-    windowLabel.startsWith("widget-") ||
-    currentRoute === "/widget" ||
-    currentRoute.startsWith("/widget/") ||
-    window.location.hash.startsWith("#/widget") ||
-    window.location.href.includes("/widget");
+    windowLabel !== "main" &&
+    (windowLabel.startsWith("widget-") ||
+      currentRoute.startsWith("/widget/") ||
+      window.location.hash.startsWith("#/widget/"));
 
   const isCompanionWindow =
-    windowLabel.startsWith("companion-") ||
-    currentRoute === "/companion" ||
-    currentRoute.startsWith("/companion/") ||
-    window.location.hash.startsWith("#/companion") ||
-    window.location.href.includes("/companion");
+    windowLabel !== "main" &&
+    (windowLabel.startsWith("companion-") ||
+      currentRoute.startsWith("/companion/") ||
+      window.location.hash.startsWith("#/companion/"));
 
   const isOverlayWindow =
     windowLabel === "overlay" ||
-    currentRoute === "/overlay" ||
-    window.location.hash.startsWith("#/overlay");
+    (windowLabel !== "main" &&
+      (currentRoute === "/overlay" || window.location.hash.startsWith("#/overlay")));
 
   // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
