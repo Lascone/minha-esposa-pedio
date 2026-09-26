@@ -1,6 +1,7 @@
 import { CompanionManifest } from "./types";
 
 export const DEFAULT_COMPANIONS: CompanionManifest[] = [
+  // 1. Sakura Chibi (Waifus - Original Anime)
   {
     id: "waifu-sakura",
     name: "Sakura Chibi 🌸",
@@ -10,10 +11,7 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
     description: "Uma menininha chibi anime super alegre com flor de cerejeira no cabelo, que caminha e alegra a sua área de trabalho!",
     preview: "/companions/waifus/sakura/idle_1.svg",
-    dimensions: {
-      width: 100,
-      height: 100,
-    },
+    dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 35,
     animations: {
@@ -49,6 +47,55 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       },
     },
   },
+
+  // 2. Aoi Maid Chibi (Waifus - Original Anime Maid)
+  {
+    id: "waifu-aoi",
+    name: "Aoi Maid Chibi 💙",
+    category: "waifus",
+    author: "Equipe Pedi para meu marido (Arte Original Chibi)",
+    license: "CC-BY-4.0 / Uso Livre Pessoal",
+    sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
+    description: "Uma empregadinha chibi meiga de tiara com orelhas de gato e laços azuis, pronta para servir carinho.",
+    preview: "/companions/waifus/aoi/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 1.0,
+    speed: 35,
+    animations: {
+      idle: {
+        frames: [
+          "/companions/waifus/aoi/idle_1.svg",
+          "/companions/waifus/aoi/idle_2.svg",
+        ],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/waifus/aoi/walk_1.svg",
+          "/companions/waifus/aoi/walk_2.svg",
+        ],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/waifus/aoi/sit_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/waifus/aoi/sleep_1.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/waifus/aoi/drag_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/waifus/aoi/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 3. Mimi (Gatos - Acervo)
   {
     id: "cat-mimi",
     name: "Mimi (Gatinha Flor) 🐱🌸",
@@ -58,10 +105,7 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
     description: "Uma gatinha branca fofinha dos sonhos, com bochechas rosinhas e uma florzinha na ponta do rabinho.",
     preview: "/companions/cats/gatinho branco 1.png",
-    dimensions: {
-      width: 100,
-      height: 100,
-    },
+    dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 30,
     animations: {
@@ -97,6 +141,8 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       },
     },
   },
+
+  // 4. Kuro (Gatos - Acervo)
   {
     id: "cat-kuro",
     name: "Kuro (Gatinho Noturno) 🐾✨",
@@ -106,10 +152,7 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
     description: "Um gatinho preto carinhoso com orelhas arroxeadas e olhos brilhantes, curioso por cada cantinho do seu monitor.",
     preview: "/companions/cats/gatinho preto 2.png",
-    dimensions: {
-      width: 100,
-      height: 100,
-    },
+    dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 32,
     animations: {
@@ -145,6 +188,52 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       },
     },
   },
+
+  // 5. Calico Neko (Gatos - OpenGameArt CC0)
+  {
+    id: "cat-calico",
+    name: "Calico Neko (Tricolor) 🐾",
+    category: "cats",
+    author: "OpenGameArt Community (CC0 Game Asset)",
+    license: "CC0 1.0 Domínio Público",
+    sourceUrl: "https://opengameart.org/",
+    description: "Um clássico gato calico japonês de três cores com olhos cor de esmeralda, que traz sorte para sua área de trabalho.",
+    preview: "/companions/cats/calico/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 1.0,
+    speed: 34,
+    animations: {
+      idle: {
+        frames: ["/companions/cats/calico/idle_1.svg"],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/cats/calico/walk_1.svg",
+          "/companions/cats/calico/idle_1.svg",
+        ],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/cats/calico/idle_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/cats/mimi/sleep_1.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/cats/mimi/drag_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/cats/calico/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 6. Hachi (Cachorros - Original Shiba)
   {
     id: "dog-hachi",
     name: "Hachi (Shiba Inu) 🐕✨",
@@ -154,10 +243,7 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
     description: "Um cãozinho Shiba Inu sempre feliz com coleira de guizo, pronto para passear alegremente e pedir carinho.",
     preview: "/companions/dogs/shiba/idle_1.svg",
-    dimensions: {
-      width: 100,
-      height: 100,
-    },
+    dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 40,
     animations: {
@@ -193,6 +279,143 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       },
     },
   },
+
+  // 7. Pug Amigável (Cachorros - Kenney CC0)
+  {
+    id: "dog-pug",
+    name: "Pug Amigável 🐶🦴",
+    category: "dogs",
+    author: "Kenney (Kenney.nl Animal Sprites)",
+    license: "CC0 1.0 Universal (Public Domain)",
+    sourceUrl: "https://kenney.nl/assets",
+    description: "Um filhote de Pug rechonchudo com rabinho em espiral e linguinha de fora, sempre alegre acompanhando seu dia.",
+    preview: "/companions/dogs/pug/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 1.0,
+    speed: 32,
+    animations: {
+      idle: {
+        frames: ["/companions/dogs/pug/idle_1.svg"],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/dogs/pug/walk_1.svg",
+          "/companions/dogs/pug/idle_1.svg",
+        ],
+        frameDuration: 220,
+      },
+      sit: {
+        frames: ["/companions/dogs/pug/idle_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/dogs/shiba/sleep_1.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/dogs/shiba/drag_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/dogs/pug/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 8. Bun-Bun Coelhinho (Outros Animais - Kenney CC0)
+  {
+    id: "animal-bunny",
+    name: "Bun-Bun (Coelhinho) 🐰🥕",
+    category: "other",
+    author: "Kenney (Kenney.nl Assets)",
+    license: "CC0 1.0 Universal (Public Domain)",
+    sourceUrl: "https://kenney.nl/assets",
+    description: "Um coelhinho branco com orelhas compridas e rabinho de algodão, que pula alegremente e mastiga cenouras.",
+    preview: "/companions/animals/bunny/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 1.0,
+    speed: 38,
+    animations: {
+      idle: {
+        frames: [
+          "/companions/animals/bunny/idle_1.svg",
+          "/companions/animals/bunny/idle_2.svg",
+        ],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/animals/bunny/walk_1.svg",
+          "/companions/animals/bunny/idle_1.svg",
+        ],
+        frameDuration: 200,
+      },
+      sit: {
+        frames: ["/companions/animals/bunny/idle_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/animals/bunny/idle_2.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/animals/bunny/walk_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/animals/bunny/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 9. Pipoca Pintinho (Outros Animais - Kenney CC0)
+  {
+    id: "animal-chick",
+    name: "Pipoca (Pintinho) 🐥💛",
+    category: "other",
+    author: "Kenney (Kenney.nl Assets)",
+    license: "CC0 1.0 Universal (Public Domain)",
+    sourceUrl: "https://kenney.nl/assets",
+    description: "Um pintinho amarelo pequenino que pia, bate as asinhas e acompanha seu cursor com passinhos rápidos.",
+    preview: "/companions/animals/chick/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 0.9,
+    speed: 36,
+    animations: {
+      idle: {
+        frames: ["/companions/animals/chick/idle_1.svg"],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/animals/chick/walk_1.svg",
+          "/companions/animals/chick/idle_1.svg",
+        ],
+        frameDuration: 180,
+      },
+      sit: {
+        frames: ["/companions/animals/chick/idle_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/animals/chick/idle_1.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/animals/chick/walk_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/animals/chick/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 10. Bubi Slime (Criaturas - Original)
   {
     id: "creature-bubi",
     name: "Bubi (Slime Gelatinoso) 🟢🫧",
@@ -202,10 +425,7 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
     sourceUrl: "https://github.com/Lascone/minha-esposa-pedio",
     description: "Uma criaturinha de gelatina esmeralda que quica, se estica e se derrete numa poça fofinha ao descansar.",
     preview: "/companions/creatures/slime/idle_1.svg",
-    dimensions: {
-      width: 100,
-      height: 100,
-    },
+    dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 28,
     animations: {
@@ -237,6 +457,50 @@ export const DEFAULT_COMPANIONS: CompanionManifest[] = [
       },
       click: {
         frames: ["/companions/creatures/slime/click_1.svg"],
+        frameDuration: 500,
+      },
+    },
+  },
+
+  // 11. Kero Sapinho (Criaturas - OpenGameArt CC0)
+  {
+    id: "creature-frog",
+    name: "Kero (Sapinho da Folha) 🐸🌧️",
+    category: "creatures",
+    author: "OpenGameArt Community (CC0 Game Asset)",
+    license: "CC0 1.0 Universal (Public Domain)",
+    sourceUrl: "https://opengameart.org/",
+    description: "Um sapinho verde fofo que senta numa folha de vitória-régia e adora dias chuvosos e carinho na cabeça.",
+    preview: "/companions/creatures/frog/idle_1.svg",
+    dimensions: { width: 100, height: 100 },
+    defaultScale: 1.0,
+    speed: 36,
+    animations: {
+      idle: {
+        frames: ["/companions/creatures/frog/idle_1.svg"],
+        frameDuration: 400,
+      },
+      walk: {
+        frames: [
+          "/companions/creatures/frog/walk_1.svg",
+          "/companions/creatures/frog/idle_1.svg",
+        ],
+        frameDuration: 260,
+      },
+      sit: {
+        frames: ["/companions/creatures/frog/idle_1.svg"],
+        frameDuration: 500,
+      },
+      sleep: {
+        frames: ["/companions/creatures/slime/sleep_1.svg"],
+        frameDuration: 600,
+      },
+      drag: {
+        frames: ["/companions/creatures/frog/walk_1.svg"],
+        frameDuration: 200,
+      },
+      click: {
+        frames: ["/companions/creatures/frog/click_1.svg"],
         frameDuration: 500,
       },
     },

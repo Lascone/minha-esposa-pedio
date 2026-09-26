@@ -8,7 +8,14 @@ export type WidgetType =
   | "cpu-meter"
   | "ram-meter"
   | "storage-meter"
-  | "battery-meter";
+  | "battery-meter"
+  | "pomodoro"
+  | "countdown"
+  | "love-quotes"
+  | "photo-frame"
+  | "world-clock"
+  | "volume-meter"
+  | (string & {});
 
 export type WidgetTheme =
   | "aero-glass"

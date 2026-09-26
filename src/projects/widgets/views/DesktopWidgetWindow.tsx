@@ -44,6 +44,8 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widget
 
   // Set window background to 100% transparent in WebView2
   useEffect(() => {
+    document.documentElement.classList.add("is-transparent-window");
+    document.body.classList.add("is-transparent-window");
     document.documentElement.style.background = "transparent";
     document.documentElement.style.backgroundColor = "transparent";
     document.body.style.background = "transparent";
@@ -53,6 +55,11 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({ widget
       root.style.background = "transparent";
       root.style.backgroundColor = "transparent";
     }
+
+    return () => {
+      document.documentElement.classList.remove("is-transparent-window");
+      document.body.classList.remove("is-transparent-window");
+    };
   }, []);
 
   // Handle native window dragging

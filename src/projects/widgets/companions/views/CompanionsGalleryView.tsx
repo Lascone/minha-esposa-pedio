@@ -14,10 +14,11 @@ import {
   Heart,
   UserCheck,
 } from "lucide-react";
-import { CompanionCategory, CompanionManifest } from "../types";
+import { CompanionManifest } from "../types";
 import { DEFAULT_COMPANIONS } from "../registry";
 import { useCompanionsStore } from "../store/companionsStore";
 import { CompanionImportModal } from "../components/CompanionImportModal";
+import { CompanionDetailsModal } from "../components/CompanionDetailsModal";
 
 export const CompanionsGalleryView: React.FC = () => {
   const {
@@ -34,6 +35,7 @@ export const CompanionsGalleryView: React.FC = () => {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [detailCompanion, setDetailCompanion] = useState<CompanionManifest | null>(null);
   const [spawnNotice, setSpawnNotice] = useState<string | null>(null);
 
   // Combine default and custom companions
@@ -250,19 +252,31 @@ export const CompanionsGalleryView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Animated Avatar Preview Area */}
-              <div className="relative h-36 flex items-center justify-center bg-gradient-to-b from-white/5 to-white/0 rounded-2xl mb-4 overflow-hidden border border-white/5">
+              {/* Animated Avatar Preview Area (clickable for details) */}
+              <div
+                onClick={() => setDetailCompanion(comp)}
+                className="relative h-36 flex items-center justify-center bg-gradient-to-b from-white/5 to-white/0 rounded-2xl mb-4 overflow-hidden border border-white/5 cursor-pointer hover:border-pink-500/40 transition-colors group/preview"
+                title="Clique para ver animações e detalhes"
+              >
                 <img
                   src={comp.preview}
                   alt={comp.name}
-                  className="h-24 w-24 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]"
+                  className="h-24 w-24 object-contain transition-transform duration-300 group-hover/preview:scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]"
                 />
+                <div className="absolute inset-0 bg-pink-500/10 opacity-0 group-hover/preview:opacity-100 flex items-center justify-center transition-opacity">
+                  <span className="px-2.5 py-1 rounded-xl bg-black/60 text-pink-300 font-bold text-[10px] backdrop-blur-sm border border-pink-500/30">
+                    Ver Animações ✨
+                  </span>
+                </div>
               </div>
 
               {/* Information */}
               <div className="space-y-1.5 mb-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-white group-hover:text-pink-300 transition-colors">
+                  <h3
+                    onClick={() => setDetailCompanion(comp)}
+                    className="font-bold text-sm text-white hover:text-pink-300 transition-colors cursor-pointer"
+                  >
                     {comp.name}
                   </h3>
                 </div>
@@ -283,14 +297,23 @@ export const CompanionsGalleryView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Spawn Button */}
-              <button
-                onClick={() => handleSpawn(comp.id)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-xs shadow-lg shadow-pink-500/20 active:scale-95 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Adicionar à Área de Trabalho</span>
-              </button>
+              {/* Actions: Details & Spawn */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDetailCompanion(comp)}
+                  className="px-3 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/10 transition-colors"
+                  title="Ficha completa com prévia animada"
+                >
+                  Detalhes
+                </button>
+                <button
+                  onClick={() => handleSpawn(comp.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-xs shadow-lg shadow-pink-500/20 active:scale-95 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Adicionar</span>
+                </button>
+              </div>
             </div>
           );
         })}
@@ -300,6 +323,15 @@ export const CompanionsGalleryView: React.FC = () => {
         <div className="text-center py-16 bg-white/5 rounded-3xl border border-white/10 text-white/60">
           <p className="text-sm">Nenhum companheiro encontrado com os filtros atuais.</p>
         </div>
+      )}
+
+      {/* Details Modal */}
+      {detailCompanion && (
+        <CompanionDetailsModal
+          companion={detailCompanion}
+          onClose={() => setDetailCompanion(null)}
+          onSpawn={(id) => handleSpawn(id)}
+        />
       )}
 
       {/* Import Modal */}

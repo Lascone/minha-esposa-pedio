@@ -134,7 +134,7 @@ html, body {
   background-color: transparent;
 }
 
-body:not(.is-overlay) {
+body:not(.is-overlay):not(.is-transparent-window) {
   background-color: var(--theme-bg);
 }
 

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="calicoWhite" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Calico tail with ginger tip -->
+  <path d="M 24 54 Q 14 38 24 32 Q 32 38 26 52" fill="#ea580c"/>
+  <circle cx="21" cy="34" r="4" fill="#1e293b"/>
+
+  <!-- Body -->
+  <ellipse cx="48" cy="64" rx="22" ry="18" fill="url(#calicoWhite)"/>
+  <!-- Calico patches on back -->
+  <path d="M 32 54 Q 44 48 38 68 Z" fill="#ea580c"/>
+  <path d="M 52 56 Q 66 52 62 70 Z" fill="#1e293b"/>
+
+  <!-- Paws with pink pads -->
+  <ellipse cx="36" cy="80" rx="5" ry="4" fill="#ffffff"/>
+  <ellipse cx="60" cy="80" rx="5" ry="4" fill="#ffffff"/>
+
+  <!-- Ears: one ginger, one black -->
+  <polygon points="34,18 24,34 42,30" fill="#ea580c"/>
+  <polygon points="33,21 28,32 39,29" fill="#fecdd3"/>
+
+  <polygon points="68,18 76,34 58,30" fill="#1e293b"/>
+  <polygon points="68,21 73,32 61,29" fill="#fecdd3"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="36" rx="20" ry="17" fill="url(#calicoWhite)"/>
+  <path d="M 32 28 Q 44 26 40 40 Z" fill="#ea580c"/>
+
+  <!-- Emerald green cat eyes -->
+  <ellipse cx="42" cy="34" rx="4" ry="5" fill="#059669"/>
+  <circle cx="40.5" cy="32" r="1.5" fill="#ffffff"/>
+  <ellipse cx="58" cy="34" rx="4" ry="5" fill="#059669"/>
+  <circle cx="56.5" cy="32" r="1.5" fill="#ffffff"/>
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="34" cy="40" rx="4" ry="2.2" fill="#f43f5e" opacity="0.4"/>
+  <ellipse cx="66" cy="40" rx="4" ry="2.2" fill="#f43f5e" opacity="0.4"/>
+
+  <!-- Pink nose and whiskers -->
+  <polygon points="50,39 48,37 52,37" fill="#f43f5e"/>
+  <path d="M 48 41 Q 50 44 52 41" fill="none" stroke="#64748b" stroke-width="1.2"/>
+
+  <!-- Whiskers -->
+  <path d="M 32 38 L 20 37" stroke="#cbd5e1" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 32 41 L 22 43" stroke="#cbd5e1" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 68 38 L 80 37" stroke="#cbd5e1" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 68 41 L 78 43" stroke="#cbd5e1" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

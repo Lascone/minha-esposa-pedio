@@ -13,8 +13,18 @@ export interface CompanionAnimationFrame {
   durationMs?: number;
 }
 
+export interface CompanionSpritesheetDef {
+  src: string;
+  frameWidth: number;
+  frameHeight: number;
+  totalFrames: number;
+  columns?: number;
+  row?: number;
+}
+
 export interface CompanionAnimationDef {
-  frames: string[];
+  frames?: string[];
+  spritesheet?: CompanionSpritesheetDef;
   frameDuration: number; // ms per frame
   loop?: boolean;
 }

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="aoiSkin" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fffbfa"/>
+      <stop offset="100%" stop-color="#ffe8e6"/>
+    </radialGradient>
+    <linearGradient id="aoiHair" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="aoiDress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Blue and Pink Love Hearts! -->
+  <path d="M 22 20 A 4 4 0 0 0 14 24 Q 14 30 22 36 Q 30 30 30 24 A 4 4 0 0 0 22 20 Z" fill="#3b82f6" transform="rotate(-15 22 25)"/>
+  <path d="M 78 16 A 5 5 0 0 0 68 21 Q 68 28 78 35 Q 88 28 88 21 A 5 5 0 0 0 78 16 Z" fill="#ec4899" transform="rotate(15 78 22)"/>
+
+  <!-- Hair Back -->
+  <path d="M 28 34 C 15 47 18 79 25 84 C 32 74 35 59 35 49 Z" fill="url(#aoiHair)"/>
+  <path d="M 72 34 C 85 47 82 79 75 84 C 68 74 65 59 65 49 Z" fill="url(#aoiHair)"/>
+
+  <!-- Body -->
+  <path d="M 40 54 L 60 54 L 68 81 L 32 81 Z" fill="url(#aoiDress)"/>
+  <path d="M 44 56 L 56 56 L 62 81 L 38 81 Z" fill="#ffffff"/>
+
+  <ellipse cx="42" cy="84" rx="5" ry="4" fill="#0f172a"/>
+  <ellipse cx="58" cy="84" rx="5" ry="4" fill="#0f172a"/>
+
+  <!-- Hands clasping cheeks -->
+  <circle cx="34" cy="46" r="4" fill="url(#aoiSkin)"/>
+  <circle cx="66" cy="46" r="4" fill="url(#aoiSkin)"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="37" rx="24" ry="22" fill="url(#aoiSkin)"/>
+  <ellipse cx="36" cy="43" rx="6" ry="3.5" fill="#f43f5e" opacity="0.6"/>
+  <ellipse cx="64" cy="43" rx="6" ry="3.5" fill="#f43f5e" opacity="0.6"/>
+
+  <!-- Loving Arched Eyes -->
+  <path d="M 34 37 Q 39 31 44 37" fill="none" stroke="#1e3a8a" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M 56 37 Q 61 31 66 37" fill="none" stroke="#1e3a8a" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Big Happy Smile -->
+  <path d="M 46 44 Q 50 51 54 44 Z" fill="#f43f5e" stroke="#be123c" stroke-width="1.5"/>
+
+  <!-- Cat ears on headband twitching in excitement -->
+  <polygon points="34,18 28,6 42,12" fill="#3b82f6"/>
+  <polygon points="66,18 72,6 58,12" fill="#3b82f6"/>
+</svg>

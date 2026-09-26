@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="pugFur" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#eab308"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Love Hearts -->
+  <path d="M 20 22 A 4 4 0 0 0 12 26 Q 12 32 20 38 Q 28 32 28 26 A 4 4 0 0 0 20 22 Z" fill="#ef4444" transform="rotate(-15 20 27)"/>
+  <path d="M 76 18 A 5 5 0 0 0 66 23 Q 66 30 76 37 Q 86 30 86 23 A 5 5 0 0 0 76 18 Z" fill="#f43f5e" transform="rotate(15 76 24)"/>
+
+  <!-- Body -->
+  <ellipse cx="48" cy="64" rx="23" ry="18" fill="url(#pugFur)"/>
+  <ellipse cx="36" cy="80" rx="5" ry="4" fill="#ca8a04"/>
+  <ellipse cx="60" cy="80" rx="5" ry="4" fill="#ca8a04"/>
+
+  <!-- Ears perked -->
+  <polygon points="34,22 22,36 38,32" fill="#451a03"/>
+  <polygon points="62,22 74,36 58,32" fill="#451a03"/>
+
+  <!-- Head -->
+  <ellipse cx="48" cy="38" rx="20" ry="18" fill="url(#pugFur)"/>
+  <ellipse cx="48" cy="42" rx="14" ry="11" fill="#451a03"/>
+
+  <!-- Cheerful Happy Arcs Eyes -->
+  <path d="M 37 36 Q 41 31 45 36" fill="none" stroke="#fef08a" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 53 36 Q 57 31 61 36" fill="none" stroke="#fef08a" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Big joyful panting tongue -->
+  <ellipse cx="48" cy="48" rx="4.5" ry="5.5" fill="#f43f5e"/>
+</svg>

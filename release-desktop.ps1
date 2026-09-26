@@ -162,10 +162,10 @@ $releaseSetupPath = Join-Path $releaseOutputDir $setupFileName
 Copy-Item -Path $setupExe.FullName -Destination $releaseSetupPath -Force
 
 $releaseTitle = "v$ver 💕 Amor, saiu updatezinho!"
-& gh release create "v$ver" $releaseSetupPath $latestJsonPath --title $releaseTitle --notes "$Notes"
+& gh release create "v$ver" $releaseSetupPath $latestJsonPath --repo "$repoOwner/$repoName" --title $releaseTitle --notes "$Notes"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [+] Release v$ver pode já existir no GitHub. Atualizando arquivos com --clobber..." -ForegroundColor Cyan
-    & gh release upload "v$ver" $releaseSetupPath $latestJsonPath --clobber
+    & gh release upload "v$ver" $releaseSetupPath $latestJsonPath --repo "$repoOwner/$repoName" --clobber
 }
 
 if ($LASTEXITCODE -ne 0) {

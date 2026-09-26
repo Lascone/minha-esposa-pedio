@@ -67,24 +67,29 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
   const currentState = instance.currentState || "idle";
   const animDef =
     manifest?.animations[currentState] || manifest?.animations.idle;
+
+  const isSpritesheet = Boolean(animDef?.spritesheet);
   const frames = animDef?.frames && animDef.frames.length > 0
     ? animDef.frames
     : [manifest?.preview || ""];
+  const totalFrames = isSpritesheet
+    ? animDef?.spritesheet?.totalFrames || 1
+    : frames.length;
   const frameDuration = animDef?.frameDuration || 300;
 
   // 1. Frame Animation Loop
   useEffect(() => {
-    if (instance.isPaused || frames.length <= 1) {
+    if (instance.isPaused || totalFrames <= 1) {
       setFrameIndex(0);
       return;
     }
 
     const interval = setInterval(() => {
-      setFrameIndex((prev) => (prev + 1) % frames.length);
+      setFrameIndex((prev) => (prev + 1) % totalFrames);
     }, frameDuration);
 
     return () => clearInterval(interval);
-  }, [instance.isPaused, frames.length, frameDuration, currentState]);
+  }, [instance.isPaused, totalFrames, frameDuration, currentState]);
 
   // 2. Autonomous Roaming State Machine (only if interactive)
   useEffect(() => {
@@ -274,15 +279,32 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
       }}
     >
       {/* Sprite / Frame with Direction Flipping */}
-      <img
-        src={currentFrameSrc}
-        alt={manifest?.name || "Companheiro"}
-        draggable={false}
-        className="w-full h-full object-contain pointer-events-none transition-transform duration-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)]"
-        style={{
-          transform: instance.facing === "left" ? "scaleX(-1)" : "scaleX(1)",
-        }}
-      />
+      {animDef?.spritesheet ? (
+        <div
+          style={{
+            width: `${animDef.spritesheet.frameWidth}px`,
+            height: `${animDef.spritesheet.frameHeight}px`,
+            backgroundImage: `url(${animDef.spritesheet.src})`,
+            backgroundPosition: `-${frameIndex * animDef.spritesheet.frameWidth}px -${(animDef.spritesheet.row || 0) * animDef.spritesheet.frameHeight}px`,
+            backgroundRepeat: "no-repeat",
+            imageRendering: "pixelated",
+            transform: `${instance.facing === "left" ? "scaleX(-1)" : "scaleX(1)"} scale(${finalScale})`,
+            transformOrigin: "center center",
+            pointerEvents: "none",
+          }}
+          className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)]"
+        />
+      ) : (
+        <img
+          src={currentFrameSrc}
+          alt={manifest?.name || "Companheiro"}
+          draggable={false}
+          className="w-full h-full object-contain pointer-events-none transition-transform duration-100 drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)]"
+          style={{
+            transform: instance.facing === "left" ? "scaleX(-1)" : "scaleX(1)",
+          }}
+        />
+      )}
 
       {/* Floating Love Heart Particles */}
       {hearts.map((h) => (

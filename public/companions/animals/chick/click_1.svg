@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="chickYellow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Love Hearts and Music Notes -->
+  <path d="M 20 22 A 4 4 0 0 0 12 26 Q 12 32 20 38 Q 28 32 28 26 A 4 4 0 0 0 20 22 Z" fill="#f43f5e" transform="rotate(-15 20 27)"/>
+  <text x="72" y="30" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#f59e0b">♪</text>
+
+  <!-- Round body -->
+  <circle cx="50" cy="55" r="26" fill="url(#chickYellow)"/>
+
+  <!-- Wings raised excitedly -->
+  <ellipse cx="24" cy="46" rx="5" ry="11" fill="#eab308" transform="rotate(-50 24 46)"/>
+  <ellipse cx="76" cy="46" rx="5" ry="11" fill="#eab308" transform="rotate(50 76 46)"/>
+
+  <!-- Feet -->
+  <polygon points="40,80 34,88 44,88" fill="#f97316"/>
+  <polygon points="60,80 54,88 64,88" fill="#f97316"/>
+
+  <!-- Happy Eyes (Arcs) -->
+  <path d="M 36 48 Q 40 43 44 48" fill="none" stroke="#451a03" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 56 48 Q 60 43 64 48" fill="none" stroke="#451a03" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Deep Pink Cheeks Blush -->
+  <ellipse cx="30" cy="54" rx="4.5" ry="2.5" fill="#f43f5e" opacity="0.6"/>
+  <ellipse cx="70" cy="54" rx="4.5" ry="2.5" fill="#f43f5e" opacity="0.6"/>
+
+  <!-- Singing open beak -->
+  <polygon points="50,58 44,52 56,52" fill="#f97316"/>
+  <polygon points="50,58 46,54 54,54" fill="#f43f5e"/>
+</svg>

@@ -1,5 +1,19 @@
-import React, { useState } from "react";
-import { X, Upload, CheckCircle, AlertCircle, FileCode, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+  FileCode,
+  Sparkles,
+  BookOpen,
+  Play,
+  Pause,
+  Sliders,
+  Maximize2,
+  Copy,
+  Check,
+} from "lucide-react";
 import { CompanionManifest, CompanionCategory } from "../types";
 import { useCompanionsStore } from "../store/companionsStore";
 
@@ -12,35 +26,45 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
 }) => {
   const { importCustomPackage } = useCompanionsStore();
 
-  const [jsonText, setJsonText] = useState("");
+  const [activeTab, setActiveTab] = useState<"json" | "form" | "docs">("form");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Quick form mode
-  const [activeTab, setActiveTab] = useState<"json" | "form">("json");
+  // Form mode fields
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CompanionCategory>("waifus");
   const [author, setAuthor] = useState("");
-  const [license, setLicense] = useState("Uso Pessoal");
+  const [license, setLicense] = useState("Uso Pessoal / CC-BY");
   const [description, setDescription] = useState("");
   const [previewSrc, setPreviewSrc] = useState("");
   const [idleFrames, setIdleFrames] = useState("");
   const [walkFrames, setWalkFrames] = useState("");
 
+  // Calibration settings
+  const [testScale, setTestScale] = useState<number>(1.0);
+  const [testFps, setTestFps] = useState<number>(4);
+  const [testMode, setTestMode] = useState<"idle" | "walk">("idle");
+  const [currentFrameIdx, setCurrentFrameIdx] = useState<number>(0);
+  const [isPlayingTest, setIsPlayingTest] = useState<boolean>(true);
+
+  // JSON mode
   const sampleJson: CompanionManifest = {
     id: "meu-pacote-personalizado",
-    name: "Minha Waifu Fofinha",
+    name: "Minha Waifu Chibi",
     category: "waifus",
-    author: "Você / Artista",
-    license: "Uso Pessoal / CC-BY",
-    description: "Um companheiro adicionado com amor diretamente do seu computador.",
-    preview: "https://exemplo.com/preview.png ou data:image/png;base64,...",
+    author: "Seu Nome / Artista",
+    license: "CC-BY-4.0 / Uso Pessoal",
+    description: "Um personagem animado fofinho andando pelo Windows.",
+    preview: "/companions/waifus/sakura/idle_1.svg",
     dimensions: { width: 100, height: 100 },
     defaultScale: 1.0,
     speed: 35,
     animations: {
       idle: {
-        frames: ["/companions/waifus/sakura/idle_1.svg"],
+        frames: [
+          "/companions/waifus/sakura/idle_1.svg",
+          "/companions/waifus/sakura/idle_2.svg",
+        ],
         frameDuration: 400,
       },
       walk: {
@@ -50,8 +74,49 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
         ],
         frameDuration: 220,
       },
+      sleep: {
+        frames: ["/companions/waifus/sakura/sleep_1.svg"],
+        frameDuration: 600,
+      },
+      click: {
+        frames: ["/companions/waifus/sakura/click_1.svg"],
+        frameDuration: 400,
+      },
     },
   };
+
+  const [jsonText, setJsonText] = useState(JSON.stringify(sampleJson, null, 2));
+  const [copiedDocs, setCopiedDocs] = useState(false);
+
+  // Active frames for live test preview
+  const parsedIdleList = idleFrames
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const parsedWalkList = walkFrames
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const activeTestFrames =
+    testMode === "walk" && parsedWalkList.length > 0
+      ? parsedWalkList
+      : parsedIdleList.length > 0
+      ? parsedIdleList
+      : previewSrc
+      ? [previewSrc]
+      : ["/companions/waifus/sakura/idle_1.svg"];
+
+  // Ticker for preview animation
+  useEffect(() => {
+    if (!isPlayingTest || activeTestFrames.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentFrameIdx((prev) => (prev + 1) % activeTestFrames.length);
+    }, Math.round(1000 / testFps));
+
+    return () => clearInterval(interval);
+  }, [isPlayingTest, activeTestFrames, testFps]);
 
   const handleValidateAndImportJson = () => {
     setErrorMsg(null);
@@ -59,8 +124,6 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
 
     try {
       const parsed = JSON.parse(jsonText);
-
-      // Validate required fields
       if (!parsed.name || typeof parsed.name !== "string") {
         throw new Error("O campo 'name' (nome) é obrigatório.");
       }
@@ -69,12 +132,13 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
       }
 
       const id =
-        parsed.id || `custom-${Date.now()}-${parsed.name.toLowerCase().replace(/\s+/g, "-")}`;
+        parsed.id ||
+        `custom-${Date.now()}-${parsed.name.toLowerCase().replace(/\s+/g, "-")}`;
 
       const manifest: CompanionManifest = {
         id,
         name: parsed.name,
-        category: parsed.category || "outros",
+        category: parsed.category || "other",
         author: parsed.author || "Autor Desconhecido",
         license: parsed.license || "Uso Pessoal",
         description: parsed.description || "Companheiro importado.",
@@ -104,20 +168,13 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
       return;
     }
 
-    const idleList = idleFrames
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (idleList.length === 0) {
-      setErrorMsg("Adicione ao menos uma imagem/URL para a animação Parado (idle).");
+    if (parsedIdleList.length === 0 && !previewSrc) {
+      setErrorMsg("Adicione ao menos uma imagem/frame para Parado (idle) ou Prévia.");
       return;
     }
 
-    const walkList = walkFrames
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const finalIdle = parsedIdleList.length > 0 ? parsedIdleList : [previewSrc];
+    const finalWalk = parsedWalkList.length > 0 ? parsedWalkList : finalIdle;
 
     const id = `custom-${Date.now()}-${name.toLowerCase().replace(/\s+/g, "-")}`;
 
@@ -127,19 +184,19 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
       category,
       author: author || "Você",
       license: license || "Uso Pessoal",
-      description: description || "Personagem original importado com amor.",
-      preview: previewSrc || idleList[0],
+      description: description || "Personagem original importado com carinho.",
+      preview: previewSrc || finalIdle[0],
       dimensions: { width: 100, height: 100 },
-      defaultScale: 1.0,
+      defaultScale: testScale,
       speed: 35,
       animations: {
         idle: {
-          frames: idleList,
-          frameDuration: 400,
+          frames: finalIdle,
+          frameDuration: Math.round(1000 / testFps),
         },
         walk: {
-          frames: walkList.length > 0 ? walkList : idleList,
-          frameDuration: 220,
+          frames: finalWalk,
+          frameDuration: Math.round(1000 / (testFps * 1.5)),
         },
       },
     };
@@ -151,39 +208,63 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
     }, 1200);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setJsonText(content);
+      setJsonText(event.target?.result as string);
     };
     reader.readAsText(file);
+  };
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: "preview" | "idle"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUri = event.target?.result as string;
+      if (target === "preview") {
+        setPreviewSrc(dataUri);
+      } else {
+        setIdleFrames((prev) => (prev ? `${prev}\n${dataUri}` : dataUri));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCopyDocs = () => {
+    navigator.clipboard.writeText(JSON.stringify(sampleJson, null, 2));
+    setCopiedDocs(true);
+    setTimeout(() => setCopiedDocs(false), 2000);
   };
 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xl max-h-[85vh] flex flex-col bg-slate-900 border border-pink-500/30 rounded-3xl p-6 shadow-2xl text-white overflow-hidden"
+        className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-slate-900 border border-pink-500/30 rounded-3xl p-6 shadow-2xl text-white overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center shadow-lg shadow-pink-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center shadow-lg shadow-pink-500/30">
               <Upload className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-1.5">
-                Importar Pacote de Personagem <Sparkles className="w-4 h-4 text-pink-400" />
+                Importar Personagem & Companheiro <Sparkles className="w-4 h-4 text-pink-400" />
               </h2>
               <p className="text-xs text-white/60">
-                Adicione waifus e pets personalizados com segurança (sem execução de código).
+                Adicione waifus originais, pets e criaturinhas com prévia e calibração de FPS.
               </p>
             </div>
           </div>
@@ -198,16 +279,6 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
         {/* Tab switch */}
         <div className="flex gap-2 mt-4 bg-white/5 p-1 rounded-2xl">
           <button
-            onClick={() => setActiveTab("json")}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === "json"
-                ? "bg-pink-500 text-white shadow"
-                : "text-white/60 hover:text-white"
-            }`}
-          >
-            Importar Manifesto JSON
-          </button>
-          <button
             onClick={() => setActiveTab("form")}
             className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === "form"
@@ -215,7 +286,27 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
                 : "text-white/60 hover:text-white"
             }`}
           >
-            Criador Rápido de Pacote
+            Criador Visual & Calibração
+          </button>
+          <button
+            onClick={() => setActiveTab("json")}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === "json"
+                ? "bg-pink-500 text-white shadow"
+                : "text-white/60 hover:text-white"
+            }`}
+          >
+            Manifesto JSON
+          </button>
+          <button
+            onClick={() => setActiveTab("docs")}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === "docs"
+                ? "bg-pink-500 text-white shadow"
+                : "text-white/60 hover:text-white"
+            }`}
+          >
+            Formato do Pacote 📖
           </button>
         </div>
 
@@ -234,8 +325,200 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
         )}
 
         {/* Content body */}
-        <div className="flex-1 overflow-y-auto mt-4 pr-1 space-y-4 text-xs">
-          {activeTab === "json" ? (
+        <div className="flex-1 overflow-y-auto mt-4 pr-1 space-y-4 text-xs custom-scrollbar">
+          {activeTab === "form" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Form Fields */}
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-white/70 mb-1 font-semibold">
+                    Nome do Personagem: *
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Luna Chibi, Totoro, Puppy..."
+                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-white/70 mb-1 font-semibold">Categoria:</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as CompanionCategory)}
+                      className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
+                    >
+                      <option value="waifus">Waifus Chibi</option>
+                      <option value="cats">Gatinhos</option>
+                      <option value="dogs">Cachorrinhos</option>
+                      <option value="creatures">Criaturas & Fantasia</option>
+                      <option value="other">Outros</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-white/70 mb-1 font-semibold">Autor:</label>
+                    <input
+                      type="text"
+                      value={author}
+                      onChange={(e) => setAuthor(e.target.value)}
+                      placeholder="Seu nome ou artista"
+                      className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-white/70 mb-1 font-semibold">Licença:</label>
+                  <input
+                    type="text"
+                    value={license}
+                    onChange={(e) => setLicense(e.target.value)}
+                    placeholder="Ex: CC-BY-4.0, CC0, Uso Próprio"
+                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
+                  />
+                </div>
+
+                {/* Upload Image Frame */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-white/70 font-semibold">
+                      Frames Parado / Idle:
+                    </label>
+                    <label className="text-[10px] text-pink-300 hover:text-pink-200 cursor-pointer flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/10">
+                      <Upload size={11} /> Carregar Imagem Local
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, "idle")}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    value={idleFrames}
+                    onChange={(e) => setIdleFrames(e.target.value)}
+                    placeholder="URLs, caminhos ou cole data:image/png;base64... (uma por linha)"
+                    rows={2}
+                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl p-2 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-white/70 mb-1 font-semibold">
+                    Frames Andando / Walk (Opcional):
+                  </label>
+                  <textarea
+                    value={walkFrames}
+                    onChange={(e) => setWalkFrames(e.target.value)}
+                    placeholder="URLs ou caminhos para a caminhada..."
+                    rows={2}
+                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl p-2 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Live Interactive Preview & Calibration */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                    <span className="font-bold text-xs text-pink-300 flex items-center gap-1">
+                      <Sparkles size={13} /> Calibrador & Prévia ao Vivo
+                    </span>
+                    <span className="text-[10px] text-white/50">Tempo Real</span>
+                  </div>
+
+                  {/* Canvas Stage */}
+                  <div className="relative h-44 rounded-2xl bg-slate-950/60 border border-white/10 overflow-hidden flex items-center justify-center p-3 shadow-inner">
+                    <img
+                      src={activeTestFrames[currentFrameIdx] || activeTestFrames[0]}
+                      alt="Prévia"
+                      style={{
+                        transform: `scale(${testScale})`,
+                        transition: "transform 0.1s ease-out",
+                      }}
+                      className="max-h-28 max-w-28 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)]"
+                    />
+
+                    {/* Mode pill overlay */}
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm p-1 rounded-xl border border-white/10 text-[10px]">
+                      <button
+                        onClick={() => setTestMode("idle")}
+                        className={`px-2 py-0.5 rounded-lg font-bold ${
+                          testMode === "idle" ? "bg-pink-500 text-white" : "text-white/60"
+                        }`}
+                      >
+                        Parado
+                      </button>
+                      <button
+                        onClick={() => setTestMode("walk")}
+                        className={`px-2 py-0.5 rounded-lg font-bold ${
+                          testMode === "walk" ? "bg-pink-500 text-white" : "text-white/60"
+                        }`}
+                      >
+                        Andando
+                      </button>
+                      <button
+                        onClick={() => setIsPlayingTest(!isPlayingTest)}
+                        className="p-1 rounded-md bg-white/10 hover:bg-white/20 text-white/80"
+                      >
+                        {isPlayingTest ? <Pause size={10} /> : <Play size={10} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Calibration Sliders */}
+                  <div className="space-y-3 mt-3 pt-2">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-white/70 flex items-center gap-1">
+                          <Sliders size={12} className="text-pink-400" /> Velocidade (FPS):
+                        </span>
+                        <span className="font-mono text-pink-300 font-bold">{testFps} FPS</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="16"
+                        value={testFps}
+                        onChange={(e) => setTestFps(Number(e.target.value))}
+                        className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-white/70 flex items-center gap-1">
+                          <Maximize2 size={12} className="text-sky-400" /> Escala Padrão:
+                        </span>
+                        <span className="font-mono text-sky-300 font-bold">
+                          {(testScale * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2.0"
+                        step="0.05"
+                        value={testScale}
+                        onChange={(e) => setTestScale(Number(e.target.value))}
+                        className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5 text-[10px] text-white/50">
+                  Total de quadros carregados: {activeTestFrames.length}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "json" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-white/70">Cole o manifesto JSON ou carregue o arquivo:</span>
@@ -245,7 +528,7 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
                   <input
                     type="file"
                     accept=".json"
-                    onChange={handleFileUpload}
+                    onChange={handleJsonFileUpload}
                     className="hidden"
                   />
                 </label>
@@ -254,99 +537,36 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
               <textarea
                 value={jsonText}
                 onChange={(e) => setJsonText(e.target.value)}
-                placeholder={JSON.stringify(sampleJson, null, 2)}
-                className="w-full h-48 bg-slate-950/70 border border-white/10 rounded-2xl p-3 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none"
+                className="w-full h-80 bg-slate-950/70 border border-white/10 rounded-2xl p-4 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none custom-scrollbar"
+                spellCheck={false}
               />
-
-              <div className="text-[11px] text-white/50 bg-white/5 p-3 rounded-2xl leading-relaxed">
-                💡 <strong>Dica de Segurança:</strong> O aplicativo só lê caminhos de imagens e configurações visuais. Nenhum script ou binário externo é executado.
-              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-white/70 mb-1">Nome do Personagem:</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex: Neko Maid Chibi"
-                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white/70 mb-1">Categoria:</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as CompanionCategory)}
-                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
+          )}
+
+          {activeTab === "docs" && (
+            <div className="space-y-4 p-2">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
+                    <BookOpen size={14} /> Estrutura do Pacote de Companheiro
+                  </h3>
+                  <button
+                    onClick={handleCopyDocs}
+                    className="flex items-center gap-1 text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white"
                   >
-                    <option value="waifus">Waifus</option>
-                    <option value="cats">Gatos</option>
-                    <option value="dogs">Cachorros</option>
-                    <option value="creatures">Criaturas</option>
-                    <option value="other">Outros</option>
-                  </select>
+                    {copiedDocs ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                    <span>Copiar Modelo JSON</span>
+                  </button>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-white/70 mb-1">Autor / Créditos:</label>
-                  <input
-                    type="text"
-                    value={author}
-                    onChange={(e) => setAuthor(e.target.value)}
-                    placeholder="Seu nome ou artista"
-                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
-                  />
+                <p className="text-white/80 leading-relaxed text-[11px]">
+                  Um pacote de personagem pode conter sequências de imagens individuais (SVG, PNG, WebP) ou uma <strong>spritesheet em grade</strong>. Todas as animações são executadas pelo mesmo motor leve do aplicativo.
+                </p>
+                <div className="bg-black/40 p-3 rounded-xl border border-white/10 font-mono text-[11px] text-pink-200 space-y-1">
+                  <div>📁 meu-companheiro/</div>
+                  <div className="pl-4">├── 📄 <strong>manifest.json</strong> (Configurações, escala e mapeamento de frames)</div>
+                  <div className="pl-4">├── 🖼️ <strong>preview.png</strong> (Ícone para a galeria)</div>
+                  <div className="pl-4">└── 📁 <strong>sprites/</strong> (idle_1.png, walk_1.png, etc.)</div>
                 </div>
-                <div>
-                  <label className="block text-white/70 mb-1">Licença:</label>
-                  <input
-                    type="text"
-                    value={license}
-                    onChange={(e) => setLicense(e.target.value)}
-                    placeholder="Ex: CC-BY, CC0, Uso Próprio"
-                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-white/70 mb-1">Descrição:</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Minha personagem chibi favorita andando pela tela."
-                  className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white/70 mb-1">
-                  Quadros Parado / Idle (uma URL ou caminho por linha):
-                </label>
-                <textarea
-                  value={idleFrames}
-                  onChange={(e) => setIdleFrames(e.target.value)}
-                  placeholder="/companions/waifus/minha_waifu/idle1.png&#10;/companions/waifus/minha_waifu/idle2.png"
-                  className="w-full h-16 bg-slate-950/70 border border-white/10 rounded-xl p-2.5 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white/70 mb-1">
-                  Quadros Andando / Walk (uma URL ou caminho por linha):
-                </label>
-                <textarea
-                  value={walkFrames}
-                  onChange={(e) => setWalkFrames(e.target.value)}
-                  placeholder="/companions/waifus/minha_waifu/walk1.png&#10;/companions/waifus/minha_waifu/walk2.png"
-                  className="w-full h-16 bg-slate-950/70 border border-white/10 rounded-xl p-2.5 font-mono text-[11px] text-pink-200 focus:outline-none focus:border-pink-500/50 resize-none"
-                />
               </div>
             </div>
           )}
@@ -366,7 +586,7 @@ export const CompanionImportModal: React.FC<CompanionImportModalProps> = ({
                 ? handleValidateAndImportJson
                 : handleCreateFromForm
             }
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold text-xs transition-all shadow-lg shadow-pink-500/25"
+            className="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold text-xs transition-all shadow-lg shadow-pink-500/25 active:scale-95"
           >
             Adicionar à Galeria ✨
           </button>

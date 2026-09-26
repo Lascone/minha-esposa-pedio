@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="bunnyFur" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Tail -->
+  <circle cx="24" cy="68" r="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Body -->
+  <ellipse cx="48" cy="65" rx="22" ry="18" fill="url(#bunnyFur)" stroke="#e2e8f0" stroke-width="1.2"/>
+  
+  <ellipse cx="38" cy="80" rx="5" ry="3.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <ellipse cx="58" cy="80" rx="5" ry="3.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Ears tilted in cute wiggle -->
+  <ellipse cx="40" cy="22" rx="5" ry="18" fill="url(#bunnyFur)" stroke="#e2e8f0" stroke-width="1.2" transform="rotate(-15 40 22)"/>
+  <ellipse cx="40" cy="22" rx="2.8" ry="12" fill="#ffccd5" transform="rotate(-15 40 22)"/>
+
+  <ellipse cx="60" cy="22" rx="5" ry="18" fill="url(#bunnyFur)" stroke="#e2e8f0" stroke-width="1.2" transform="rotate(3 60 22)"/>
+  <ellipse cx="60" cy="22" rx="2.8" ry="12" fill="#ffccd5" transform="rotate(3 60 22)"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="46" rx="20" ry="17" fill="url(#bunnyFur)" stroke="#e2e8f0" stroke-width="1.2"/>
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="36" cy="50" rx="4.5" ry="2.5" fill="#ff4d6d" opacity="0.45"/>
+  <ellipse cx="64" cy="50" rx="4.5" ry="2.5" fill="#ff4d6d" opacity="0.45"/>
+
+  <!-- Happy Blink Eyes -->
+  <path d="M 39 44 Q 42 41 45 44" fill="none" stroke="#be123c" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 55 44 Q 58 41 61 44" fill="none" stroke="#be123c" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Nose -->
+  <polygon points="50,48 48,46 52,46" fill="#ff758f"/>
+  <path d="M 48 50 Q 50 53 52 50" fill="none" stroke="#64748b" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

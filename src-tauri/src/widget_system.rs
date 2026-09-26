@@ -280,7 +280,12 @@ pub fn widget_open_window(
     height: u32,
     always_on_top: bool,
 ) -> Result<(), String> {
-    let label = format!("widget-{}", widget_id);
+    let label = if widget_id.starts_with("widget-") {
+        widget_id.clone()
+    } else {
+        format!("widget-{}", widget_id)
+    };
+
     if let Some(existing) = app.get_webview_window(&label) {
         let _ = existing.show();
         let _ = existing.unminimize();
@@ -312,7 +317,11 @@ pub fn widget_open_window(
 /// Closes a desktop widget window
 #[tauri::command]
 pub fn widget_close_window(app: AppHandle, widget_id: String) -> Result<(), String> {
-    let label = format!("widget-{}", widget_id);
+    let label = if widget_id.starts_with("widget-") {
+        widget_id
+    } else {
+        format!("widget-{}", widget_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.close();
     }
@@ -331,7 +340,12 @@ pub fn companion_open_window(
     height: u32,
     always_on_top: bool,
 ) -> Result<(), String> {
-    let label = format!("companion-{}", companion_id);
+    let label = if companion_id.starts_with("companion-") {
+        companion_id.clone()
+    } else {
+        format!("companion-{}", companion_id)
+    };
+
     if let Some(existing) = app.get_webview_window(&label) {
         let _ = existing.show();
         let _ = existing.unminimize();
@@ -363,7 +377,11 @@ pub fn companion_open_window(
 /// Closes a desktop companion window
 #[tauri::command]
 pub fn companion_close_window(app: AppHandle, companion_id: String) -> Result<(), String> {
-    let label = format!("companion-{}", companion_id);
+    let label = if companion_id.starts_with("companion-") {
+        companion_id
+    } else {
+        format!("companion-{}", companion_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.close();
     }
@@ -378,7 +396,11 @@ pub fn companion_set_position(
     x: i32,
     y: i32,
 ) -> Result<(), String> {
-    let label = format!("companion-{}", companion_id);
+    let label = if companion_id.starts_with("companion-") {
+        companion_id
+    } else {
+        format!("companion-{}", companion_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
     }
@@ -392,7 +414,11 @@ pub fn companion_set_always_on_top(
     companion_id: String,
     always_on_top: bool,
 ) -> Result<(), String> {
-    let label = format!("companion-{}", companion_id);
+    let label = if companion_id.starts_with("companion-") {
+        companion_id
+    } else {
+        format!("companion-{}", companion_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.set_always_on_top(always_on_top);
     }
@@ -406,7 +432,11 @@ pub fn widget_set_always_on_top(
     widget_id: String,
     always_on_top: bool,
 ) -> Result<(), String> {
-    let label = format!("widget-{}", widget_id);
+    let label = if widget_id.starts_with("widget-") {
+        widget_id
+    } else {
+        format!("widget-{}", widget_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.set_always_on_top(always_on_top);
     }
@@ -421,7 +451,11 @@ pub fn widget_set_position(
     x: i32,
     y: i32,
 ) -> Result<(), String> {
-    let label = format!("widget-{}", widget_id);
+    let label = if widget_id.starts_with("widget-") {
+        widget_id
+    } else {
+        format!("widget-{}", widget_id)
+    };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
     }

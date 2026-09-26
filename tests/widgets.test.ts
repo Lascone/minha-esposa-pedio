@@ -3,8 +3,8 @@ import { WIDGET_REGISTRY, getWidgetDefinition } from "../src/projects/widgets/re
 import { useWidgetsStore } from "../src/projects/widgets/store/widgetsStore";
 
 describe("Windows Desktop Widgets Module", () => {
-  it("should have all 10 standard widgets registered with complete metadata", () => {
-    expect(WIDGET_REGISTRY.length).toBe(10);
+  it("should have all 16 standard widgets registered with complete metadata", () => {
+    expect(WIDGET_REGISTRY.length).toBe(16);
 
     const types = [
       "analog-clock",
@@ -17,6 +17,12 @@ describe("Windows Desktop Widgets Module", () => {
       "ram-meter",
       "storage-meter",
       "battery-meter",
+      "pomodoro",
+      "countdown",
+      "love-quotes",
+      "photo-frame",
+      "world-clock",
+      "volume-meter",
     ];
 
     for (const type of types) {

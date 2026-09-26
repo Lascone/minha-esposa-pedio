@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="aoiSkin" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fffbfa"/>
+      <stop offset="100%" stop-color="#ffe8e6"/>
+    </radialGradient>
+    <linearGradient id="aoiHair" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="aoiDress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hair Dangling Back -->
+  <path d="M 28 28 C 16 42 20 85 28 88 C 32 78 34 55 34 45 Z" fill="url(#aoiHair)"/>
+  <path d="M 72 28 C 84 42 80 85 72 88 C 68 78 66 55 66 45 Z" fill="url(#aoiHair)"/>
+
+  <!-- Arms up dangling! -->
+  <path d="M 36 50 Q 25 36 28 28" fill="none" stroke="url(#aoiSkin)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 64 50 Q 75 36 72 28" fill="none" stroke="url(#aoiSkin)" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Body stretched -->
+  <path d="M 40 48 L 60 48 L 66 76 L 34 76 Z" fill="url(#aoiDress)"/>
+  <path d="M 44 50 L 56 50 L 62 76 L 38 76 Z" fill="#ffffff"/>
+  
+  <!-- Feet dangling -->
+  <ellipse cx="40" cy="85" rx="5" ry="6" fill="#0f172a"/>
+  <ellipse cx="60" cy="88" rx="5" ry="6" fill="#0f172a"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="32" rx="24" ry="22" fill="url(#aoiSkin)"/>
+  <ellipse cx="36" cy="38" rx="5" ry="3" fill="#f43f5e" opacity="0.5"/>
+  <ellipse cx="64" cy="38" rx="5" ry="3" fill="#f43f5e" opacity="0.5"/>
+
+  <!-- Surprised Round Eyes -->
+  <ellipse cx="38" cy="32" rx="5" ry="6.5" fill="#1e3a8a"/>
+  <circle cx="36.5" cy="30" r="2.5" fill="#ffffff"/>
+  <ellipse cx="62" cy="32" rx="5" ry="6.5" fill="#1e3a8a"/>
+  <circle cx="60.5" cy="30" r="2.5" fill="#ffffff"/>
+
+  <!-- Cute Surprised 'O' Mouth -->
+  <ellipse cx="50" cy="40" rx="3.5" ry="4" fill="#be123c"/>
+
+  <!-- Hair Bangs -->
+  <path d="M 26 30 C 26 12 74 12 74 30 C 68 22 58 29 50 22 C 42 29 32 22 26 30 Z" fill="url(#aoiHair)"/>
+
+  <!-- Headband with Cat Ears -->
+  <polygon points="34,16 28,4 42,10" fill="#3b82f6"/>
+  <polygon points="66,16 72,4 58,10" fill="#3b82f6"/>
+</svg>
