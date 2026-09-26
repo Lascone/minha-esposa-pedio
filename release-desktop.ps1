@@ -139,7 +139,7 @@ Write-Host "  [OK] Instalador encontrado: $setupFileName ($([math]::Round($setup
 
 # 8. Gerar arquivo latest.json para verificação automática do app
 Write-Host ""
-Write-Host "  [3/4] Gerando arquivo de metadados latest.json..." -ForegroundColor Cyan
+Write-Host "  [4/5] Gerando arquivo de metadados latest.json..." -ForegroundColor Cyan
 $repoOwner = "Lascone"
 $repoName = "minha-esposa-pedio"
 $downloadUrl = "https://github.com/$repoOwner/$repoName/releases/download/v$ver/$setupFileName"
@@ -165,7 +165,7 @@ Write-Host "  [OK] latest.json gerado em: $latestJsonPath" -ForegroundColor Gree
 
 # 9. Publicar no GitHub Releases via GitHub CLI
 Write-Host ""
-Write-Host "  [4/4] Publicando release v$ver no GitHub ($repoOwner/$repoName)..." -ForegroundColor Cyan
+Write-Host "  [5/5] Publicando release v$ver no GitHub ($repoOwner/$repoName)..." -ForegroundColor Cyan
 
 # Copiar setup para pasta release para upload limpo
 $releaseSetupPath = Join-Path $releaseOutputDir $setupFileName
