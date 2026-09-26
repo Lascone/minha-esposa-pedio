@@ -278,18 +278,26 @@ pub fn widget_open_window(
     y: i32,
     width: u32,
     height: u32,
-    always_on_top: bool,
+    _always_on_top: bool,
 ) -> Result<(), String> {
-    let label = if widget_id.starts_with("widget-") {
-        widget_id.clone()
+    let safe_id: String = widget_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let label = if safe_id.starts_with("widget-") {
+        safe_id
     } else {
-        format!("widget-{}", widget_id)
+        format!("widget-{}", safe_id)
     };
 
+    println!("[Rust] widget_open_window: label='{}', size={}x{}, pos=({}, {})", label, width, height, x, y);
+
     if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.set_always_on_top(true);
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.set_focus();
+        let _ = existing.eval(&format!("window.location.hash = '/widget/{}';", label));
         return Ok(());
     }
 
@@ -304,11 +312,14 @@ pub fn widget_open_window(
     .resizable(true)
     .decorations(false)
     .transparent(true)
-    .always_on_top(always_on_top)
+    .always_on_top(true)
     .skip_taskbar(true)
     .shadow(false)
     .build()
-    .map_err(|e| format!("Erro ao criar janela do widget: {}", e))?;
+    .map_err(|e| {
+        eprintln!("[Rust] Erro ao criar janela do widget {}: {}", label, e);
+        format!("Erro ao criar janela do widget: {}", e)
+    })?;
 
     let _ = win.eval(&format!("window.location.hash = '/widget/{}';", label));
     let _ = win.show();
@@ -320,10 +331,14 @@ pub fn widget_open_window(
 /// Closes a desktop widget window
 #[tauri::command]
 pub fn widget_close_window(app: AppHandle, widget_id: String) -> Result<(), String> {
-    let label = if widget_id.starts_with("widget-") {
-        widget_id
+    let safe_id: String = widget_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let label = if safe_id.starts_with("widget-") {
+        safe_id
     } else {
-        format!("widget-{}", widget_id)
+        format!("widget-{}", safe_id)
     };
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.close();
@@ -341,18 +356,26 @@ pub fn companion_open_window(
     y: i32,
     width: u32,
     height: u32,
-    always_on_top: bool,
+    _always_on_top: bool,
 ) -> Result<(), String> {
-    let label = if companion_id.starts_with("companion-") {
-        companion_id.clone()
+    let safe_id: String = companion_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let label = if safe_id.starts_with("companion-") {
+        safe_id
     } else {
-        format!("companion-{}", companion_id)
+        format!("companion-{}", safe_id)
     };
 
+    println!("[Rust] companion_open_window: label='{}', size={}x{}, pos=({}, {})", label, width, height, x, y);
+
     if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.set_always_on_top(true);
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.set_focus();
+        let _ = existing.eval(&format!("window.location.hash = '/companion/{}';", label));
         return Ok(());
     }
 
@@ -367,11 +390,14 @@ pub fn companion_open_window(
     .resizable(false)
     .decorations(false)
     .transparent(true)
-    .always_on_top(always_on_top)
+    .always_on_top(true)
     .skip_taskbar(true)
     .shadow(false)
     .build()
-    .map_err(|e| format!("Erro ao criar janela do companheiro: {}", e))?;
+    .map_err(|e| {
+        eprintln!("[Rust] Erro ao criar janela do companheiro {}: {}", label, e);
+        format!("Erro ao criar janela do companheiro: {}", e)
+    })?;
 
     let _ = win.eval(&format!("window.location.hash = '/companion/{}';", label));
     let _ = win.show();

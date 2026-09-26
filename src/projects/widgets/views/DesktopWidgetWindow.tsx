@@ -48,7 +48,13 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
         `widget-${w.id}` === targetId ||
         (targetId && targetId.replace("widget-", "") === w.id)
     );
-    if (exact) return exact;
+    if (exact) {
+      return {
+        ...exact,
+        settings: exact.settings || {},
+        alwaysOnTop: true,
+      };
+    }
 
     // 2. Infer type from label / targetId (e.g. "widget-pomodoro-12345" -> "pomodoro")
     const cleanId = (targetId || windowLabel || "widget-analog-clock-1").replace("widget-", "");
@@ -89,8 +95,10 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
     document.body.classList.add("is-transparent-window");
     document.documentElement.style.background = "transparent";
     document.documentElement.style.backgroundColor = "transparent";
+    document.documentElement.style.overflow = "hidden";
     document.body.style.background = "transparent";
     document.body.style.backgroundColor = "transparent";
+    document.body.style.overflow = "hidden";
     const root = document.getElementById("root");
     if (root) {
       root.style.background = "transparent";

@@ -8,6 +8,7 @@ import { CompanionsGalleryView } from "./companions/views/CompanionsGalleryView"
 import { ActiveCompanionsListView } from "./companions/views/ActiveCompanionsListView";
 import { WidgetConfigModal } from "./components/WidgetConfigModal";
 import { WidgetTheme } from "./types";
+import { useToast } from "@/core/components/Toast";
 import {
   LayoutGrid,
   List,
@@ -60,8 +61,12 @@ export const WidgetsApp: React.FC = () => {
   ];
 
   const handleLaunchAll = () => {
+    if (!allWidgetsVisible) {
+      toggleAllWidgets(true);
+    }
     launchAllActiveWidgets();
     launchAllActiveCompanions();
+    useToast.getState().addToast(`Gadgets e companheiros ativados na Área de Trabalho! ✨`, "love");
   };
 
   return (

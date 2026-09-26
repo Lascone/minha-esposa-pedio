@@ -23,7 +23,7 @@ export const AnalogClockWidget: React.FC<AnalogClockWidgetProps> = ({ widget }) 
   const minuteDegrees = minutes * 6 + seconds * 0.1;
   const secondDegrees = seconds * 6;
 
-  const showDate = widget.settings.showDate !== false;
+  const showDate = widget.settings?.showDate !== false;
   const dayOfMonth = time.getDate();
   const weekDay = time.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase().replace(".", "");
 

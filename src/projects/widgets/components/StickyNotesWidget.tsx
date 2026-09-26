@@ -10,11 +10,11 @@ interface StickyNotesWidgetProps {
 export const StickyNotesWidget: React.FC<StickyNotesWidgetProps> = ({ widget }) => {
   const { updateWidgetSettings } = useWidgetsStore();
 
-  const title = widget.settings.title ?? "Notas Rápidas";
-  const content = widget.settings.content ?? "";
-  const noteColor = widget.settings.noteColor ?? "yellow";
-  const isTodoList = widget.settings.isTodoList ?? false;
-  const todoItems: { id: string; text: string; done: boolean }[] = widget.settings.todoItems ?? [
+  const title = widget.settings?.title ?? "Notas Rápidas";
+  const content = widget.settings?.content ?? "";
+  const noteColor = widget.settings?.noteColor ?? "yellow";
+  const isTodoList = widget.settings?.isTodoList ?? false;
+  const todoItems: { id: string; text: string; done: boolean }[] = widget.settings?.todoItems ?? [
     { id: "1", text: "Café da manhã especial ☕", done: true },
     { id: "2", text: "Jogar Roblox juntos 💕", done: false },
     { id: "3", text: "Ver série no sofá 🍿", done: false },

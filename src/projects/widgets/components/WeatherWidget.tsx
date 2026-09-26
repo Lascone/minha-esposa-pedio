@@ -22,11 +22,11 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({ widget }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditingCity, setIsEditingCity] = useState(false);
-  const [cityInput, setCityInput] = useState(widget.settings.city || "São Paulo");
+  const [cityInput, setCityInput] = useState(widget.settings?.city || "São Paulo");
 
-  const city = widget.settings.city || "São Paulo";
-  const latitude = widget.settings.latitude ?? -23.5505;
-  const longitude = widget.settings.longitude ?? -46.6333;
+  const city = widget.settings?.city || "São Paulo";
+  const latitude = widget.settings?.latitude ?? -23.5505;
+  const longitude = widget.settings?.longitude ?? -46.6333;
 
   const fetchWeather = async (lat: number, lon: number, cityName: string) => {
     setLoading(true);

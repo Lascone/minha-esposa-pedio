@@ -13,7 +13,7 @@ export const DigitalClockWidget: React.FC<DigitalClockWidgetProps> = ({ widget }
     return () => clearInterval(timer);
   }, []);
 
-  const is24h = widget.settings.format !== "12h";
+  const is24h = widget.settings?.format !== "12h";
   let hours = time.getHours();
   const ampm = hours >= 12 ? "PM" : "AM";
   if (!is24h) {

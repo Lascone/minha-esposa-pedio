@@ -27,7 +27,7 @@ const DEFAULT_SHORTCUTS: ShortcutItem[] = [
 
 export const ShortcutsWidget: React.FC<ShortcutsWidgetProps> = ({ widget }) => {
   const { updateWidgetSettings } = useWidgetsStore();
-  const shortcuts: ShortcutItem[] = widget.settings.shortcuts ?? DEFAULT_SHORTCUTS;
+  const shortcuts: ShortcutItem[] = widget.settings?.shortcuts ?? DEFAULT_SHORTCUTS;
 
   const [isAdding, setIsAdding] = useState(false);
   const [name, setName] = useState("");
