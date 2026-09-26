@@ -7,10 +7,11 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-mod bot_manager;
-use bot_manager::{
-    bot_check_environment, bot_discover_models, bot_get_status, bot_kill_all, bot_list_capture_targets,
-    bot_pause, bot_resume, bot_send_command, bot_start, bot_stop, bot_setup_environment,
+mod widget_system;
+use widget_system::{
+    widget_get_system_metrics, widget_open_window, widget_close_window,
+    widget_set_always_on_top, widget_set_position, widget_reset_positions,
+    widget_launch_target,
 };
 
 mod autoclick_engine;
@@ -245,33 +246,16 @@ fn dispatch_action(app: &AppHandle, action: &str) {
             }
         }
         "emergency_stop_all" => {
-            // Parada de Emergência Universal: para AutoClick, Bots e solta todos os botões/teclas
+            // Parada de Emergência Universal: para AutoClick e solta todos os botões/teclas
             let engine = get_autoclick_engine();
             if engine.get_status().running {
                 engine.emergency_stop();
                 let _ = app.emit("autoclick-status-changed", false);
             }
-            if bot_manager::bot_is_running() {
-                let _ = bot_stop(None);
-                let _ = app.emit("bot-status-changed", "stopped");
-            }
             autoclick_engine::AutoClickEngine::release_all_inputs_native();
         }
-        "bots_start_pause" => {
-            if bot_manager::bot_is_running() {
-                let _ = bot_stop(None);
-                autoclick_engine::AutoClickEngine::release_all_inputs_native();
-                let _ = app.emit("bot-status-changed", "stopped");
-            } else {
-                let _ = app.emit("bot-start-requested", ());
-            }
-        }
-        "bots_emergency_kill" => {
-            if bot_manager::bot_is_running() {
-                let _ = bot_stop(None);
-                autoclick_engine::AutoClickEngine::release_all_inputs_native();
-                let _ = app.emit("bot-status-changed", "stopped");
-            }
+        "widgets_toggle_all" => {
+            let _ = app.emit("widgets-toggle-all-requested", ());
         }
         "crosshair_toggle" => {
             let _ = toggle_overlay(app.clone());
@@ -571,16 +555,13 @@ pub fn run() {
             hide_main_window,
             register_action_shortcut,
             register_custom_hotkey,
-            bot_start,
-            bot_stop,
-            bot_pause,
-            bot_resume,
-            bot_send_command,
-            bot_get_status,
-            bot_check_environment,
-            bot_discover_models,
-            bot_list_capture_targets,
-            bot_setup_environment,
+            widget_get_system_metrics,
+            widget_open_window,
+            widget_close_window,
+            widget_set_always_on_top,
+            widget_set_position,
+            widget_reset_positions,
+            widget_launch_target,
             autoclick_start,
             autoclick_stop,
             autoclick_pause,
@@ -635,9 +616,16 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
+            let toggle_widgets_i = MenuItem::with_id(
+                app,
+                "toggle_widgets",
+                "🪟 Alternar Widgets da Área de Trabalho (F8)",
+                true,
+                None::<&str>,
+            )?;
             let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
-            let menu = Menu::with_items(app, &[&toggle_app_i, &toggle_start_i, &toggle_crosshair_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&toggle_app_i, &toggle_start_i, &toggle_widgets_i, &toggle_crosshair_i, &quit_i])?;
 
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
@@ -664,11 +652,13 @@ pub fn run() {
                     "toggle_start_menu" => {
                         let _ = windows_toggle_hybrid_start_menu(app.clone());
                     }
+                    "toggle_widgets" => {
+                        let _ = app.emit("widgets-toggle-all-requested", ());
+                    }
                     "toggle_crosshair" => {
                         let _ = toggle_overlay(app.clone());
                     }
                     "quit" => {
-                        bot_kill_all();
                         app.exit(0);
                     }
                     _ => {}
@@ -703,8 +693,7 @@ pub fn run() {
             let default_shortcuts = [
                 ("autoclick_start_stop", "Insert"),
                 ("emergency_stop_all", "Shift+Escape"),
-                ("bots_start_pause", "F8"),
-                ("bots_emergency_kill", "Shift+F8"),
+                ("widgets_toggle_all", "F8"),
                 ("crosshair_toggle", "F10"),
                 ("window_toggle", "Control+H"),
                 ("start_menu_toggle", "Control+Alt+Z"),

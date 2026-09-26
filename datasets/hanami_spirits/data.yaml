@@ -1,6 +1,0 @@
-path: C:/Projetos/Minha Esposa Pedio/datasets/hanami_spirits
-train: train/images
-val: val/images
-names:
-  0: urso_branco
-  1: urso_preto

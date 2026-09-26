@@ -64,21 +64,7 @@
     "active": true,
     "targets": ["nsis"],
 
-    "resources": [
-      "../bots/**/*",
-      "../integrations/robloxbot/*.py",
-      "../integrations/robloxbot/vendor/bots/**/*",
-      "../integrations/yolov5_mm2/vendor/*.py",
-      "../integrations/yolov5_mm2/vendor/models/**/*",
-      "../integrations/yolov5_mm2/vendor/utils/**/*",
-      "../integrations/yolov5_mm2/vendor/data/**/*",
-      "../integrations/yolov5_mm2/vendor/weights/**/*",
-      "../sdk/**/*",
-      "../schemas/**/*",
-      "../weights/**/*",
-      "../scripts/setup_bot_runtime.ps1",
-      "../runtime/python/requirements.txt"
-    ],
+    "resources": [],
 
     "icon": [
       "icons/32x32.png",
