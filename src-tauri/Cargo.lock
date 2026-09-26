@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "pedi-para-meu-marido"
-version = "1.1.7"
+version = "1.2.0"
 dependencies = [
  "rusqlite",
  "serde",
