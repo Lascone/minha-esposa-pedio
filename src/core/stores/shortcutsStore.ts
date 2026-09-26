@@ -4,11 +4,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useAutoClickStore } from "@/projects/autoclick/store/autoclickStore";
 import { InputService } from "@/core/services/automation/InputService";
 
-export type ShortcutCategory = "all" | "system" | "crosshair" | "autoclick" | "bots";
+export type ShortcutCategory = "all" | "system" | "crosshair" | "autoclick" | "widgets";
 
 export interface ShortcutDefinition {
   id: string;
-  category: "system" | "crosshair" | "autoclick" | "bots";
+  category: "system" | "crosshair" | "autoclick" | "widgets";
   label: string;
   description: string;
   defaultKey: string;
@@ -88,33 +88,23 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     isGlobal: false,
   },
 
-  // Bots & IA
+  // Widgets da Área de Trabalho
   {
-    id: "bots_start_pause",
-    category: "bots",
-    label: "Iniciar / Pausar Bot Ativo",
-    description: "Ativa ou pausa o bot selecionado na central de bots.",
+    id: "widgets_toggle_all",
+    category: "widgets",
+    label: "Mostrar / Ocultar Gadgets",
+    description: "Alterna a visibilidade de todos os gadgets da área de trabalho de uma vez.",
     defaultKey: "F8",
     currentKey: "F8",
     isGlobal: true,
   },
   {
-    id: "bots_emergency_kill",
-    category: "bots",
-    label: "Parada de Emergência dos Bots",
-    description: "Interrompe imediatamente o loop de IA e todas as ações dos robôs.",
-    defaultKey: "Shift+F8",
-    currentKey: "Shift+F8",
-    isGlobal: true,
-    isDanger: true,
-  },
-  {
-    id: "bots_reload_vision",
-    category: "bots",
-    label: "Recarregar Visão YOLO",
-    description: "Reinicia os pipelines de visão computacional e captura de tela dos bots.",
-    defaultKey: "F6",
-    currentKey: "F6",
+    id: "widgets_reset_positions",
+    category: "widgets",
+    label: "Recuperar Gadgets Fora da Tela",
+    description: "Traz de volta todos os gadgets para a tela principal caso fiquem perdidos.",
+    defaultKey: "Control+Shift+W",
+    currentKey: "Control+Shift+W",
     isGlobal: true,
   },
 ];
@@ -182,8 +172,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
             crosshair_toggle_overlay: "crosshair_toggle",
             autoclick_start_stop: "autoclick_start_stop",
             autoclick_emergency_stop: "emergency_stop_all",
-            bots_start_pause: "bots_start_pause",
-            bots_emergency_kill: "bots_emergency_kill",
+            widgets_toggle_all: "widgets_toggle_all",
           };
 
           const action = actionMap[id];
@@ -249,8 +238,7 @@ export const syncAllSavedShortcutsToBackend = async () => {
     crosshair_toggle_overlay: "crosshair_toggle",
     autoclick_start_stop: "autoclick_start_stop",
     autoclick_emergency_stop: "emergency_stop_all",
-    bots_start_pause: "bots_start_pause",
-    bots_emergency_kill: "bots_emergency_kill",
+    widgets_toggle_all: "widgets_toggle_all",
   };
 
   for (const shortcut of state.shortcuts) {

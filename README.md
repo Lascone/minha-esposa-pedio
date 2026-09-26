@@ -28,6 +28,25 @@ O **Crosshair Studio** é uma suíte completa de criação, edição e exibiçã
 
 ---
 
+## 🪟 Módulo: Widgets da Área de Trabalho (Windows 7 Gadgets)
+
+Substitui o antigo sistema de bots por uma coleção de widgets inspirada nos gadgets do Windows 7 e na arquitetura do Widgetsack:
+
+- **10 Gadgets Úteis & Interativos:**
+  - 🕐 **Relógio Analógico**: Mostrador circular clássico, marcadores elegantes e ponteiros suaves.
+  - ⏰ **Relógio Digital & Data**: Números grandes, segundos correndo e data em português.
+  - 📅 **Calendário Folhinha**: Navegação mensal e dia atual destacado.
+  - 🌤️ **Clima & Previsão**: Temperatura atual, sensação, umidade, vento e ícone dinâmico via Open-Meteo.
+  - 📝 **Notas Rápidas (Post-it)**: Recadinhos e to-do list com salvamento instantâneo e várias cores fofas.
+  - 🚀 **Atalhos & Lançador**: Acesso rápido ao Roblox, Navegador, Discord, Explorador e apps customizados.
+  - ⚡ **Medidor de CPU**: Tacômetro velocímetro com uso de processamento em tempo real.
+  - 🧠 **Medidor de Memória RAM**: GB em uso vs GB totais e porcentagem instantânea.
+  - 💾 **Armazenamento & Discos**: Barras de capacidade das unidades (C:, D:) com aviso de espaço.
+  - 🔋 **Monitor de Bateria**: Percentual e status de carregamento / alimentação AC desktop.
+- **Personalização Visual Completa**: Temas Aero Glass, Rosa Pastel, Escuro Moderno, Cyber Neon e Clean; opacidade (20% a 100%) e escala (80% a 150%).
+- **Recuperar Gadgets**: Botão inteligente para trazer de volta qualquer gadget que tenha saído da tela ou de monitores secundários.
+
+
 ## 🖥️ Integração Windows & Performance
 
 - **Overlay Transparente Nativo**: janela sem bordas, sempre no topo (`always-on-top`) com **click-through total** (`set_ignore_cursor_events(true)`), permitindo que você jogue sem qualquer interferência de cliques.

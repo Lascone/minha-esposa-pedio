@@ -8,20 +8,21 @@ import { AssetHubView } from "./core/views/AssetHubView";
 import { ProfileView } from "./core/views/ProfileView";
 import { ShortcutsHubView } from "./core/views/ShortcutsHubView";
 import { CrosshairApp } from "./projects/crosshair/CrosshairApp";
-import { BotsApp } from "./projects/bots/BotsApp";
+import { WidgetsApp } from "./projects/widgets/WidgetsApp";
+import { DesktopWidgetWindow } from "./projects/widgets/views/DesktopWidgetWindow";
+import { useWidgetsStore } from "./projects/widgets/store/widgetsStore";
+import { DesktopCompanionWindow } from "./projects/widgets/companions/views/DesktopCompanionWindow";
+import { useCompanionsStore } from "./projects/widgets/companions/store/companionsStore";
 import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
-import { WindowsApp } from "./projects/windows/WindowsApp";
-import { HybridStartMenuWindow } from "./projects/windows/views/HybridStartMenuWindow";
 import { OverlayApp } from "./overlay/OverlayApp";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { checkForUpdates, UpdateInfo } from "./core/services/updateService";
 import { UpdateModal } from "./core/components/UpdateModal";
 import { syncAllSavedShortcutsToBackend } from "./core/stores/shortcutsStore";
 import { useAutoClickStore } from "./projects/autoclick/store/autoclickStore";
-import { useBotsStore } from "./projects/bots/store/botsStore";
-import { BotManager } from "./projects/bots/core/BotManager";
 
 export const App: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
@@ -102,8 +103,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     let unlistenAutoclickStart: (() => void) | undefined;
     let unlistenAutoclickStatus: (() => void) | undefined;
-    let unlistenBotStart: (() => void) | undefined;
-    let unlistenBotStatus: (() => void) | undefined;
+    let unlistenWidgetsToggle: (() => void) | undefined;
 
     // 1. AutoClick Start request from native hotkey
     listen("autoclick-start-requested", () => {
@@ -130,39 +130,19 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // 3. Bot Start request from native hotkey
-    listen("bot-start-requested", () => {
-      const botStore = useBotsStore.getState();
-      const activeBotId = botStore.activeBotId || "roblox-mm2-coin-collector";
-      const config = botStore.botConfigs[activeBotId] || {};
-      BotManager.startBot(activeBotId, config);
+    // 3. Desktop Widgets toggle request from native hotkey / tray
+    listen("widgets-toggle-all-requested", () => {
+      useWidgetsStore.getState().toggleAllWidgets();
     })
       .then((fn) => {
-        unlistenBotStart = fn;
-      })
-      .catch(() => {});
-
-    // 4. Bot Status changed from native emergency stop / hotkey
-    listen<string>("bot-status-changed", (event) => {
-      const newStatus = event.payload;
-      const botStore = useBotsStore.getState();
-      if (botStore.activeBotId) {
-        botStore.setBotStatus(botStore.activeBotId, newStatus as any);
-        if (newStatus === "stopped") {
-          BotManager.stopBot(botStore.activeBotId);
-        }
-      }
-    })
-      .then((fn) => {
-        unlistenBotStatus = fn;
+        unlistenWidgetsToggle = fn;
       })
       .catch(() => {});
 
     return () => {
       if (unlistenAutoclickStart) unlistenAutoclickStart();
       if (unlistenAutoclickStatus) unlistenAutoclickStatus();
-      if (unlistenBotStart) unlistenBotStart();
-      if (unlistenBotStatus) unlistenBotStatus();
+      if (unlistenWidgetsToggle) unlistenWidgetsToggle();
     };
   }, []);
 
@@ -202,16 +182,39 @@ export const App: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOverlayActive, setOverlayActive]);
 
+  // Determine current Tauri window label
+  let windowLabel = "main";
+  try {
+    const currentWin = getCurrentWebviewWindow();
+    if (currentWin && currentWin.label) {
+      windowLabel = currentWin.label;
+    }
+  } catch {}
 
+  // Auto-launch active desktop widgets and companions when main window loads
+  useEffect(() => {
+    if (windowLabel === "main") {
+      const timer = setTimeout(() => {
+        useWidgetsStore.getState().launchAllActiveWidgets();
+        useCompanionsStore.getState().launchAllActiveCompanions();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [windowLabel]);
 
   // If this window is the dedicated overlay window, render only the overlay canvas
-  if (currentRoute === "/overlay") {
+  if (windowLabel === "overlay" || currentRoute === "/overlay") {
     return <OverlayApp />;
   }
 
-  // If this window is the floating hybrid start menu popup
-  if (currentRoute === "/startmenu") {
-    return <HybridStartMenuWindow />;
+  // If this window is an independent native desktop widget window
+  if (windowLabel.startsWith("widget-") || currentRoute === "/widget" || currentRoute.startsWith("/widget/")) {
+    return <DesktopWidgetWindow />;
+  }
+
+  // If this window is an independent native desktop companion mascot window
+  if (windowLabel.startsWith("companion-") || currentRoute === "/companion" || currentRoute.startsWith("/companion/")) {
+    return <DesktopCompanionWindow />;
   }
 
   const navigate = (route: string) => {
@@ -233,10 +236,10 @@ export const App: React.FC = () => {
         </Suspense>
       );
     }
-    if (currentRoute === "/bots" || currentRoute.startsWith("/bots/")) {
+    if (currentRoute === "/widgets" || currentRoute.startsWith("/widgets/")) {
       return (
-        <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Central de Bots... 🧸</div>}>
-          <BotsApp />
+        <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Gadgets da Área de Trabalho... 🪟</div>}>
+          <WidgetsApp />
         </Suspense>
       );
     }
@@ -244,13 +247,6 @@ export const App: React.FC = () => {
       return (
         <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Auto Click... 🖱️</div>}>
           <AutoClickApp />
-        </Suspense>
-      );
-    }
-    if (currentRoute === "/windows" || currentRoute.startsWith("/windows/")) {
-      return (
-        <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Windows Customization Studio... 🪟</div>}>
-          <WindowsApp />
         </Suspense>
       );
     }

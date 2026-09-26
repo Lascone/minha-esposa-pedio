@@ -23,7 +23,7 @@ export interface UpdateProgress {
   message: string;
 }
 
-const GITHUB_REPO = "magrelone/minha-esposa-pedio";
+const GITHUB_REPO = "Lascone/minha-esposa-pedio";
 const CURRENT_APP_FALLBACK = "1.0.0";
 const DISMISSED_VERSION_KEY = "pmm_dismissed_update_version";
 

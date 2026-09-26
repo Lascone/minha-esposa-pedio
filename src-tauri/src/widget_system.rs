@@ -288,12 +288,10 @@ pub fn widget_open_window(
         return Ok(());
     }
 
-    let url_str = format!("/#/widget/{}", widget_id);
-
     let win = tauri::WebviewWindowBuilder::new(
         &app,
         &label,
-        tauri::WebviewUrl::App(url_str.into()),
+        tauri::WebviewUrl::default(),
     )
     .title(&title)
     .inner_size(width as f64, height as f64)
@@ -317,6 +315,86 @@ pub fn widget_close_window(app: AppHandle, widget_id: String) -> Result<(), Stri
     let label = format!("widget-{}", widget_id);
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.close();
+    }
+    Ok(())
+}
+
+/// Spawns or focuses an independent native transparent desktop companion window
+#[tauri::command]
+pub fn companion_open_window(
+    app: AppHandle,
+    companion_id: String,
+    title: String,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    always_on_top: bool,
+) -> Result<(), String> {
+    let label = format!("companion-{}", companion_id);
+    if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.show();
+        let _ = existing.unminimize();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let win = tauri::WebviewWindowBuilder::new(
+        &app,
+        &label,
+        tauri::WebviewUrl::default(),
+    )
+    .title(&title)
+    .inner_size(width as f64, height as f64)
+    .position(x as f64, y as f64)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(always_on_top)
+    .skip_taskbar(true)
+    .shadow(false)
+    .build()
+    .map_err(|e| format!("Erro ao criar janela do companheiro: {}", e))?;
+
+    let _ = win.show();
+    Ok(())
+}
+
+/// Closes a desktop companion window
+#[tauri::command]
+pub fn companion_close_window(app: AppHandle, companion_id: String) -> Result<(), String> {
+    let label = format!("companion-{}", companion_id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.close();
+    }
+    Ok(())
+}
+
+/// Sets position for a desktop companion window
+#[tauri::command]
+pub fn companion_set_position(
+    app: AppHandle,
+    companion_id: String,
+    x: i32,
+    y: i32,
+) -> Result<(), String> {
+    let label = format!("companion-{}", companion_id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    Ok(())
+}
+
+/// Sets always-on-top for a desktop companion window
+#[tauri::command]
+pub fn companion_set_always_on_top(
+    app: AppHandle,
+    companion_id: String,
+    always_on_top: bool,
+) -> Result<(), String> {
+    let label = format!("companion-{}", companion_id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.set_always_on_top(always_on_top);
     }
     Ok(())
 }

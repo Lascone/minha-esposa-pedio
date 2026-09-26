@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="slimeGrad" cx="45%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#a7f3d0"/>
+      <stop offset="40%" stop-color="#34d399"/>
+      <stop offset="90%" stop-color="#059669"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="46" cy="88" rx="38" ry="7" fill="#064e3b" opacity="0.2"/>
+
+  <!-- Slime Sleeping Blob -->
+  <path d="M 44 48 C 66 48 80 64 78 80 C 76 86 64 88 44 88 C 24 88 14 86 12 80 C 10 64 22 48 44 48 Z" fill="url(#slimeGrad)"/>
+
+  <!-- Highlights -->
+  <ellipse cx="32" cy="56" rx="7" ry="5" fill="#ffffff" opacity="0.6"/>
+
+  <!-- Sleeping Eyes -->
+  <path d="M 32 68 Q 36 71 40 68" fill="none" stroke="#064e3b" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M 48 68 Q 52 71 56 68" fill="none" stroke="#064e3b" stroke-width="2.2" stroke-linecap="round"/>
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="26" cy="72" rx="3.5" ry="2" fill="#ec4899" opacity="0.4"/>
+  <ellipse cx="62" cy="72" rx="3.5" ry="2" fill="#ec4899" opacity="0.4"/>
+
+  <!-- Snot bubble / zZz -->
+  <circle cx="44" cy="62" r="5" fill="#67e8f9" opacity="0.6" stroke="#0891b2" stroke-width="0.8"/>
+  <circle cx="43" cy="60" r="1.5" fill="#ffffff" opacity="0.8"/>
+
+  <!-- Floating zZz -->
+  <text x="64" y="44" font-family="Arial, sans-serif" font-weight="bold" font-size="11" fill="#34d399">z</text>
+  <text x="72" y="32" font-family="Arial, sans-serif" font-weight="bold" font-size="14" fill="#059669">Z</text>
+  <text x="82" y="18" font-family="Arial, sans-serif" font-weight="bold" font-size="18" fill="#047857">Z</text>
+</svg>

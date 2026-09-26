@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="shibaFur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4a261"/>
+      <stop offset="100%" stop-color="#e76f51"/>
+    </linearGradient>
+    <linearGradient id="shibaWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fdf0d5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Love Hearts floating! -->
+  <path d="M 22 22 A 4 4 0 0 0 14 26 Q 14 32 22 38 Q 30 32 30 26 A 4 4 0 0 0 22 22 Z" fill="#ff4d6d" transform="rotate(-15 22 27)"/>
+  <path d="M 76 18 A 5 5 0 0 0 66 23 Q 66 30 76 37 Q 86 30 86 23 A 5 5 0 0 0 76 18 Z" fill="#e76f51" transform="rotate(15 76 24)"/>
+
+  <!-- Rapid Wagging Tail blur -->
+  <path d="M 20 48 Q 10 32 24 28 Q 32 34 26 50" fill="url(#shibaFur)"/>
+  <path d="M 26 55 Q 14 42 26 38" fill="none" stroke="#f4a261" stroke-width="3" opacity="0.6"/>
+
+  <!-- Body hopping in joy -->
+  <ellipse cx="49" cy="60" rx="22" ry="18" fill="url(#shibaFur)"/>
+  <ellipse cx="53" cy="63" rx="14" ry="12" fill="url(#shibaWhite)"/>
+
+  <!-- Paws raised excitedly -->
+  <ellipse cx="36" cy="74" rx="6" ry="5" fill="url(#shibaWhite)"/>
+  <ellipse cx="62" cy="74" rx="6" ry="5" fill="url(#shibaWhite)"/>
+
+  <!-- Collar -->
+  <path d="M 42 44 Q 52 48 62 44" fill="none" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="52" cy="49" r="3.5" fill="#ffd166"/>
+
+  <!-- Head tilted cute -->
+  <ellipse cx="51" cy="32" rx="19" ry="16" fill="url(#shibaFur)"/>
+  <path d="M 36 32 Q 51 42 66 32 Q 68 44 51 45 Q 34 44 36 32 Z" fill="url(#shibaWhite)"/>
+
+  <!-- Cheeks Blush extra pink -->
+  <ellipse cx="37" cy="36" rx="4.5" ry="2.5" fill="#ff4d6d" opacity="0.5"/>
+  <ellipse cx="65" cy="36" rx="4.5" ry="2.5" fill="#ff4d6d" opacity="0.5"/>
+
+  <!-- Joyful Happy Eyes (Arcs) -->
+  <path d="M 39 31 Q 43 26 47 31" fill="none" stroke="#2b2d42" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 55 31 Q 59 26 63 31" fill="none" stroke="#2b2d42" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Big Open Happy Tongue Smile -->
+  <path d="M 47 36 Q 51 42 55 36" fill="none" stroke="#2b2d42" stroke-width="1.5"/>
+  <ellipse cx="51" cy="40" rx="3.5" ry="4" fill="#ff4d6d"/>
+
+  <!-- Ears perked happily -->
+  <polygon points="34,14 26,32 44,28" fill="url(#shibaFur)"/>
+  <polygon points="68,14 76,32 58,28" fill="url(#shibaFur)"/>
+</svg>

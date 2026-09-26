@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="shibaFur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4a261"/>
+      <stop offset="100%" stop-color="#e76f51"/>
+    </linearGradient>
+    <linearGradient id="shibaWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fdf0d5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tail curled behind -->
+  <path d="M 22 55 Q 12 40 24 35 Q 32 40 26 55" fill="url(#shibaFur)"/>
+  <circle cx="21" cy="38" r="4" fill="url(#shibaWhite)"/>
+
+  <!-- Body -->
+  <ellipse cx="48" cy="62" rx="22" ry="18" fill="url(#shibaFur)"/>
+  <ellipse cx="52" cy="65" rx="14" ry="12" fill="url(#shibaWhite)"/>
+
+  <!-- Feet Back -->
+  <ellipse cx="32" cy="78" rx="6" ry="4" fill="url(#shibaWhite)"/>
+  <ellipse cx="64" cy="78" rx="6" ry="4" fill="url(#shibaWhite)"/>
+
+  <!-- Red Collar with Bell -->
+  <path d="M 42 46 Q 52 50 62 46" fill="none" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="52" cy="51" r="3.5" fill="#ffd166"/>
+
+  <!-- Ears -->
+  <polygon points="34,18 26,36 44,32" fill="url(#shibaFur)"/>
+  <polygon points="33,21 28,34 40,31" fill="#ffccd5"/>
+
+  <polygon points="68,18 76,36 58,32" fill="url(#shibaFur)"/>
+  <polygon points="69,21 74,34 62,31" fill="#ffccd5"/>
+
+  <!-- Head -->
+  <ellipse cx="51" cy="34" rx="19" ry="16" fill="url(#shibaFur)"/>
+
+  <!-- Shiba White Cheeks Mask -->
+  <path d="M 36 34 Q 51 44 66 34 Q 68 46 51 47 Q 34 46 36 34 Z" fill="url(#shibaWhite)"/>
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="38" cy="38" rx="3.5" ry="2" fill="#ff4d6d" opacity="0.35"/>
+  <ellipse cx="64" cy="38" rx="3.5" ry="2" fill="#ff4d6d" opacity="0.35"/>
+
+  <!-- Eyes Sparkle -->
+  <ellipse cx="43" cy="32" rx="2.5" ry="3.5" fill="#2b2d42"/>
+  <circle cx="42" cy="31" r="1.2" fill="#ffffff"/>
+
+  <ellipse cx="59" cy="32" rx="2.5" ry="3.5" fill="#2b2d42"/>
+  <circle cx="58" cy="31" r="1.2" fill="#ffffff"/>
+
+  <!-- Eyebrow white dots (classic Shiba) -->
+  <ellipse cx="42" cy="25" rx="2.2" ry="1.5" fill="#ffffff"/>
+  <ellipse cx="60" cy="25" rx="2.2" ry="1.5" fill="#ffffff"/>
+
+  <!-- Nose & Happy Open Tongue -->
+  <ellipse cx="51" cy="38" rx="2" ry="1.5" fill="#2b2d42"/>
+  <path d="M 48 40 Q 51 44 54 40" fill="none" stroke="#2b2d42" stroke-width="1.2"/>
+  <ellipse cx="51" cy="43" rx="2.5" ry="2" fill="#ff4d6d"/>
+</svg>

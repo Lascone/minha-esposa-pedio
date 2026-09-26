@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="shibaFur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4a261"/>
+      <stop offset="100%" stop-color="#e76f51"/>
+    </linearGradient>
+    <linearGradient id="shibaWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fdf0d5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tail swinging left -->
+  <path d="M 20 52 Q 10 38 22 34 Q 30 38 24 52" fill="url(#shibaFur)"/>
+  <circle cx="19" cy="36" r="4" fill="url(#shibaWhite)"/>
+
+  <!-- Body -->
+  <ellipse cx="48" cy="60" rx="22" ry="17" fill="url(#shibaFur)"/>
+  <ellipse cx="52" cy="63" rx="14" ry="11" fill="url(#shibaWhite)"/>
+
+  <!-- Paws walk 1: Front left forward, rear right forward -->
+  <ellipse cx="36" cy="80" rx="6" ry="4" fill="url(#shibaWhite)" transform="rotate(-15 36 80)"/>
+  <ellipse cx="60" cy="76" rx="5" ry="3.5" fill="url(#shibaWhite)" transform="rotate(20 60 76)"/>
+
+  <!-- Collar -->
+  <path d="M 42 44 Q 52 48 62 44" fill="none" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="52" cy="49" r="3.5" fill="#ffd166"/>
+
+  <!-- Ears bouncing -->
+  <polygon points="34,16 26,34 44,30" fill="url(#shibaFur)"/>
+  <polygon points="33,19 28,32 40,29" fill="#ffccd5"/>
+  <polygon points="68,16 76,34 58,30" fill="url(#shibaFur)"/>
+  <polygon points="69,19 74,32 62,29" fill="#ffccd5"/>
+
+  <!-- Head -->
+  <ellipse cx="51" cy="32" rx="19" ry="16" fill="url(#shibaFur)"/>
+  <path d="M 36 32 Q 51 42 66 32 Q 68 44 51 45 Q 34 44 36 32 Z" fill="url(#shibaWhite)"/>
+  <ellipse cx="38" cy="36" rx="3.5" ry="2" fill="#ff4d6d" opacity="0.35"/>
+  <ellipse cx="64" cy="36" rx="3.5" ry="2" fill="#ff4d6d" opacity="0.35"/>
+
+  <!-- Eyes Sparkle -->
+  <ellipse cx="43" cy="30" rx="2.5" ry="3.5" fill="#2b2d42"/>
+  <circle cx="42" cy="29" r="1.2" fill="#ffffff"/>
+  <ellipse cx="59" cy="30" rx="2.5" ry="3.5" fill="#2b2d42"/>
+  <circle cx="58" cy="29" r="1.2" fill="#ffffff"/>
+
+  <!-- Nose & Tongue -->
+  <ellipse cx="51" cy="36" rx="2" ry="1.5" fill="#2b2d42"/>
+  <ellipse cx="51" cy="41" rx="2.5" ry="2" fill="#ff4d6d"/>
+</svg>

@@ -1,25 +1,20 @@
 # Instruções Críticas para Agentes de IA & Coding Agents (AGENTS.md)
 
 > [!IMPORTANT]
-> **LEIA ISTO ANTES DE CRIAR OU MODIFICAR QUALQUER BOT OU VISÃO NO PROJETO:**
-> 1. Consulte sempre [/docs/bots/INDEX.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/INDEX.md) e [/docs/bots/AI_INSTRUCTIONS.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/AI_INSTRUCTIONS.md).
-> 2. **NUNCA invente modelos YOLO falsos** (`fake.pt`, mocks que fingem ser modelos reais). Se não houver pesos treinados para um objeto pedido pelo usuário, declare explicitamente `MODEL_REQUIRED` e instrua a coleta de dataset e treinamento.
-> 3. **NUNCA execute PyTorch ou YOLO diretamente** dentro de um bot novo. Reutilize sempre o `VisionEngine` (`sdk.bot_sdk.vision`).
-> 4. **NUNCA implemente captura de tela avulsa**. Use o `CaptureEngine` (`sdk.bot_sdk.capture`).
-> 5. **NUNCA chame bibliotecas de teclado/mouse (`pynput`, `pywin32`, etc.) diretamente** na estratégia do bot. Use o `InputEngine` e `ActionQueue` (`sdk.bot_sdk.input`).
-> 6. **SEMPRE defina um `bot.json`** em conformidade estrita com o schema `schemas/bot-manifest.schema.json`.
-> 7. **SEMPRE registre novos modelos** no `ModelRegistry` e novos datasets no `DatasetRegistry`.
-> 8. **SEMPRE atualize os catálogos** (`BOT_CATALOG.md`, `MODEL_CATALOG.md`, `DATASET_CATALOG.md`) após adicionar ou modificar componentes.
+> **LEIA ISTO ANTES DE CRIAR OU MODIFICAR WIDGETS OU O DESKTOP NO PROJETO:**
+> 1. Consulte sempre [/docs/widgets/README.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/widgets/README.md).
+> 2. **NUNCA invente métricas falsas** quando os dados do sistema estiverem indisponíveis. Trate erros ou indisponibilidade graciosamente na interface.
+> 3. **SEMPRE mantenha a experiência fofa, elegante e responsiva** (com temas Aero Glass, Cute Pastel, Dark Modern e Cyber Neon).
+> 4. **SEMPRE isole chamadas de baixo nível do Windows no Rust (`src-tauri/src/widget_system.rs`)** e consuma na interface via Tauri Commands e Zustand.
+> 5. **SEMPRE garanta transparência real nos widgets** e respeite o desktop do usuário, não bloqueando cliques em áreas vazias.
 
 ---
 
-## 🗺️ Mapa Rápido da Documentação Interna (Bots)
-- Arquitetura Central: [/docs/bots/ARCHITECTURE.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/ARCHITECTURE.md)
-- Como Criar um Novo Bot: [/docs/bots/CREATING_A_BOT.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/CREATING_A_BOT.md)
-- Motor de Visão & YOLO: [/docs/bots/VISION_ENGINE.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/VISION_ENGINE.md)
-- Treinamento com `yolov5_mm2`: [/docs/bots/YOLO_TRAINING.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/YOLO_TRAINING.md)
-- Exemplo Real (MM2): [/docs/bots/examples/mm2-coin-collector.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/examples/mm2-coin-collector.md)
-- Exemplo Didático para IAs (Teddy Collector): [/docs/bots/examples/teddy-collector.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/bots/examples/teddy-collector.md)
+## 🪟 Mapa Rápido da Documentação Interna (Widgets)
+- Documentação dos Widgets: [/docs/widgets/README.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/widgets/README.md)
+- Motor Nativo em Rust: [/src-tauri/src/widget_system.rs](file:///c:/Projetos/Minha%20Esposa%20Pedio/src-tauri/src/widget_system.rs)
+- Store dos Widgets: [/src/projects/widgets/store/widgetsStore.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/widgets/store/widgetsStore.ts)
+- Catálogo de Definições: [/src/projects/widgets/registry.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/widgets/registry.ts)
 
 ---
 
@@ -31,4 +26,3 @@
 > 3. **NUNCA crie loops infinitos no JavaScript** (`while(true)`). Delegue todo o timing para o motor de alta precisão em Rust.
 > 4. **SEMPRE libere teclas e cliques** (`release_all_inputs_native`) ao finalizar ou abortar automações.
 > 5. **NUNCA oculte o indicador 🔴 REC** durante gravações. Preserva-se sempre a privacidade do usuário.
-

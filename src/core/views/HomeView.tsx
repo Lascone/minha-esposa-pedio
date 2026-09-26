@@ -126,28 +126,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </Card>
 
-          {/* Card: Central de Bots (Novo Módulo Concluído!) */}
+          {/* Card: Widgets de Área de Trabalho (Novo Módulo Concluído!) */}
           <Card
             hoverable
-            onClick={() => onNavigateToTab("bots")}
+            onClick={() => onNavigateToTab("widgets")}
             className="flex flex-col justify-between border-pink-400/50 relative overflow-hidden group shadow-soft"
           >
             <div className="flex items-start justify-between mb-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 text-white flex items-center justify-center text-2xl shadow-soft group-hover:scale-110 transition-transform">
-                🤖
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-400 via-rose-400 to-purple-500 text-white flex items-center justify-center text-2xl shadow-soft group-hover:scale-110 transition-transform">
+                🪟
               </div>
               <span className="px-2.5 py-1 rounded-full bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 font-extrabold text-[11px] flex items-center gap-1">
                 <Sparkles size={12} /> Novo Módulo
               </span>
             </div>
             <div>
-              <h4 className="text-base font-bold text-theme-text">Central de Bots</h4>
+              <h4 className="text-base font-bold text-theme-text">Widgets da Área de Trabalho</h4>
               <p className="text-xs text-theme-text-muted mt-1">
-                Roblox MM2 Coin Collector por visão computacional (YOLO) e automações personalizadas.
+                Gadgets estilo Windows 7: relógios, calendário, previsão do tempo, notas e monitores de PC.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-theme-border/40 flex items-center justify-between text-xs text-theme-primary font-semibold">
-              <span>Acessar Central de Bots 🧸</span>
+              <span>Abrir Galeria de Widgets ✨</span>
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </div>
           </Card>

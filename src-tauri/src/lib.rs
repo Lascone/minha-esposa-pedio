@@ -11,32 +11,12 @@ mod widget_system;
 use widget_system::{
     widget_get_system_metrics, widget_open_window, widget_close_window,
     widget_set_always_on_top, widget_set_position, widget_reset_positions,
-    widget_launch_target,
+    widget_launch_target, companion_open_window, companion_close_window,
+    companion_set_position, companion_set_always_on_top,
 };
 
 mod autoclick_engine;
 mod autoclick_db;
-mod windows_customizer;
-mod start_menu_interceptor;
-use start_menu_interceptor::{
-    windows_set_start_menu_replacement,
-    windows_get_start_menu_replacement,
-};
-use windows_customizer::{
-    windows_get_os_info,
-    windows_safe_restart_explorer,
-    windows_rebuild_icon_cache,
-    windows_set_desktop_wallpaper,
-    windows_restore_default_wallpaper,
-    windows_get_power_status,
-    windows_apply_theme_mode,
-    windows_apply_accent_color,
-    windows_apply_taskbar_config,
-    windows_apply_explorer_config,
-    windows_apply_complete_preset,
-    windows_toggle_hybrid_start_menu,
-    windows_apply_start_menu_config,
-};
 use autoclick_engine::{AutoClickEngine, AutoClickEngineConfig, EngineStatus};
 use autoclick_db::{AutoClickDatabase, AutoClickRunRecord};
 use std::sync::OnceLock;
@@ -270,9 +250,6 @@ fn dispatch_action(app: &AppHandle, action: &str) {
                     let _ = win.set_focus();
                 }
             }
-        }
-        "start_menu_toggle" => {
-            let _ = windows_toggle_hybrid_start_menu(app.clone());
         }
         _ => {}
     }
@@ -562,6 +539,10 @@ pub fn run() {
             widget_set_position,
             widget_reset_positions,
             widget_launch_target,
+            companion_open_window,
+            companion_close_window,
+            companion_set_position,
+            companion_set_always_on_top,
             autoclick_start,
             autoclick_stop,
             autoclick_pause,
@@ -578,37 +559,12 @@ pub fn run() {
             get_app_version,
             open_external_url,
             download_and_run_installer,
-            windows_get_os_info,
-            windows_safe_restart_explorer,
-            windows_rebuild_icon_cache,
-            windows_set_desktop_wallpaper,
-            windows_restore_default_wallpaper,
-            windows_get_power_status,
-            windows_apply_theme_mode,
-            windows_apply_accent_color,
-            windows_apply_taskbar_config,
-            windows_apply_explorer_config,
-            windows_apply_complete_preset,
-            windows_toggle_hybrid_start_menu,
-            windows_apply_start_menu_config,
-            windows_set_start_menu_replacement,
-            windows_get_start_menu_replacement,
         ])
 
         .setup(|app| {
-            // Inicializa interceptador do botão Iniciar para abrir o Menu Híbrido automaticamente
-            start_menu_interceptor::init_start_menu_interceptor(app.handle().clone());
-
             // Build system tray menu
             let toggle_app_i =
                 MenuItem::with_id(app, "toggle_app", "Abrir / Ocultar Central", true, None::<&str>)?;
-            let toggle_start_i = MenuItem::with_id(
-                app,
-                "toggle_start_menu",
-                "🚀 Abrir Menu Iniciar Híbrido (Ctrl+Alt+Z)",
-                true,
-                None::<&str>,
-            )?;
             let toggle_crosshair_i = MenuItem::with_id(
                 app,
                 "toggle_crosshair",
@@ -625,7 +581,7 @@ pub fn run() {
             )?;
             let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
-            let menu = Menu::with_items(app, &[&toggle_app_i, &toggle_start_i, &toggle_widgets_i, &toggle_crosshair_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&toggle_app_i, &toggle_widgets_i, &toggle_crosshair_i, &quit_i])?;
 
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
@@ -648,9 +604,6 @@ pub fn run() {
                                 let _ = win.set_focus();
                             }
                         }
-                    }
-                    "toggle_start_menu" => {
-                        let _ = windows_toggle_hybrid_start_menu(app.clone());
                     }
                     "toggle_widgets" => {
                         let _ = app.emit("widgets-toggle-all-requested", ());
@@ -696,7 +649,6 @@ pub fn run() {
                 ("widgets_toggle_all", "F8"),
                 ("crosshair_toggle", "F10"),
                 ("window_toggle", "Control+H"),
-                ("start_menu_toggle", "Control+Alt+Z"),
             ];
             for (action, key) in default_shortcuts {
                 let _ = register_action_shortcut(app.handle().clone(), action.to_string(), key.to_string());
@@ -707,11 +659,6 @@ pub fn run() {
 
 
         .on_window_event(|window, event| {
-            if window.label() == "startmenu" {
-                if let tauri::WindowEvent::Focused(false) = event {
-                    let _ = window.hide();
-                }
-            }
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if MINIMIZE_TO_TRAY.load(Ordering::SeqCst) {

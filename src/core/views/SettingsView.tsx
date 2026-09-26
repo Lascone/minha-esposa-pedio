@@ -16,7 +16,6 @@ import {
   Check,
   Sparkles,
   Layers,
-  Bot,
   Key,
   ExternalLink,
   HelpCircle,
@@ -371,7 +370,7 @@ export const SettingsView: React.FC = () => {
               Central Unificada de Atalhos
             </h3>
             <p className="text-xs text-theme-text-muted">
-              Todos os atalhos globais, miras, menus e bots agora ficam organizados em uma aba exclusiva.
+              Todos os atalhos globais, miras, menus e widgets agora ficam organizados em uma aba exclusiva.
             </p>
           </div>
         </div>
@@ -392,7 +391,7 @@ export const SettingsView: React.FC = () => {
       <Card className="flex flex-col gap-4">
         <div className="flex items-center justify-between border-b border-theme-border/60 pb-3">
           <div className="flex items-center gap-2">
-            <Bot size={18} className="text-purple-500" />
+            <Sparkles size={18} className="text-purple-500" />
             <h3 className="text-base font-bold text-theme-text">IA em Nuvem & Visão (Google Gemini 2.0 Flash)</h3>
           </div>
           <button

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="sakuraSkin" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fff5f5"/>
+      <stop offset="100%" stop-color="#ffe3e3"/>
+    </radialGradient>
+    <linearGradient id="sakuraHair" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffb3c6"/>
+      <stop offset="100%" stop-color="#ff758f"/>
+    </linearGradient>
+    <linearGradient id="sakuraDress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ffccd5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Floating Love Hearts -->
+  <path d="M 22 20 A 4 4 0 0 0 14 24 Q 14 30 22 36 Q 30 30 30 24 A 4 4 0 0 0 22 20 Z" fill="#ff4d6d" transform="rotate(-15 22 25)"/>
+  <path d="M 78 16 A 5 5 0 0 0 68 21 Q 68 28 78 35 Q 88 28 88 21 A 5 5 0 0 0 78 16 Z" fill="#ff758f" transform="rotate(15 78 22)"/>
+
+  <!-- Hair Back -->
+  <path d="M 28 34 C 15 47 18 79 25 84 C 32 74 35 59 35 49 Z" fill="url(#sakuraHair)"/>
+  <path d="M 72 34 C 85 47 82 79 75 84 C 68 74 65 59 65 49 Z" fill="url(#sakuraHair)"/>
+
+  <!-- Body & Dress -->
+  <path d="M 40 54 L 60 54 L 68 81 L 32 81 Z" fill="url(#sakuraDress)" stroke="#ff758f" stroke-width="1.5"/>
+  <path d="M 46 57 L 54 57 L 50 65 Z" fill="#ff4d6d"/>
+  
+  <!-- Feet -->
+  <ellipse cx="42" cy="84" rx="5" ry="4" fill="#590d22"/>
+  <ellipse cx="58" cy="84" rx="5" ry="4" fill="#590d22"/>
+
+  <!-- Hands clasping cheeks in excitement -->
+  <circle cx="34" cy="46" r="4.5" fill="url(#sakuraSkin)"/>
+  <circle cx="66" cy="46" r="4.5" fill="url(#sakuraSkin)"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="37" rx="24" ry="22" fill="url(#sakuraSkin)"/>
+
+  <!-- Deep Pink Cheeks Blush -->
+  <ellipse cx="36" cy="43" rx="6" ry="3.5" fill="#ff4d6d" opacity="0.6"/>
+  <ellipse cx="64" cy="43" rx="6" ry="3.5" fill="#ff4d6d" opacity="0.6"/>
+
+  <!-- Loving Arched Eyes -->
+  <path d="M 34 37 Q 39 31 44 37" fill="none" stroke="#4a0e2e" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M 56 37 Q 61 31 66 37" fill="none" stroke="#4a0e2e" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Big Happy Smile with Tongue -->
+  <path d="M 46 44 Q 50 51 54 44 Z" fill="#ff4d6d" stroke="#a4133c" stroke-width="1.5"/>
+
+  <!-- Hair Front Bangs -->
+  <path d="M 26 35 C 26 17 74 17 74 35 C 68 27 58 34 50 27 C 42 34 32 27 26 35 Z" fill="url(#sakuraHair)"/>
+
+  <!-- Flower Pin -->
+  <circle cx="64" cy="21" r="6" fill="#ff758f"/>
+  <circle cx="64" cy="21" r="2.5" fill="#ffd166"/>
+</svg>

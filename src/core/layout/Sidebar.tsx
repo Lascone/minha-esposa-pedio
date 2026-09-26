@@ -11,10 +11,9 @@ import {
   Sparkles,
   Search,
   User,
-  Bot,
+  LayoutGrid,
   MousePointer,
   Keyboard,
-  AppWindow,
 } from "lucide-react";
 import { useThemeStore } from "../theme/themeManager";
 import { useProfileStore } from "../providers/dicebearProvider";
@@ -56,23 +55,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       route: "/projects/crosshair",
     },
     {
-      id: "bots",
-      label: "Bots",
-      icon: <Bot size={18} />,
-      route: "/bots",
+      id: "widgets",
+      label: "Widgets",
+      icon: <LayoutGrid size={18} />,
+      route: "/widgets",
+      badge: "NOVO",
     },
     {
       id: "autoclick",
       label: "Auto Click",
       icon: <MousePointer size={18} />,
       route: "/autoclick",
-    },
-    {
-      id: "windows",
-      label: "Windows",
-      icon: <AppWindow size={18} />,
-      route: "/windows",
-      badge: "NOVO",
     },
     {
       id: "shortcuts",

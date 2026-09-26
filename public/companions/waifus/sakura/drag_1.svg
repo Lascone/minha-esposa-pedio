@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="sakuraSkin" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fff5f5"/>
+      <stop offset="100%" stop-color="#ffe3e3"/>
+    </radialGradient>
+    <linearGradient id="sakuraHair" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffb3c6"/>
+      <stop offset="100%" stop-color="#ff758f"/>
+    </linearGradient>
+    <linearGradient id="sakuraDress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ffccd5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hair Dangling Back -->
+  <path d="M 28 28 C 16 42 20 85 28 88 C 32 78 34 55 34 45 Z" fill="url(#sakuraHair)"/>
+  <path d="M 72 28 C 84 42 80 85 72 88 C 68 78 66 55 66 45 Z" fill="url(#sakuraHair)"/>
+
+  <!-- Arms up dangling! -->
+  <path d="M 36 50 Q 25 36 28 28" fill="none" stroke="url(#sakuraSkin)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 64 50 Q 75 36 72 28" fill="none" stroke="url(#sakuraSkin)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Body stretched -->
+  <path d="M 40 48 L 60 48 L 66 76 L 34 76 Z" fill="url(#sakuraDress)" stroke="#ff758f" stroke-width="1.5"/>
+  
+  <!-- Feet dangling in air -->
+  <ellipse cx="40" cy="85" rx="5" ry="6" fill="#590d22"/>
+  <ellipse cx="60" cy="88" rx="5" ry="6" fill="#590d22"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="32" rx="24" ry="22" fill="url(#sakuraSkin)"/>
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="36" cy="38" rx="5" ry="3" fill="#ff4d6d" opacity="0.5"/>
+  <ellipse cx="64" cy="38" rx="5" ry="3" fill="#ff4d6d" opacity="0.5"/>
+
+  <!-- Anime Surprised Round Eyes -->
+  <ellipse cx="38" cy="32" rx="5" ry="6.5" fill="#4a0e2e"/>
+  <circle cx="36.5" cy="30" r="2.5" fill="#ffffff"/>
+
+  <ellipse cx="62" cy="32" rx="5" ry="6.5" fill="#4a0e2e"/>
+  <circle cx="60.5" cy="30" r="2.5" fill="#ffffff"/>
+
+  <!-- Cute Surprised 'O' Mouth -->
+  <ellipse cx="50" cy="40" rx="3.5" ry="4" fill="#a4133c"/>
+
+  <!-- Hair Front Bangs -->
+  <path d="M 26 30 C 26 12 74 12 74 30 C 68 22 58 29 50 22 C 42 29 32 22 26 30 Z" fill="url(#sakuraHair)"/>
+
+  <!-- Flower Pin -->
+  <circle cx="68" cy="18" r="6" fill="#ff758f"/>
+  <circle cx="68" cy="18" r="2.5" fill="#ffd166"/>
+</svg>

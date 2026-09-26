@@ -4,7 +4,7 @@ import {
   Monitor,
   Crosshair,
   MousePointer,
-  Bot,
+  LayoutGrid,
   Search,
   RotateCcw,
   Sparkles,
@@ -40,7 +40,7 @@ export const ShortcutsHubView: React.FC = () => {
     { id: "system", label: "Sistema", icon: <Monitor size={16} /> },
     { id: "crosshair", label: "Mira & Crosshair", icon: <Crosshair size={16} /> },
     { id: "autoclick", label: "Auto Click", icon: <MousePointer size={16} /> },
-    { id: "bots", label: "Bots & IA", icon: <Bot size={16} /> },
+    { id: "widgets", label: "Widgets & Gadgets", icon: <LayoutGrid size={16} /> },
   ];
 
   // Filtros de busca e categoria

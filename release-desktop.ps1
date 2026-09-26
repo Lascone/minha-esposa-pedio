@@ -130,7 +130,7 @@ Write-Host "  [OK] Instalador encontrado: $setupFileName ($([math]::Round($setup
 # 8. Gerar arquivo latest.json para verificação automática do app
 Write-Host ""
 Write-Host "  [3/4] Gerando arquivo de metadados latest.json..." -ForegroundColor Cyan
-$repoOwner = "magrelone"
+$repoOwner = "Lascone"
 $repoName = "minha-esposa-pedio"
 $downloadUrl = "https://github.com/$repoOwner/$repoName/releases/download/v$ver/$setupFileName"
 
