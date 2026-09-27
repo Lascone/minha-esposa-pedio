@@ -490,6 +490,18 @@ fn start_loops(app: AppHandle) {
 
             update_hit_test(&app, &win, hwnd);
 
+            // With the pointer on the dock it also touches the screen edge, where an auto-hidden
+            // Windows taskbar pops up (topmost) and would cover the dock: stay above it.
+            if tick % 3 == 0 {
+                let s = shared();
+                let pointer_on_dock = s.ignoring == Some(false);
+                let fullscreen = s.fullscreen;
+                drop(s);
+                if pointer_on_dock && !fullscreen {
+                    unsafe { SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                }
+            }
+
             if tick % 6 == 0 && WINDOWS_DIRTY.swap(false, Ordering::SeqCst) {
                 refresh_windows(&app, false);
             }

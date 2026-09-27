@@ -50,6 +50,26 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
   (carregado em tempo de execução) e `GetSystemPowerStatus`. O que o Windows não informa não aparece.
   Botões: "^" bandeja real, idioma (Win + Espaço), Configurações rápidas (Win + A), relógio → notificações/calendário (Win + N).
 
+### Botões do Windows, menu Iniciar próprio e pílula personalizável
+- Por que não fazemos como o Windhawk: ele injeta DLLs no `explorer.exe`/`StartMenuExperienceHost.exe` e altera a árvore XAML
+  da barra e do Iniciar (mods Taskbar Styler / Start Menu Styler, GPL-3.0). Isso quebra a cada atualização do Windows, pode
+  derrubar o Explorer e é proibido pelas regras deste projeto. Aqui tudo são janelas nossas + atalhos oficiais do Windows.
+- `behavior.shellButtons` (ordem = ordem no dock), logo depois do Iniciar: `search` (Win + S), `taskview` (Win + Tab),
+  `widgets` (Win + W), `explorer` (Win + E), `desktop` (Win + D), `settings` (Win + I). Slot `kind: "shell"`, ícones de linha
+  na cor de texto do tema (`contrastText`), com fundo de bloco no estilo macOS.
+- `behavior.startMenu: "dock"`: o botão Iniciar abre a janela `dockmenu` (`#/dock-menu`, `DockStartMenuWindow`), com o mesmo tema
+  do dock. Pesquisa (sem acentos, Enter abre, ↑/↓ escolhe, "Pesquisar no Windows" = Win + S), fixados (itens do dock), todos os
+  apps (atalhos `.lnk`/`.url` das duas pastas `Start Menu\Programs`, via `dock_list_start_apps`, com alfinete "Fixar no dock"),
+  atalhos do sistema, nome do usuário e Bloquear / Sair / Reiniciar / Desligar (`dock_power_action`, com confirmação).
+  O Iniciar do Windows continua na tecla Windows, no menu e no clique direito do botão.
+  A janela ganha foco e some ao perder o foco (evento `dockmenu://hidden` evita reabrir no mesmo clique).
+  Partes do menu: `behavior.startMenuSections`. Posição: `startMenuRect` (encostado no dock, sempre dentro da tela).
+- `behavior.trayItems`: o que a pílula mostra ("^", idioma, rede/bateria, segundos, data embaixo da hora).
+- "Some quando passo o mouse": com o ponteiro no dock (que encosta na borda), o laço do dock o recoloca acima a cada ~120 ms,
+  e no modo Substituir a barra escondida é reescondida a cada 60 ms.
+- Limitação: apps da Microsoft Store (UWP) que não criam atalho na pasta do menu Iniciar não aparecem em "Todos os apps"
+  (use "Iniciar do Windows" ou a pesquisa do Windows).
+
 ### Modo dock (barra do Windows)
 - Só usa configurações oficiais por usuário (HKCU): pesquisa, Visão de tarefas, Widgets, Chat, Copilot, Cortana
   e alinhamento à esquerda (Win11), mais a ocultação automática (`ABM_SETSTATE`).
@@ -68,7 +88,7 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
 - `backdrop-filter` só desfoca o conteúdo da própria página. Para desfocar o que está atrás, use "Vidro do Windows".
 
 ## Testes
-- `tests/dock.test.ts`: reordenação, grupos, casamento de janelas, ciclo de foco, layout (DPI, multi-monitor, Acrylic, AppBar), auto-ocultar, temas e store.
+- `tests/dock.test.ts`: reordenação, grupos, casamento de janelas, ciclo de foco, layout (DPI, multi-monitor, Acrylic, AppBar), auto-ocultar, temas e store, botões do Windows, pesquisa e posição do menu Iniciar.
 - `cargo test --lib`: filtro de janelas, seletor de arquivos, ícones, resolução de itens e backup/tweaks da barra.
 
 ## Créditos e licenças
