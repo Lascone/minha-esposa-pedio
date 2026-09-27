@@ -66,7 +66,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetIconInfo, GetMessageW, GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
     IsWindow, IsWindowVisible, PostMessageW, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
     TranslateMessage, GWL_EXSTYLE, GW_OWNER, HICON, HWND_TOPMOST, ICONINFO, MSG, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
-    SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WM_CLOSE, WM_USER, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    SW_MINIMIZE, SW_RESTORE, SW_SHOWNA, SW_SHOWNORMAL, WM_CLOSE, WM_USER, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 pub const DOCK_LABEL: &str = "dock";
@@ -169,6 +170,28 @@ fn window_hwnd(win: &WebviewWindow) -> Option<HWND> {
     win.hwnd().ok().map(|h| h.0 as isize)
 }
 
+/// Set once the dock window has been placed and shown; cleared when it closes.
+static DOCK_SHOULD_SHOW: AtomicBool = AtomicBool::new(false);
+
+/// Click-through on/off for the dock, done directly on the window styles.
+///
+/// Tauri's `set_ignore_cursor_events` must not be used here: tao rebuilds every window style from
+/// its own flags, and because the dock is shown with `SetWindowPos` (never via tao, to avoid stealing
+/// focus) tao believes it is hidden and calls `ShowWindow(SW_HIDE)`, dropping the no-activate and
+/// tool-window styles too.
+fn set_click_through(hwnd: HWND, ignore: bool) {
+    unsafe {
+        let mut ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+        ex &= !WS_EX_APPWINDOW;
+        if ignore {
+            ex |= WS_EX_TRANSPARENT | WS_EX_LAYERED;
+        } else {
+            ex &= !(WS_EX_TRANSPARENT | WS_EX_LAYERED);
+        }
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex as isize);
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Window filtering (pure, unit-tested)
 // ---------------------------------------------------------------------------------------------
@@ -263,6 +286,21 @@ fn process_path(pid: u32) -> String {
         s.exe_cache.insert(pid, path.clone());
     }
     path
+}
+
+/// Processes that host Start, Search and the tray flyouts: while one of them is in front the dock
+/// is revealed, like the taskbar is when the Windows key is pressed.
+const SHELL_SURFACE_EXES: &[&str] =
+    &["startmenuexperiencehost.exe", "searchhost.exe", "searchapp.exe", "shellexperiencehost.exe", "shellhost.exe"];
+
+pub fn is_shell_surface_exe(path: &str) -> bool {
+    let name = path.rsplit(['\\', '/']).next().unwrap_or(path).to_ascii_lowercase();
+    SHELL_SURFACE_EXES.contains(&name.as_str())
+}
+
+fn shell_surface_open() -> bool {
+    let fg = unsafe { GetForegroundWindow() };
+    fg != 0 && !is_own_window(fg) && is_shell_surface_exe(&process_path(window_pid(fg)))
 }
 
 fn enumerate_windows() -> Vec<DockWindowInfo> {
@@ -375,13 +413,13 @@ fn update_hit_test(app: &AppHandle, win: &WebviewWindow, hwnd: HWND) {
             }
         },
     };
+    let _ = win;
     let ignore = !inside;
     if prev != Some(ignore) {
-        if win.set_ignore_cursor_events(ignore).is_ok() {
-            shared().ignoring = Some(ignore);
-            // While click-through the page never sees the pointer leave, so tell it explicitly.
-            let _ = app.emit_to(DOCK_LABEL, "dock://pointer", inside);
-        }
+        set_click_through(hwnd, ignore);
+        shared().ignoring = Some(ignore);
+        // While click-through the page never sees the pointer leave, so tell it explicitly.
+        let _ = app.emit_to(DOCK_LABEL, "dock://pointer", inside);
     }
 }
 
@@ -479,6 +517,7 @@ fn start_loops(app: AppHandle) {
     run_event_hook_thread();
     std::thread::spawn(move || {
         let mut tick: u64 = 0;
+        let mut shell_open = false;
         loop {
             std::thread::sleep(Duration::from_millis(40));
             tick = tick.wrapping_add(1);
@@ -499,6 +538,30 @@ fn start_loops(app: AppHandle) {
                 drop(s);
                 if pointer_on_dock && !fullscreen {
                     unsafe { SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                }
+            }
+
+            if tick % 4 == 0 {
+                let open = shell_surface_open();
+                if open != shell_open {
+                    shell_open = open;
+                    let _ = app.emit_to(DOCK_LABEL, "dock://shell-open", open);
+                    if open {
+                        unsafe { SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                    }
+                }
+            }
+
+            // Anything that hid the dock behind our back (Explorer restarts, style resets) is undone.
+            if tick % 12 == 0 && DOCK_SHOULD_SHOW.load(Ordering::SeqCst) {
+                unsafe {
+                    if IsWindowVisible(hwnd) == 0 {
+                        ShowWindow(hwnd, SW_SHOWNA);
+                    }
+                    let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+                    if ex & (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) != (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) || ex & WS_EX_APPWINDOW != 0 {
+                        set_click_through(hwnd, shared().ignoring != Some(false));
+                    }
                 }
             }
 
@@ -783,10 +846,13 @@ fn dock_window(app: &AppHandle) -> Result<WebviewWindow, String> {
 #[tauri::command]
 pub async fn dock_open_window(app: AppHandle) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(DOCK_LABEL) {
-        let _ = existing.show();
+        if let Some(hwnd) = window_hwnd(&existing) {
+            unsafe { ShowWindow(hwnd, SW_SHOWNA) };
+        }
         start_loops(app.clone());
         return Ok(());
     }
+    DOCK_SHOULD_SHOW.store(false, Ordering::SeqCst);
     let init = "window.__TAURI_WINDOW_LABEL__ = 'dock'; window.location.hash = '/dock'; if (document.documentElement) { document.documentElement.classList.add('is-transparent-window'); }";
     let win = WebviewWindowBuilder::new(&app, DOCK_LABEL, WebviewUrl::default())
         .initialization_script(init)
@@ -804,12 +870,8 @@ pub async fn dock_open_window(app: AppHandle) -> Result<(), String> {
         .build()
         .map_err(|e| format!("Não foi possível criar o dock: {}", e))?;
     if let Some(hwnd) = window_hwnd(&win) {
-        unsafe {
-            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
-            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) as isize);
-        }
+        set_click_through(hwnd, true);
     }
-    let _ = win.set_ignore_cursor_events(true);
     shared().ignoring = Some(true);
     // Shown by the first `dock_set_bounds`, once the UI has computed where it goes.
     start_loops(app);
@@ -818,6 +880,7 @@ pub async fn dock_open_window(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn dock_close_window(app: AppHandle) -> Result<(), String> {
+    DOCK_SHOULD_SHOW.store(false, Ordering::SeqCst);
     release_appbar();
     for label in [TRAY_LABEL, MENU_LABEL] {
         if let Some(win) = app.get_webview_window(label) {
@@ -1114,6 +1177,7 @@ pub fn dock_set_bounds(app: AppHandle, x: i32, y: i32, width: i32, height: i32) 
     let win = dock_window(&app)?;
     let hwnd = window_hwnd(&win).ok_or("Janela do dock sem identificador")?;
     unsafe { SetWindowPos(hwnd, HWND_TOPMOST, x, y, width.max(1), height.max(1), SWP_NOACTIVATE | SWP_SHOWWINDOW) };
+    DOCK_SHOULD_SHOW.store(true, Ordering::SeqCst);
     Ok(())
 }
 
@@ -1328,7 +1392,22 @@ pub async fn dock_pick_items(app: AppHandle, kind: String) -> Result<Vec<String>
 /// Windows keeps full control of those menus.
 #[tauri::command]
 pub fn dock_shell_action(action: String) -> Result<(), String> {
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_LWIN};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_LWIN;
+    // Flyouts that Windows can open by URI: this does not depend on keyboard focus.
+    let uri = match action.as_str() {
+        "quicksettings" => Some("ms-actioncenter:controlcenter/&showFooter=true"),
+        "notifications" => Some("ms-actioncenter:"),
+        "network" => Some("ms-availablenetworks:"),
+        _ => None,
+    };
+    if let Some(uri) = uri {
+        let open = wide("open");
+        let target = wide(uri);
+        let r = unsafe { ShellExecuteW(0, open.as_ptr(), target.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL) };
+        if r > 32 {
+            return Ok(());
+        }
+    }
     let keys: &[u16] = match action.as_str() {
         "start" => &[VK_LWIN],
         "quicklinks" => &[VK_LWIN, 0x58],
@@ -1342,8 +1421,15 @@ pub fn dock_shell_action(action: String) -> Result<(), String> {
         "widgets" => &[VK_LWIN, 0x57],
         "explorer" => &[VK_LWIN, 0x45],
         "settings" => &[VK_LWIN, 0x49],
+        "network" => &[VK_LWIN, 0x41],
         other => return Err(format!("Ação desconhecida: {}", other)),
     };
+    send_keys(keys)
+}
+
+/// Presses the keys in order and releases them in reverse (a normal chord, never held down).
+pub fn send_keys(keys: &[u16]) -> Result<(), String> {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP};
     let key = |vk: u16, up: bool| INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: if up { KEYEVENTF_KEYUP } else { 0 }, time: 0, dwExtraInfo: 0 } },
@@ -1462,6 +1548,15 @@ pub fn release_appbar() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognises_start_and_search_hosts() {
+        assert!(is_shell_surface_exe(r"C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe"));
+        assert!(is_shell_surface_exe(r"C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\SearchHost.exe"));
+        assert!(!is_shell_surface_exe(r"C:\Windows\explorer.exe"));
+        assert!(!is_shell_surface_exe(r"D:\Games\cs2.exe"));
+        assert!(!is_shell_surface_exe(""));
+    }
 
     #[test]
     fn keeps_normal_app_windows() {

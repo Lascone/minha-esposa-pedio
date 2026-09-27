@@ -16,12 +16,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use windows_sys::Win32::Foundation::{CloseHandle, BOOL, ERROR_SUCCESS, HWND, LPARAM, POINT, RECT};
 use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_LWIN, VK_RETURN};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowW, GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowRect, IsWindowVisible, ShowWindow, SW_HIDE, SW_SHOWNA,
 };
@@ -260,8 +261,14 @@ const SHELL_POPUP_CLASSES: [&str; 7] = [
     "XamlExplorerHostIslandWindow",
     "ControlCenterWindow",
 ];
+const OVERFLOW_CLASSES: [&str; 2] = ["TopLevelWindowForOverflowXamlIsland", "NotifyIconOverflowWindow"];
 const PEEK_MIN_MS: u64 = 2500;
 const PEEK_IDLE_MS: u64 = 1200;
+
+/// Set when this Windows closes the hidden-icons list as soon as the bar hides.
+static OVERFLOW_NEEDS_BAR: AtomicBool = AtomicBool::new(false);
+/// The tray pill hidden during a classic peek (0 = none), shown again when the peek ends.
+static PILL_HIDDEN_BY_PEEK: AtomicIsize = AtomicIsize::new(0);
 
 static HIDE_WANTED: AtomicBool = AtomicBool::new(false);
 /// Millis when the current peek started; 0 = not peeking.
@@ -340,6 +347,7 @@ fn start_keeper(app: &AppHandle) {
             let want = HIDE_WANTED.load(Ordering::SeqCst) && app.get_webview_window("dock").is_some();
             if !want {
                 PEEK_SINCE.store(0, Ordering::SeqCst);
+                restore_pill();
                 if hidden_by_us {
                     set_taskbars_visible(true);
                     hidden_by_us = false;
@@ -358,9 +366,17 @@ fn start_keeper(app: &AppHandle) {
                 PEEK_SINCE.store(0, Ordering::SeqCst);
             }
             set_taskbars_visible(false);
+            restore_pill();
             hidden_by_us = true;
         }
     });
+}
+
+fn restore_pill() {
+    let pill = PILL_HIDDEN_BY_PEEK.swap(0, Ordering::SeqCst);
+    if pill != 0 && unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsWindow(pill) } != 0 {
+        unsafe { ShowWindow(pill, SW_SHOWNA) };
+    }
 }
 
 /// Separate copy of the app that waits for this process to end. If it ended without restoring
@@ -575,16 +591,79 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) ->
     Ok(status(&app, Some(&results)))
 }
 
-/// Shows the real taskbar for a moment (tray, clock, notifications) and moves keyboard focus to the
-/// notification area. In replace mode it hides again once the user stops using it.
-#[tauri::command]
-pub fn taskbar_peek() -> Result<(), String> {
-    if HIDE_WANTED.load(Ordering::SeqCst) {
-        PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
-        set_taskbars_visible(true);
-        std::thread::sleep(Duration::from_millis(80));
+fn overflow_visible() -> bool {
+    OVERFLOW_CLASSES.iter().any(|c| unsafe {
+        let hwnd = FindWindowW(wide(c).as_ptr(), std::ptr::null());
+        hwnd != 0 && IsWindowVisible(hwnd) != 0
+    })
+}
+
+fn tray_pill_hwnd(app: &AppHandle) -> Option<HWND> {
+    let win = app.get_webview_window(crate::dock_system::TRAY_LABEL)?;
+    win.hwnd().ok().map(|h| h.0 as isize)
+}
+
+/// Win+B focuses the "show hidden icons" arrow of the real tray and Enter opens its list.
+fn open_overflow() -> Result<(), String> {
+    crate::dock_system::send_keys(&[VK_LWIN, 0x42])?;
+    std::thread::sleep(Duration::from_millis(160));
+    crate::dock_system::send_keys(&[VK_RETURN])
+}
+
+/// Classic peek: the real bar stays up while it is used; the pill steps aside so it does not cover
+/// the real tray, and comes back when the bar hides again (see the keeper).
+fn peek_with_bar(app: &AppHandle) -> Result<(), String> {
+    PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
+    if let Some(pill) = tray_pill_hwnd(app) {
+        if unsafe { IsWindowVisible(pill) } != 0 {
+            unsafe { ShowWindow(pill, SW_HIDE) };
+            PILL_HIDDEN_BY_PEEK.store(pill, Ordering::SeqCst);
+        }
     }
-    crate::dock_system::dock_shell_action("tray".into())
+    set_taskbars_visible(true);
+    // The dock stays above the peeked bar.
+    if let Some(dock) = app.get_webview_window(crate::dock_system::DOCK_LABEL).and_then(|w| w.hwnd().ok()) {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
+        unsafe { SetWindowPos(dock.0 as isize, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+    }
+    std::thread::sleep(Duration::from_millis(80));
+    open_overflow()
+}
+
+/// Opens the real list of hidden tray icons (the "^" of the Windows tray). In replace mode the bar
+/// is shown just long enough for Windows to open the list and hidden again, so only the list appears
+/// next to the pill. If this Windows closes the list together with the bar, peeks keep the bar up.
+#[tauri::command]
+pub fn taskbar_peek(app: AppHandle) -> Result<(), String> {
+    if !HIDE_WANTED.load(Ordering::SeqCst) {
+        return open_overflow();
+    }
+    if OVERFLOW_NEEDS_BAR.load(Ordering::SeqCst) {
+        return peek_with_bar(&app);
+    }
+    PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
+    set_taskbars_visible(true);
+    std::thread::sleep(Duration::from_millis(80));
+    open_overflow()?;
+    std::thread::spawn(move || {
+        let start = now_ms();
+        while now_ms().saturating_sub(start) < 1500 && !overflow_visible() {
+            std::thread::sleep(Duration::from_millis(40));
+        }
+        if !overflow_visible() {
+            // No list (e.g. every icon is already shown): leave it to the normal peek timeout.
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(150));
+        PEEK_SINCE.store(0, Ordering::SeqCst);
+        set_taskbars_visible(false);
+        std::thread::sleep(Duration::from_millis(350));
+        if !overflow_visible() {
+            OVERFLOW_NEEDS_BAR.store(true, Ordering::SeqCst);
+            let _ = peek_with_bar(&app);
+        }
+    });
+    Ok(())
 }
 
 #[tauri::command]

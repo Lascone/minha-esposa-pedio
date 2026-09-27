@@ -100,7 +100,7 @@ export const TrayPill: React.FC<TrayPillProps> = ({ appearance: a, state, onActi
       }}
     >
       {items.chevron && (
-        <TrayButton title="Mostrar ícones da bandeja (bandeja verdadeira do Windows)" {...btn("peek")}>
+        <TrayButton title="Mostrar ícones ocultos da bandeja" {...btn("peek")}>
           <ChevronUp size={icon} />
         </TrayButton>
       )}

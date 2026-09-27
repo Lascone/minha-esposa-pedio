@@ -20,9 +20,13 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
 ### Janela do dock
 - Transparente, sem bordas, `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`: **não rouba o foco**, por isso "clicar de novo minimiza" funciona.
 - Fica "atravessável" fora da área útil: a UI informa o retângulo interativo (`dock_set_hit_rect`) e um laço em Rust
-  (40 ms) liga/desliga `set_ignore_cursor_events` conforme o cursor. Áreas vazias nunca bloqueiam a área de trabalho.
+  (40 ms) liga/desliga `WS_EX_TRANSPARENT | WS_EX_LAYERED` direto no Win32 (`set_click_through`). Áreas vazias nunca bloqueiam a área de trabalho.
+- **Não use `set_ignore_cursor_events` do Tauri no dock**: o tao recalcula todos os estilos a partir das flags dele e, como o dock
+  é mostrado por `SetWindowPos` (sem roubar o foco), acha que a janela está oculta e chama `ShowWindow(SW_HIDE)`. Era isso que fazia
+  o dock sumir ao passar o mouse. Um laço também remostra o dock (`SW_SHOWNA`) se algo o esconder enquanto deveria estar visível.
 - Aparece só depois do primeiro `dock_set_bounds` (`SWP_SHOWWINDOW | SWP_NOACTIVATE`), já no lugar certo.
-- Eventos emitidos pelo Rust: `dock://windows`, `dock://pointer`, `dock://fullscreen`, `dock://overlap`, `dock://displays-changed`.
+- Eventos emitidos pelo Rust: `dock://windows`, `dock://pointer`, `dock://fullscreen`, `dock://overlap`, `dock://displays-changed`,
+  `dock://shell-open` (Iniciar/Pesquisa/painéis do Windows em primeiro plano: o dock aparece mesmo com ocultação automática).
 - Menu de contexto nativo (`@tauri-apps/api/menu`): abrir, janelas abertas, local do arquivo, mudar ícone, separador, desafixar, fechar janelas.
 - Arrastar do Explorer/área de trabalho: `onDragDropEvent` → `dock_resolve_item` (resolve `.lnk` via `IShellLinkW`).
 - "Vidro do Windows" usa Acrylic real (`set_effects`). Nesse modo a janela tem o tamanho exato da barra, sem ampliação nem nomes flutuantes.
@@ -36,8 +40,12 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
   e abre a **prévia** do Modo dock já com "ocultar automaticamente". A barra do Windows só muda quando a pessoa clica em Aplicar.
 - Estilos prontos na aba: **macOS** (tema `macos`, Launchpad, relógio dentro do dock) e **Windows 11 flutuante**
   (tema `windows11-float`, `WIN11_LAYOUT` à esquerda sem ampliação, `trayStyle: "pill"`). Ambos reservam espaço na tela.
-- A bandeja **não é simulada**: o botão "^" (e o relógio do dock no estilo macOS) chama `taskbar_peek`, que mostra a barra
-  verdadeira por alguns segundos e manda Win + B. Ícones e menus dos apps continuam sendo os nativos.
+- A bandeja **não é simulada**: o botão "^" chama `taskbar_peek`, que abre a **lista real de ícones ocultos** (Win + B e Enter).
+  Com a barra substituída, ela aparece só o tempo necessário para o Windows abrir a lista e some de novo. Se o Windows fechar a
+  lista junto com a barra, os próximos cliques mantêm a barra durante o uso, escondendo a pílula para não cobrir a bandeja real.
+  Ícones e menus dos apps continuam sendo os nativos.
+- Configurações rápidas, rede e notificações abrem pelos URIs do Windows (`ms-actioncenter:controlcenter/&showFooter=true`,
+  `ms-availablenetworks:`, `ms-actioncenter:`), com Win + A / Win + N como alternativa.
 
 ### Substituir a barra (`taskbarMode.hide`)
 - `taskbar_mode_apply(autohide, hide)`: com `hide`, liga a ocultação automática e esconde `Shell_TrayWnd`/`Shell_SecondaryTrayWnd`

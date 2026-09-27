@@ -60,6 +60,7 @@ export const DockWindow: React.FC = () => {
   const [hovered, setHovered] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [overlap, setOverlap] = useState(false);
+  const [shellOpen, setShellOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropHover, setDropHover] = useState(false);
@@ -96,6 +97,7 @@ export const DockWindow: React.FC = () => {
     offs.push(listen<boolean>("dock://pointer", (e) => setHovered(e.payload)));
     offs.push(listen<boolean>("dock://fullscreen", (e) => setFullscreen(e.payload)));
     offs.push(listen<boolean>("dock://overlap", (e) => setOverlap(e.payload)));
+    offs.push(listen<boolean>("dock://shell-open", (e) => setShellOpen(e.payload)));
     return () => offs.forEach((p) => p.then((f) => f()).catch(() => {}));
   }, []);
 
@@ -174,7 +176,8 @@ export const DockWindow: React.FC = () => {
   }, [nativeGlass, appearance.radius]);
 
   // --- auto-hide ----------------------------------------------------------------------------
-  const busy = dragging || menuOpen || dropHover || !!group;
+  // Start/Search open (Windows key) reveals the dock, as it does with the taskbar.
+  const busy = dragging || menuOpen || dropHover || !!group || shellOpen;
   const wantHidden = shouldHide({
     autoHide: behavior.autoHide,
     hovered,
