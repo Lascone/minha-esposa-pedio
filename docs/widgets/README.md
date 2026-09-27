@@ -42,6 +42,16 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
   - `WidgetAPI.getTheme()`
   - `WidgetAPI.onThemeChange(callback)`
   - `WidgetAPI.emitReady()`
+- Segurar e arrastar dentro do iframe move o widget: o bootstrap do sandbox envia `widget:drag` ao host depois de 4 px de movimento (fora de botões, campos, links e `[data-no-drag]`); o host só aceita a mensagem vinda de um iframe dele e chama `startDragging()`.
+
+---
+
+## 🖱️ 2.2 Mover widgets e cliques na área de trabalho
+- **Cliques atravessam as partes transparentes:** cada janela de widget/companheiro informa sua área visível (`useWindowHitArea` → comando `widget_set_hit_rects`). Um laço em Rust (`widget_system.rs`, 30 ms) alterna `WS_EX_TRANSPARENT | WS_EX_LAYERED` direto no Win32 conforme o cursor está ou não sobre o card (cantos arredondados incluídos). Não use `set_ignore_cursor_events` do tao: ele pode esconder a janela.
+- Com as configurações abertas ou o menu do companheiro aberto, a janela inteira recebe o mouse (`full`).
+- **Segurar e arrastar:** em qualquer ponto que não seja um controle, depois de 4 px de movimento (`dragLogic.ts`). Um clique simples continua sendo clique. O puxador ✥ da barra do widget começa o arraste na hora. Widgets travados (cadeado) não se movem e mostram um aviso.
+- Companheiros salvam a nova posição quando o arraste termina (`onMoved`); sem isso, andar os devolvia ao lugar antigo.
+- **Simulador do painel:** usa o monitor principal real (`primaryMonitor()`, em px lógicos) na mesma proporção, com a barra de tarefas pela área de trabalho. O arraste converte pela escala e mantém o widget inteiro dentro da tela. "Alinhar Todos" organiza em linhas dentro da área útil do monitor.
 
 ---
 
