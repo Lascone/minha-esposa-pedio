@@ -59,6 +59,7 @@ export const DockView: React.FC = () => {
   const [suggestAutohide, setSuggestAutohide] = useState(0);
   const startButton = useDockStore((s) => s.behavior.startButton);
   const trayStyle = useDockStore((s) => s.behavior.trayStyle);
+  const behavior = useDockStore((s) => s.behavior);
   const activeThemeId = useDockStore((s) => s.activeThemeId);
   const activePreset: StylePreset | null = !startButton ? null : activeThemeId === MACOS_THEME_ID ? "macos" : activeThemeId === WIN11_THEME_ID ? "win11" : null;
 
@@ -72,6 +73,8 @@ export const DockView: React.FC = () => {
       startWithApp: true,
       reserveSpace: true,
       trayStyle: preset === "win11" ? "pill" : "inDock",
+      startMenu: "dock",
+      shellButtons: preset === "win11" ? ["search", "taskview"] : [],
     });
     s.setAppearance(preset === "win11" ? WIN11_LAYOUT : MACOS_LAYOUT);
     s.applyTheme(preset === "win11" ? WIN11_THEME_ID : MACOS_THEME_ID);
@@ -83,7 +86,7 @@ export const DockView: React.FC = () => {
 
   const undoStyle = async () => {
     const s = useDockStore.getState();
-    s.setBehavior({ startButton: false, reserveSpace: false, trayStyle: "inDock" });
+    s.setBehavior({ startButton: false, reserveSpace: false, trayStyle: "inDock", startMenu: "windows", shellButtons: [] });
     s.applyTheme("aero-glass");
     const d = DEFAULT_APPEARANCE;
     s.setAppearance({ align: d.align, iconSize: d.iconSize, spacing: d.spacing, padding: d.padding, offset: d.offset, magnify: d.magnify });
@@ -207,6 +210,9 @@ export const DockView: React.FC = () => {
           taskbarAutohide={taskbarMode.enabled && taskbarMode.autohide}
           taskbarHidden={!!activePreset || (enabled && taskbarMode.enabled && taskbarMode.hide)}
           trayStyle={trayStyle}
+          shellButtons={behavior.shellButtons}
+          trayItems={behavior.trayItems}
+          startMenuSections={behavior.startMenu === "dock" ? behavior.startMenuSections : undefined}
           onMove={moveEntry}
           onGroup={groupItems}
           onSelect={(id) => {

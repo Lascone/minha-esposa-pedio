@@ -26,7 +26,7 @@ export interface ConsoleGame {
   coverMime?: string;
   /** Keyboard map: EmulatorJS button index -> KeyboardEvent.keyCode. */
   keys?: Record<number, number>;
-  /** Gamepad map: EmulatorJS button index -> gamepad button name. */
+  /** Legacy EmulatorJS gamepad map, no longer used (controllers are configured in `gamepadStore`). */
   pads?: Record<number, string>;
   prefs: ConsoleGamePrefs;
   createdAt: number;

@@ -6,6 +6,9 @@ import {
   groupEntries,
   isPinnedSlot,
   trayWindowRect,
+  appLetter,
+  searchByName,
+  startMenuRect,
   itemExe,
   magnifyScale,
   matchWindows,
@@ -159,6 +162,35 @@ describe("window matching", () => {
     expect(slots.map((s) => s.kind)).toEqual(["start", "separator", "item", "item", "item", "separator", "tray"]);
     expect(slots.filter(isPinnedSlot).map((s) => s.key)).toEqual(["a", "b", "f"]);
     expect(buildSlots([], null, false, false, true).map((s) => s.kind)).toEqual(["tray"]);
+  });
+
+  it("puts the Windows buttons right after Start, in order and without duplicates", () => {
+    const slots = buildSlots(entries, null, true, true, false, ["search", "taskview", "search"]);
+    expect(slots.map((s) => s.key)).toEqual(["start", "shell-search", "shell-taskview", "sep-start", "a", "b", "f"]);
+    expect(slots.filter(isPinnedSlot).map((s) => s.key)).toEqual(["a", "b", "f"]);
+    expect(buildSlots([], null, true, false, false, ["explorer"]).map((s) => s.kind)).toEqual(["shell"]);
+  });
+
+  it("finds Start menu apps ignoring accents, starts-with first", () => {
+    const apps = [{ name: "Bloco de Notas" }, { name: "Paint" }, { name: "Notepad++" }, { name: "Configurações" }, { name: "Visual Studio Code" }];
+    expect(searchByName(apps, "not").map((a) => a.name)).toEqual(["Notepad++", "Bloco de Notas"]);
+    expect(searchByName(apps, "configuracoes").map((a) => a.name)).toEqual(["Configurações"]);
+    expect(searchByName(apps, "  ")).toHaveLength(5);
+    expect(searchByName(apps, "ode").map((a) => a.name)).toEqual(["Visual Studio Code"]);
+    expect(appLetter("Ágata")).toBe("A");
+    expect(appLetter("7-Zip")).toBe("#");
+  });
+
+  it("opens the dock's Start menu next to the bar and keeps it on screen", () => {
+    const m = monitor();
+    const a = { ...DEFAULT_APPEARANCE, edge: "bottom" as const };
+    const bar = { x: 10, y: 1030, width: 400, height: 44 };
+    const r = startMenuRect(a, m, bar, { x: 16, y: 1034 }, { w: 580, h: 640 });
+    expect(r).toEqual({ x: 8, y: 1030 - 640 - 8, width: 580, height: 640 });
+    const right = startMenuRect(a, m, bar, { x: 1900, y: 1034 }, { w: 580, h: 640 });
+    expect(right.x + right.width).toBeLessThanOrEqual(1920 - 8);
+    const top = startMenuRect({ ...a, edge: "top" }, m, { x: 10, y: 0, width: 400, height: 44 }, { x: 16, y: 4 }, { w: 580, h: 640 });
+    expect(top.y).toBe(52);
   });
 
   it("places the tray pill at the free end of the dock's edge", () => {

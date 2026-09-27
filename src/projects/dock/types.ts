@@ -82,6 +82,30 @@ export interface DockBehavior {
    * separate floating pill at the other end of the edge (Windows 11 "floating taskbar" look).
    */
   trayStyle: "inDock" | "pill";
+  /** System buttons shown right after Start, in this order (like the Windows 11 taskbar). */
+  shellButtons: DockShellButton[];
+  /** What the Start button opens: the real Windows Start menu or the dock's own themed menu. */
+  startMenu: "windows" | "dock";
+  startMenuSections: DockStartMenuSections;
+  /** What the tray pill shows. */
+  trayItems: DockTrayItems;
+}
+
+export type DockShellButton = "search" | "taskview" | "widgets" | "explorer" | "desktop" | "settings";
+
+export interface DockStartMenuSections {
+  pinned: boolean;
+  allApps: boolean;
+  power: boolean;
+  user: boolean;
+}
+
+export interface DockTrayItems {
+  chevron: boolean;
+  language: boolean;
+  quick: boolean;
+  seconds: boolean;
+  date: boolean;
 }
 
 export interface DockTheme {

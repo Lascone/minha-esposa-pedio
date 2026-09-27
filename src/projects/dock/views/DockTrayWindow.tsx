@@ -13,6 +13,7 @@ import { TrayPill } from "../components/TrayPill";
 export const DockTrayWindow: React.FC = () => {
   const appearance = useDockStore((s) => s.appearance);
   const hideOnFullscreen = useDockStore((s) => s.behavior.hideOnFullscreen);
+  const trayItems = useDockStore((s) => s.behavior.trayItems);
   const [monitors, setMonitors] = useState<DockMonitor[]>([]);
   const [state, setState] = useState<TrayState | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -75,7 +76,7 @@ export const DockTrayWindow: React.FC = () => {
 
   return (
     <div className="fixed left-0 top-0" style={{ width: "max-content" }} ref={pillRef}>
-      <TrayPill appearance={look} state={state} onAction={onAction} />
+      <TrayPill appearance={look} state={state} onAction={onAction} items={trayItems} />
     </div>
   );
 };

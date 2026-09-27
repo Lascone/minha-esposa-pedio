@@ -16,9 +16,11 @@ import {
   pickMonitor,
   revealStrip,
   shouldHide,
+  START_MENU_SIZE,
+  startMenuRect,
 } from "../logic";
 import { DockGroup, DockLaunchItem, DockMonitor, DockWindowInfo, Rect } from "../types";
-import { ActivateInfo, DockBar, DockContextTarget, dockBarBackground } from "../components/DockBar";
+import { ActivateInfo, DockBar, DockContextTarget, SHELL_BUTTON_LABELS, dockBarBackground } from "../components/DockBar";
 import { DockIcon } from "../components/DockIcon";
 
 type MenuEntry = { text: string; action?: () => void; enabled?: boolean } | "separator" | { text: string; items: MenuEntry[] };
@@ -106,9 +108,20 @@ export const DockWindow: React.FC = () => {
   const nativeGlass = appearance.background === "acrylic";
   const running = useMemo(() => matchWindows(entries, windows), [entries, windows]);
   const slots = useMemo(
-    () => buildSlots(entries, running, behavior.showRunning, behavior.startButton, trayButton),
-    [entries, running, behavior.showRunning, behavior.startButton, trayButton]
+    () => buildSlots(entries, running, behavior.showRunning, behavior.startButton, trayButton, behavior.shellButtons),
+    [entries, running, behavior.showRunning, behavior.startButton, trayButton, behavior.shellButtons]
   );
+
+  // The menu hides itself when it loses focus, which happens right before a click on the Start
+  // button would toggle it; ignore that click so it closes instead of reopening.
+  const menuHiddenAt = useRef(0);
+  useEffect(() => {
+    const off = listen("dockmenu://hidden", () => (menuHiddenAt.current = Date.now()));
+    return () => void off.then((f) => f()).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (behavior.startMenu !== "dock" || !behavior.startButton) dockService.menuHide().catch(() => {});
+  }, [behavior.startMenu, behavior.startButton]);
   const counts = countSlots(slots);
   const monitor = pickMonitor(monitors, appearance.monitor);
   const group = openGroup ? (entries.find((e) => e.id === openGroup.id && e.type === "group") as DockGroup | undefined) : undefined;
@@ -288,7 +301,13 @@ export const DockWindow: React.FC = () => {
     const newInstance = info.middle || info.shift;
     if (slot.kind === "start") {
       setOpenGroup(null);
-      dockService.shellAction("start").catch((e) => showNotice(String(e)));
+      if (behavior.startMenu === "dock") void toggleStartMenu(info.element);
+      else dockService.shellAction("start").catch((e) => showNotice(String(e)));
+      return;
+    }
+    if (slot.kind === "shell") {
+      setOpenGroup(null);
+      dockService.shellAction(slot.action).catch((e) => showNotice(String(e)));
       return;
     }
     if (slot.kind === "tray") {
@@ -314,6 +333,22 @@ export const DockWindow: React.FC = () => {
       const r = info.element.getBoundingClientRect();
       const center = vertical ? r.top + r.height / 2 : r.left + r.width / 2;
       setOpenGroup((g) => (g?.id === slot.group.id ? null : { id: slot.group.id, center }));
+    }
+  };
+
+  const toggleStartMenu = async (element: HTMLElement) => {
+    if (!layout || !monitor || Date.now() - menuHiddenAt.current < 350) return;
+    try {
+      const opened = await dockService.menuToggle();
+      if (!opened) return;
+      const s = layout.scale;
+      const r = element.getBoundingClientRect();
+      const bar = barRef.current?.getBoundingClientRect() || { left: layout.bar.x, top: layout.bar.y, width: layout.bar.width, height: layout.bar.height };
+      const physBar = { x: layout.window.x + bar.left * s, y: layout.window.y + bar.top * s, width: bar.width * s, height: bar.height * s };
+      const anchorPt = { x: layout.window.x + r.left * s, y: layout.window.y + r.top * s };
+      await dockService.menuSetBounds(startMenuRect(appearance, monitor, physBar, anchorPt, START_MENU_SIZE), true);
+    } catch (e) {
+      showNotice(String(e));
     }
   };
 
@@ -420,8 +455,16 @@ export const DockWindow: React.FC = () => {
         { text: "Renomear no painel…", action: openSettings },
       ]);
     }
+    if (target.kind === "shell") {
+      return void popupMenu([
+        { text: SHELL_BUTTON_LABELS[target.action], action: () => void dockService.shellAction(target.action).catch((e) => showNotice(String(e))) },
+        "separator",
+        { text: "Tirar este botão do dock", action: () => store.setBehavior({ shellButtons: behavior.shellButtons.filter((b) => b !== target.action) }) },
+        { text: "Configurar dock…", action: openSettings },
+      ]);
+    }
     if (target.kind === "start" || target.kind === "tray") {
-      const shell = (action: "start" | "quicklinks" | "desktop") => () => void dockService.shellAction(action).catch((e) => showNotice(String(e)));
+      const shell = (action: "start" | "quicklinks" | "desktop" | "search") => () => void dockService.shellAction(action).catch((e) => showNotice(String(e)));
       const restoreTaskbar = {
         text: "Restaurar barra do Windows",
         action: () =>
@@ -443,7 +486,12 @@ export const DockWindow: React.FC = () => {
         ]);
       }
       return void popupMenu([
-        { text: "Abrir o Iniciar", action: shell("start") },
+        { text: "Abrir o Iniciar do Windows", action: shell("start") },
+        {
+          text: behavior.startMenu === "dock" ? "Usar o Iniciar do Windows no botão" : "Usar o menu do dock no botão",
+          action: () => store.setBehavior({ startMenu: behavior.startMenu === "dock" ? "windows" : "dock" }),
+        },
+        { text: "Pesquisar", action: shell("search") },
         { text: "Menu de links rápidos (Win + X)", action: shell("quicklinks") },
         { text: "Mostrar a área de trabalho", action: shell("desktop") },
         "separator",

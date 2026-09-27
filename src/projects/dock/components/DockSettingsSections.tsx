@@ -27,12 +27,12 @@ import { Toggle } from "@/core/components/Toggle";
 import { useToast } from "@/core/components/Toast";
 import { useDockStore } from "../store/dockStore";
 import { BUILTIN_THEMES } from "../themes";
-import { DockAppearance, DockEntry, DockLaunchItem, DockMonitor, DockTheme, DockWindowInfo } from "../types";
+import { DockAppearance, DockEntry, DockLaunchItem, DockMonitor, DockShellButton, DockTheme, DockWindowInfo } from "../types";
 import { dockService } from "../dockService";
 import { addPathsToDock, pickAndAddToDock, pickCustomIcon } from "../dockActions";
 import { buildSlots, matchWindows } from "../logic";
 import { DockIcon } from "./DockIcon";
-import { DockBar } from "./DockBar";
+import { DockBar, SHELL_BUTTON_LABELS, ShellButtonIcon } from "./DockBar";
 
 // ---------------------------------------------------------------------------------------------
 // Small building blocks
@@ -629,6 +629,65 @@ export const ThemesSection: React.FC = () => {
 // Behavior
 // ---------------------------------------------------------------------------------------------
 
+const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+      active ? "border-theme-primary bg-theme-primary text-white shadow-soft" : "border-theme-border/60 bg-theme-surface-card text-theme-text-muted hover:text-theme-text"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const ALL_SHELL_BUTTONS: DockShellButton[] = ["search", "taskview", "widgets", "explorer", "desktop", "settings"];
+
+/** Pick which Windows buttons sit next to Start, and their order. */
+const ShellButtonsEditor: React.FC<{ value: DockShellButton[]; onChange: (v: DockShellButton[]) => void }> = ({ value, onChange }) => {
+  const move = (id: DockShellButton, dir: -1 | 1) => {
+    const i = value.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= value.length) return;
+    const next = value.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  const off = ALL_SHELL_BUTTONS.filter((id) => !value.includes(id));
+  return (
+    <Field label="Botões do Windows no dock" hint="Ficam logo depois do Iniciar, como na barra do Windows 11. Cada um usa o atalho oficial do Windows (Pesquisar = Win + S, Visão de tarefas = Win + Tab…).">
+      <div className="flex flex-col gap-1">
+        {value.map((id, i) => (
+          <div key={id} className="flex items-center gap-2 rounded-cute border border-theme-border/60 bg-theme-surface-card px-2 py-1">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-700">
+              <ShellButtonIcon action={id} size={24} color="#ffffff" />
+            </span>
+            <span className="flex-1 text-xs font-semibold text-theme-text">{SHELL_BUTTON_LABELS[id]}</span>
+            <IconBtn title="Mover para a esquerda" onClick={() => move(id, -1)} disabled={i === 0}>
+              <ChevronUp size={14} />
+            </IconBtn>
+            <IconBtn title="Mover para a direita" onClick={() => move(id, 1)} disabled={i === value.length - 1}>
+              <ChevronDown size={14} />
+            </IconBtn>
+            <IconBtn title="Tirar do dock" danger onClick={() => onChange(value.filter((v) => v !== id))}>
+              <Trash2 size={14} />
+            </IconBtn>
+          </div>
+        ))}
+        {off.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {off.map((id) => (
+              <Chip key={id} active={false} onClick={() => onChange([...value, id])}>
+                + {SHELL_BUTTON_LABELS[id]}
+              </Chip>
+            ))}
+          </div>
+        )}
+      </div>
+    </Field>
+  );
+};
+
 export const BehaviorSection: React.FC = () => {
   const b = useDockStore((s) => s.behavior);
   const set = useDockStore((s) => s.setBehavior);
@@ -656,12 +715,54 @@ export const BehaviorSection: React.FC = () => {
         <div className="pb-2">
           <Toggle
             label="Botão Iniciar no dock"
-            description="O primeiro ícone abre o menu Iniciar de verdade do Windows. Clique direito: Win + X, mostrar área de trabalho e restaurar a barra."
+            description="O primeiro ícone do dock vira o botão Iniciar. Clique direito: Win + X, pesquisar, mostrar área de trabalho e restaurar a barra."
             checked={b.startButton}
             onChange={(startButton) => set({ startButton })}
           />
         </div>
-        <div className="flex flex-col gap-1.5 py-2">
+        {b.startButton && (
+          <div className="flex flex-col gap-3 py-2">
+            <Field
+              label="O que o botão Iniciar abre"
+              hint={
+                b.startMenu === "dock"
+                  ? "Um menu próprio com o mesmo tema do dock: pesquisa, fixados, todos os apps e desligar. O Iniciar do Windows continua a um clique (e na tecla Windows)."
+                  : "O menu Iniciar original do Windows."
+              }
+            >
+              <Segmented
+                value={b.startMenu}
+                onChange={(startMenu) => set({ startMenu })}
+                options={[
+                  { value: "windows", label: "Iniciar do Windows" },
+                  { value: "dock", label: "Menu do dock (personalizável)" },
+                ]}
+              />
+            </Field>
+            {b.startMenu === "dock" && (
+              <Field label="Partes do menu">
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      ["pinned", "Fixados"],
+                      ["allApps", "Todos os apps"],
+                      ["user", "Nome do usuário"],
+                      ["power", "Bloquear e desligar"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Chip key={key} active={b.startMenuSections[key]} onClick={() => set({ startMenuSections: { ...b.startMenuSections, [key]: !b.startMenuSections[key] } })}>
+                      {label}
+                    </Chip>
+                  ))}
+                </div>
+              </Field>
+            )}
+          </div>
+        )}
+        <div className="py-2">
+          <ShellButtonsEditor value={b.shellButtons} onChange={(shellButtons) => set({ shellButtons })} />
+        </div>
+        <div className="flex flex-col gap-3 py-2">
           <Field label="Bandeja e relógio (quando o dock substitui a barra do Windows)">
             <Segmented
               value={b.trayStyle}
@@ -672,6 +773,25 @@ export const BehaviorSection: React.FC = () => {
               ]}
             />
           </Field>
+          {b.trayStyle === "pill" && (
+            <Field label="O que aparece na pílula" hint="Cada botão abre o painel verdadeiro do Windows. A pílula usa as mesmas cores e cantos do tema do dock.">
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    ["chevron", "^ Ícones da bandeja"],
+                    ["language", "Idioma do teclado"],
+                    ["quick", "Rede, som e bateria"],
+                    ["seconds", "Segundos no relógio"],
+                    ["date", "Data embaixo da hora"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <Chip key={key} active={b.trayItems[key]} onClick={() => set({ trayItems: { ...b.trayItems, [key]: !b.trayItems[key] } })}>
+                    {label}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+          )}
         </div>
         <Toggle
           label="Reservar espaço na tela"

@@ -334,7 +334,9 @@ fn start_keeper(app: &AppHandle) {
         let mut hidden_by_us = false;
         let mut last_use = 0u64;
         loop {
-            std::thread::sleep(Duration::from_millis(250));
+            // Explorer re-shows the auto-hidden bar when the pointer touches the screen edge; hide it
+            // again quickly so it never covers the dock.
+            std::thread::sleep(Duration::from_millis(if hidden_by_us { 60 } else { 250 }));
             let want = HIDE_WANTED.load(Ordering::SeqCst) && app.get_webview_window("dock").is_some();
             if !want {
                 PEEK_SINCE.store(0, Ordering::SeqCst);

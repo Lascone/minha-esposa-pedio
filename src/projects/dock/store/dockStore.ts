@@ -24,6 +24,10 @@ export const DEFAULT_BEHAVIOR: DockBehavior = {
   startWithApp: true,
   startButton: false,
   trayStyle: "inDock",
+  shellButtons: [],
+  startMenu: "windows",
+  startMenuSections: { pinned: true, allApps: true, power: true, user: true },
+  trayItems: { chevron: true, language: true, quick: true, seconds: true, date: false },
 };
 
 interface DockState {
@@ -134,7 +138,12 @@ export const useDockStore = create<DockState>()(
         ...current,
         ...(persisted || {}),
         appearance: { ...DEFAULT_APPEARANCE, ...(persisted?.appearance || {}) },
-        behavior: { ...DEFAULT_BEHAVIOR, ...(persisted?.behavior || {}) },
+        behavior: {
+          ...DEFAULT_BEHAVIOR,
+          ...(persisted?.behavior || {}),
+          startMenuSections: { ...DEFAULT_BEHAVIOR.startMenuSections, ...(persisted?.behavior?.startMenuSections || {}) },
+          trayItems: { ...DEFAULT_BEHAVIOR.trayItems, ...(persisted?.behavior?.trayItems || {}) },
+        },
         taskbarMode: { enabled: false, autohide: false, hide: false, ...(persisted?.taskbarMode || {}) },
       }),
     }

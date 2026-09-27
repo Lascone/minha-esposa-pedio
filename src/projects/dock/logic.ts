@@ -1,4 +1,4 @@
-import { DockAppearance, DockAutoHide, DockEntry, DockGroup, DockLaunchItem, DockMonitor, DockWindowInfo, Rect, ResolvedDockItem } from "./types";
+import { DockAppearance, DockAutoHide, DockEntry, DockGroup, DockLaunchItem, DockMonitor, DockShellButton, DockWindowInfo, Rect, ResolvedDockItem } from "./types";
 
 export function newDockId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -126,6 +126,7 @@ export type DockSlot =
   | { key: string; kind: "separator"; auto: boolean }
   | { key: string; kind: "running"; exe: string; windows: DockWindowInfo[] }
   | { key: string; kind: "start" }
+  | { key: string; kind: "shell"; action: DockShellButton }
   | { key: string; kind: "tray" };
 
 /** Slots that belong to the user's saved list (can be dragged and reordered). */
@@ -142,12 +143,14 @@ export function buildSlots(
   running: RunningMatch | null | undefined,
   showRunning: boolean,
   startButton = false,
-  trayButton = false
+  trayButton = false,
+  shellButtons: DockShellButton[] = []
 ): DockSlot[] {
   const slots: DockSlot[] = [];
-  if (startButton) {
-    slots.push({ key: "start", kind: "start" });
-    if (entries.length || (showRunning && running?.unpinned.length)) slots.push({ key: "sep-start", kind: "separator", auto: true });
+  if (startButton) slots.push({ key: "start", kind: "start" });
+  for (const action of new Set(shellButtons)) slots.push({ key: `shell-${action}`, kind: "shell", action });
+  if (slots.length && (entries.length || (showRunning && running?.unpinned.length))) {
+    slots.push({ key: "sep-start", kind: "separator", auto: true });
   }
   slots.push(...entries.map((e): DockSlot => {
     if (e.type === "separator") return { key: e.id, kind: "separator", auto: false };
@@ -186,6 +189,61 @@ export function trayWindowRect(a: DockAppearance, m: DockMonitor, size: { w: num
     width: w,
     height: h,
   };
+}
+
+function fold(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** Start-menu search: accent/case-insensitive; names starting with the query come first. */
+export function searchByName<T extends { name: string }>(list: T[], query: string, limit = 40): T[] {
+  const q = fold(query.trim());
+  if (!q) return list.slice(0, limit);
+  const starts: T[] = [];
+  const words: T[] = [];
+  const inside: T[] = [];
+  for (const it of list) {
+    const n = fold(it.name);
+    if (n.startsWith(q)) starts.push(it);
+    else if (n.split(/[\s\-_.]+/).some((w) => w.startsWith(q))) words.push(it);
+    else if (n.includes(q)) inside.push(it);
+  }
+  return [...starts, ...words, ...inside].slice(0, limit);
+}
+
+/** Letter heading used in the "all apps" list (digits and symbols go under "#"). */
+export function appLetter(name: string): string {
+  const c = fold(name).charAt(0).toUpperCase();
+  return c >= "A" && c <= "Z" ? c : "#";
+}
+
+/** Logical size of the dock's Start menu window. */
+export const START_MENU_SIZE = { w: 580, h: 640 };
+
+/**
+ * Physical-pixel rectangle for the dock's Start menu: next to the bar, on its inner side, lined up
+ * with the Start button (`anchor`, physical screen coordinates of the button) and kept on screen.
+ */
+export function startMenuRect(a: DockAppearance, m: DockMonitor, bar: Rect, anchor: { x: number; y: number }, size: { w: number; h: number }): Rect {
+  const scale = m.scale || 1;
+  const w = Math.min(Math.round(size.w * scale), m.width - 16);
+  const h = Math.min(Math.round(size.h * scale), m.height - 16);
+  const gap = Math.round(8 * scale);
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const minX = m.x + gap;
+  const maxX = m.x + m.width - w - gap;
+  const minY = m.y + gap;
+  const maxY = m.y + m.height - h - gap;
+  switch (a.edge) {
+    case "top":
+      return { x: clamp(anchor.x - gap * 2, minX, maxX), y: clamp(bar.y + bar.height + gap, minY, maxY), width: w, height: h };
+    case "left":
+      return { x: clamp(bar.x + bar.width + gap, minX, maxX), y: clamp(anchor.y - gap * 2, minY, maxY), width: w, height: h };
+    case "right":
+      return { x: clamp(bar.x - w - gap, minX, maxX), y: clamp(anchor.y - gap * 2, minY, maxY), width: w, height: h };
+    default:
+      return { x: clamp(anchor.x - gap * 2, minX, maxX), y: clamp(bar.y - h - gap, minY, maxY), width: w, height: h };
+  }
 }
 
 export function countSlots(slots: DockSlot[]): { icons: number; separators: number } {

@@ -30,6 +30,8 @@ import { EMULATORJS_CDN_DATA, EMULATORJS_VERSION, getSystem } from "../systems";
 import { isGameConfigured, playableSha1 } from "../types";
 import { saveConsoleBounds } from "../launcher";
 import { KeyMappingEditor } from "./KeyMappingEditor";
+import { GamepadSettings } from "./GamepadSettings";
+import { playerPadConfig, useGamepadStore } from "../gamepadStore";
 
 type Phase = "waiting" | "reading" | "loading" | "playing" | "error";
 type Panel = null | "volume" | "save" | "load" | "controls" | "about";
@@ -160,7 +162,7 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
             rom: romBuf,
             sram: sramBuf,
             keys: g.keys || sys.defaultKeys,
-            pads: g.pads || null,
+            gamepad: playerPadConfig(useGamepadStore.getState()),
             volume: g.prefs.volume,
             muted: g.prefs.muted,
             dataPath: EMULATORJS_CDN_DATA,
@@ -197,7 +199,7 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
           break;
         case "ejs:controls-changed": {
           const g = gameRef.current;
-          if (g) updateGame(g.id, { keys: data.keys, pads: data.pads }).catch(() => {});
+          if (g) updateGame(g.id, { keys: data.keys }).catch(() => {});
           break;
         }
         case "ejs:reply": {
@@ -213,6 +215,15 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [frameKey, updateGame]);
+
+  // Controller settings apply immediately, even mid-game.
+  useEffect(
+    () =>
+      useGamepadStore.subscribe((s) => {
+        send("setGamepad", playerPadConfig(s)).catch(() => {});
+      }),
+    [send]
+  );
 
   // Send the game once both the player is listening and the library is loaded.
   useEffect(() => {
@@ -377,7 +388,7 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
   const handleKeysChange = (keys: Record<number, number>) => {
     if (!game) return;
     updateGame(game.id, { keys }).catch(() => {});
-    send("setControls", { keys, pads: game.pads || null }).catch(() => {});
+    send("setControls", { keys }).catch(() => {});
   };
 
   const handleToggleFullscreen = async () => {
@@ -564,19 +575,11 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
             )}
 
             {panel === "controls" && system && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <GamepadSettings system={system} />
+                <div className="h-px bg-white/10" />
                 <span className="font-bold">Teclado</span>
                 <KeyMappingEditor system={system} keys={game?.keys || system.defaultKeys} onChange={handleKeysChange} compact />
-                <button
-                  onClick={() => {
-                    send("openControls").catch(() => {});
-                    setPanel(null);
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20"
-                >
-                  <Gamepad2 size={13} /> Configurar controle (gamepad) no menu do emulador
-                </button>
-                <p className="text-[10px] text-white/50">Controles USB/Bluetooth são detectados automaticamente ao apertar um botão.</p>
               </div>
             )}
 

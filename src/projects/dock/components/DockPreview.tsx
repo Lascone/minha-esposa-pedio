@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { DockAppearance, DockEntry, DockWindowInfo } from "../types";
-import { buildSlots, matchWindows } from "../logic";
+import { DockAppearance, DockEntry, DockShellButton, DockStartMenuSections, DockTrayItems, DockWindowInfo } from "../types";
+import { START_MENU_SIZE, buildSlots, flattenItems, matchWindows } from "../logic";
+import { StartMenuPanel } from "../views/DockStartMenu";
 import { dockService, isTauriRuntime, TrayState } from "../dockService";
 import { DockBar } from "./DockBar";
 import { TrayPill } from "./TrayPill";
@@ -16,6 +17,10 @@ interface DockPreviewProps {
   /** The dock replaces the native taskbar: no taskbar drawn, tray/clock button in the dock. */
   taskbarHidden?: boolean;
   trayStyle?: "inDock" | "pill";
+  shellButtons?: DockShellButton[];
+  trayItems?: DockTrayItems;
+  /** Set when Start opens the dock's own menu: clicking Start in the preview shows it. */
+  startMenuSections?: DockStartMenuSections;
   onMove?: (id: string, toIndex: number) => void;
   onGroup?: (sourceId: string, targetId: string) => void;
   onSelect?: (id: string) => void;
@@ -32,12 +37,19 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
   taskbarAutohide,
   taskbarHidden = false,
   trayStyle = "inDock",
+  shellButtons = [],
+  trayItems,
+  startMenuSections,
   onMove,
   onGroup,
   onSelect,
   height = 270,
 }) => {
   const [windows, setWindows] = useState<DockWindowInfo[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!startMenuSections || !startButton) setMenuOpen(false);
+  }, [startMenuSections, startButton]);
 
   useEffect(() => {
     if (!showRunning) return;
@@ -59,9 +71,11 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
   }, [showPill]);
 
   const slots = useMemo(
-    () => buildSlots(entries, matchWindows(entries, windows), showRunning, startButton, taskbarHidden && trayStyle === "inDock"),
-    [entries, windows, showRunning, startButton, taskbarHidden, trayStyle]
+    () => buildSlots(entries, matchWindows(entries, windows), showRunning, startButton, taskbarHidden && trayStyle === "inDock", shellButtons),
+    [entries, windows, showRunning, startButton, taskbarHidden, trayStyle, shellButtons]
   );
+  const pinned = useMemo(() => flattenItems(entries), [entries]);
+  const menuScale = Math.min(0.62, (height - 70) / START_MENU_SIZE.h);
   const vertical = appearance.edge === "left" || appearance.edge === "right";
   const align = appearance.align === "start" ? "flex-start" : appearance.align === "end" ? "flex-end" : "center";
   const edge = appearance.edge === "bottom" || appearance.edge === "right" ? "flex-end" : "flex-start";
@@ -108,6 +122,7 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
             onMove={onMove}
             onGroup={onGroup}
             onActivate={(slot) => {
+              if (slot.kind === "start" && startMenuSections) setMenuOpen((o) => !o);
               if (slot.kind === "item" || slot.kind === "group") onSelect?.(slot.kind === "item" ? slot.item.id : slot.group.id);
             }}
           />
@@ -129,7 +144,38 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
               : { [appearance.edge]: 0, ...(appearance.align === "end" ? { left: 0 } : { right: 0 }) }),
           }}
         >
-          <TrayPill appearance={previewAppearance} state={trayState} onAction={() => {}} />
+          <TrayPill appearance={previewAppearance} state={trayState} onAction={() => {}} items={trayItems} />
+        </div>
+      )}
+      {menuOpen && startMenuSections && (
+        <div
+          className="absolute"
+          title="Prévia do menu Iniciar do dock"
+          style={{
+            width: START_MENU_SIZE.w,
+            height: START_MENU_SIZE.h,
+            transform: `scale(${menuScale})`,
+            transformOrigin: appearance.edge === "top" ? "top left" : appearance.edge === "right" ? "bottom right" : "bottom left",
+            ...(appearance.edge === "top"
+              ? { top: appearance.offset + appearance.iconSize + appearance.padding * 2 + 12, left: 16 }
+              : appearance.edge === "left"
+              ? { bottom: 16, left: appearance.offset + appearance.iconSize + appearance.padding * 2 + 12 }
+              : appearance.edge === "right"
+              ? { bottom: 16, right: appearance.offset + appearance.iconSize + appearance.padding * 2 + 12 }
+              : { bottom: appearance.offset + appearance.iconSize + appearance.padding * 2 + 14, left: 16 }),
+          }}
+        >
+          <StartMenuPanel
+            appearance={appearance}
+            sections={startMenuSections}
+            pinned={pinned}
+            apps={[]}
+            userName="Você"
+            onLaunch={() => {}}
+            onShell={() => {}}
+            onPower={() => {}}
+            onClose={() => setMenuOpen(false)}
+          />
         </div>
       )}
       {!taskbarHidden && <TaskbarMock compact={!!compactTaskbar} autohide={taskbarAutohide} />}

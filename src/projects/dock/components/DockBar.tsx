@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DockAppearance, DockGroup, DockLaunchItem, DockWindowInfo } from "../types";
+import { DockAppearance, DockGroup, DockLaunchItem, DockShellButton, DockWindowInfo } from "../types";
 import { DockSlot, isPinnedSlot, magnifyScale } from "../logic";
 import { contrastText, hexToRgba } from "../themes";
 import { DockIcon } from "./DockIcon";
@@ -10,8 +10,18 @@ export type DockContextTarget =
   | { kind: "separator"; id: string }
   | { kind: "running"; exe: string; windows: DockWindowInfo[] }
   | { kind: "start" }
+  | { kind: "shell"; action: DockShellButton }
   | { kind: "tray" }
   | { kind: "bar" };
+
+export const SHELL_BUTTON_LABELS: Record<DockShellButton, string> = {
+  search: "Pesquisar",
+  taskview: "Visão de tarefas",
+  widgets: "Widgets do Windows",
+  explorer: "Explorador de Arquivos",
+  desktop: "Mostrar área de trabalho",
+  settings: "Configurações",
+};
 
 export interface ActivateInfo {
   middle: boolean;
@@ -68,6 +78,7 @@ export function slotLabel(slot: DockSlot): string {
   if (slot.kind === "group") return `${slot.group.name} (${slot.group.items.length})`;
   if (slot.kind === "running") return slot.windows[0]?.title || prettyExe(slot.exe);
   if (slot.kind === "start") return "Iniciar";
+  if (slot.kind === "shell") return SHELL_BUTTON_LABELS[slot.action];
   if (slot.kind === "tray") return "Bandeja, relógio e notificações";
   return "";
 }
@@ -311,7 +322,7 @@ export const DockBar: React.FC<DockBarProps> = ({
         }
 
         const size = a.iconSize * scale;
-        const slotWindows = slot.kind === "start" || slot.kind === "tray" ? [] : slot.windows;
+        const slotWindows = slot.kind === "start" || slot.kind === "tray" || slot.kind === "shell" ? [] : slot.windows;
         const running = slotWindows.length > 0;
         const focused = slotWindows.some((w) => w.focused && !w.minimized);
         const bounce = slot.kind === "item" && bouncing?.has(slot.item.id);
@@ -335,6 +346,7 @@ export const DockBar: React.FC<DockBarProps> = ({
               else if (slot.kind === "group") onContext?.({ kind: "group", group: slot.group, windows: slot.windows }, e);
               else if (slot.kind === "start") onContext?.({ kind: "start" }, e);
               else if (slot.kind === "tray") onContext?.({ kind: "tray" }, e);
+              else if (slot.kind === "shell") onContext?.({ kind: "shell", action: slot.action }, e);
               else onContext?.({ kind: "running", exe: slot.exe, windows: slot.windows }, e);
             }}
             style={{
@@ -385,6 +397,8 @@ export const DockBar: React.FC<DockBarProps> = ({
                 ) : (
                   <StartIcon size={size} radius={a.radius} accent={a.indicatorColor} />
                 )
+              ) : slot.kind === "shell" ? (
+                <ShellButtonIcon action={slot.action} size={size} color={hoverTint} mac={a.startIcon === "launchpad"} />
               ) : slot.kind === "tray" ? (
                 <TrayClockIcon size={size} mac={a.startIcon === "launchpad"} accent={a.indicatorColor} />
               ) : (
@@ -524,6 +538,75 @@ const Win11Logo: React.FC<{ size: number }> = ({ size }) => {
     </div>
   );
 };
+
+const SHELL_PATHS: Record<DockShellButton, React.ReactNode> = {
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5" />
+    </>
+  ),
+  taskview: (
+    <>
+      <rect x="3" y="5" width="12" height="10" rx="2" />
+      <path d="M8 19h11a2 2 0 002-2V9" />
+    </>
+  ),
+  widgets: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="9" rx="2" />
+      <rect x="13.5" y="3.5" width="7" height="5" rx="2" />
+      <rect x="13.5" y="11.5" width="7" height="9" rx="2" />
+      <rect x="3.5" y="15.5" width="7" height="5" rx="2" />
+    </>
+  ),
+  explorer: (
+    <>
+      <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      <path d="M3 10h18" />
+    </>
+  ),
+  desktop: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M9 20h6M12 16v4" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" />
+    </>
+  ),
+};
+
+/** Line icon for a system button, drawn in the theme's text color (plain like Windows 11, on a tile for macOS). */
+export const ShellButtonIcon: React.FC<{ action: DockShellButton; size: number; color: string; mac?: boolean }> = ({ action, size, color, mac }) => (
+  <div
+    className="flex items-center justify-center"
+    style={{
+      width: size,
+      height: size,
+      borderRadius: size * 0.225,
+      ...(mac
+        ? { background: "linear-gradient(180deg, #5a5a60 0%, #2c2c30 100%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.3)" }
+        : {}),
+    }}
+  >
+    <svg
+      width={size * (mac ? 0.55 : 0.62)}
+      height={size * (mac ? 0.55 : 0.62)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={mac ? "#ffffff" : color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {SHELL_PATHS[action]}
+    </svg>
+  </div>
+);
 
 const LAUNCHPAD_COLORS = ["#ff453a", "#ff9f0a", "#ffd60a", "#32d74b", "#64d2ff", "#0a84ff", "#5e5ce6", "#bf5af2", "#ff375f"];
 

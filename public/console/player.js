@@ -2,11 +2,7 @@
 (function () {
   "use strict";
 
-  var DEFAULT_PADS = {
-    0: "BUTTON_2", 1: "BUTTON_4", 2: "SELECT", 3: "START",
-    4: "DPAD_UP", 5: "DPAD_DOWN", 6: "DPAD_LEFT", 7: "DPAD_RIGHT",
-    8: "BUTTON_1", 9: "BUTTON_3", 10: "LEFT_TOP_SHOULDER", 11: "RIGHT_TOP_SHOULDER"
-  };
+  var SNES_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
   var started = false;
   var initialized = false;
@@ -31,13 +27,12 @@
     return e && e.gameManager;
   }
 
-  function buildControls(keys, pads) {
+  // Keyboard only: controllers are read by the loop below (no value2), so EmulatorJS never
+  // handles gamepads itself and inputs are not doubled.
+  function buildControls(keys) {
     var p0 = {};
-    Object.keys(DEFAULT_PADS).forEach(function (idx) {
-      p0[idx] = {
-        value: keys && keys[idx] !== undefined ? Number(keys[idx]) : 0,
-        value2: pads && pads[idx] ? pads[idx] : DEFAULT_PADS[idx]
-      };
+    SNES_INDICES.forEach(function (idx) {
+      p0[idx] = { value: keys && keys[idx] !== undefined ? Number(keys[idx]) : 0 };
     });
     return { 0: p0, 1: {}, 2: {}, 3: {} };
   }
@@ -45,16 +40,86 @@
   function currentControls() {
     var e = emulator();
     var keys = {};
-    var pads = {};
-    if (!e || !e.controls || !e.controls[0]) return { keys: keys, pads: pads };
-    Object.keys(DEFAULT_PADS).forEach(function (idx) {
+    if (!e || !e.controls || !e.controls[0]) return { keys: keys, pads: {} };
+    SNES_INDICES.forEach(function (idx) {
       var c = e.controls[0][idx];
-      if (!c) return;
-      if (typeof c.value === "number") keys[idx] = c.value;
-      if (typeof c.value2 === "string" && c.value2) pads[idx] = c.value2;
+      if (c && typeof c.value === "number") keys[idx] = c.value;
     });
-    return { keys: keys, pads: pads };
+    return { keys: keys, pads: {} };
   }
+
+  // ---- Controllers (mirror of src/projects/widgets/console/gamepad.ts) ---------------------
+  var padConfig = null;
+  var padHeld = {};
+  var padLoopStarted = false;
+
+  function profileKey(id) {
+    return String(id).replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  function tokenActive(token, pad, deadzone) {
+    var m = /^([ab])(\d+)([+-])?$/.exec(token);
+    if (!m) return false;
+    var n = Number(m[2]);
+    if (m[1] === "b") {
+      var b = pad.buttons[n];
+      return !!b && (b.pressed || b.value > 0.5);
+    }
+    var v = pad.axes[n] || 0;
+    return m[3] === "-" ? v < -deadzone : v > deadzone;
+  }
+
+  function releasePads() {
+    var g = gm();
+    Object.keys(padHeld).forEach(function (idx) {
+      if (padHeld[idx] && g) g.simulateInput(0, Number(idx), 0);
+    });
+    padHeld = {};
+  }
+
+  function pollPads() {
+    requestAnimationFrame(pollPads);
+    var g = gm();
+    if (!started || !g || !padConfig || !padConfig.enabled || !navigator.getGamepads) return;
+    var now = {};
+    var pads = navigator.getGamepads();
+    for (var i = 0; i < pads.length; i++) {
+      var pad = pads[i];
+      if (!pad || !pad.connected) continue;
+      var key = profileKey(pad.id);
+      if (padConfig.selected !== "any" && padConfig.selected !== key) continue;
+      var bindings = padConfig.profiles[key] || padConfig.fallback;
+      Object.keys(bindings).forEach(function (idx) {
+        if (now[idx]) return;
+        var tokens = bindings[idx] || [];
+        for (var t = 0; t < tokens.length; t++) {
+          if (tokenActive(tokens[t], pad, padConfig.deadzone)) {
+            now[idx] = true;
+            break;
+          }
+        }
+      });
+    }
+    SNES_INDICES.forEach(function (idx) {
+      var on = !!now[idx];
+      if (on !== !!padHeld[idx]) {
+        g.simulateInput(0, idx, on ? 1 : 0);
+        padHeld[idx] = on;
+      }
+    });
+  }
+
+  function setPadConfig(cfg) {
+    releasePads();
+    padConfig = cfg || null;
+    if (!padLoopStarted) {
+      padLoopStarted = true;
+      requestAnimationFrame(pollPads);
+    }
+  }
+
+  window.addEventListener("gamepaddisconnected", releasePads);
+  window.addEventListener("blur", releasePads);
 
   function audioContexts() {
     var e = emulator();
@@ -147,7 +212,8 @@
     window.EJS_backgroundColor = "#000000";
     window.EJS_color = "#ec4899";
     window.EJS_disableLocalStorage = true;
-    window.EJS_defaultControls = buildControls(cfg.keys, cfg.pads);
+    window.EJS_defaultControls = buildControls(cfg.keys);
+    setPadConfig(cfg.gamepad);
     window.EJS_Buttons = {
       playPause: false, restart: false, mute: false, settings: false, fullscreen: false,
       saveState: false, loadState: false, screenRecord: false, gamepad: false, cheat: false,
@@ -189,6 +255,10 @@
   }
 
   function handleCommand(cmd, arg) {
+    if (cmd === "setGamepad") {
+      setPadConfig(arg);
+      return Promise.resolve(null);
+    }
     var e = emulator();
     var g = gm();
     if (!started || !e || !g) return Promise.reject(new Error("O jogo ainda não começou."));
@@ -227,12 +297,9 @@
         return Promise.resolve(sram ? new Uint8Array(sram).slice().buffer : null);
       }
       case "setControls":
-        e.controls = buildControls(arg.keys, arg.pads);
+        e.controls = buildControls(arg.keys);
         e.checkGamepadInputs && e.checkGamepadInputs();
         focusGame();
-        return Promise.resolve(null);
-      case "openControls":
-        e.controlMenu.style.display = "";
         return Promise.resolve(null);
       case "focus":
         focusGame();

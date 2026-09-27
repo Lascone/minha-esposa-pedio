@@ -807,8 +807,10 @@ pub async fn dock_open_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn dock_close_window(app: AppHandle) -> Result<(), String> {
     release_appbar();
-    if let Some(win) = app.get_webview_window(TRAY_LABEL) {
-        let _ = win.close();
+    for label in [TRAY_LABEL, MENU_LABEL] {
+        if let Some(win) = app.get_webview_window(label) {
+            let _ = win.close();
+        }
     }
     if let Some(win) = app.get_webview_window(DOCK_LABEL) {
         let _ = win.close();
@@ -868,6 +870,144 @@ pub fn dock_tray_set_bounds(app: AppHandle, x: i32, y: i32, width: i32, height: 
         }
     }
     Ok(())
+}
+
+/// The dock's own Start menu (optional; the real Windows Start menu is always one click away).
+pub const MENU_LABEL: &str = "dockmenu";
+
+/// Shows the menu if hidden, hides it if visible. It takes focus (for the search box) and hides
+/// itself when it loses focus.
+#[tauri::command]
+pub async fn dock_menu_toggle(app: AppHandle) -> Result<bool, String> {
+    if let Some(win) = app.get_webview_window(MENU_LABEL) {
+        if win.is_visible().unwrap_or(false) {
+            let _ = win.hide();
+            return Ok(false);
+        }
+        let _ = app.emit_to(MENU_LABEL, "dockmenu://opened", ());
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(true);
+    }
+    let init = "window.__TAURI_WINDOW_LABEL__ = 'dockmenu'; window.location.hash = '/dock-menu'; if (document.documentElement) { document.documentElement.classList.add('is-transparent-window'); }";
+    WebviewWindowBuilder::new(&app, MENU_LABEL, WebviewUrl::default())
+        .initialization_script(init)
+        .title("Iniciar")
+        .inner_size(560.0, 600.0)
+        .position(0.0, 0.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .resizable(false)
+        .visible(false)
+        .build()
+        .map_err(|e| format!("Não foi possível abrir o menu: {}", e))?;
+    // Shown and focused by the first `dock_menu_set_bounds`, once it knows where it goes.
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn dock_menu_hide(app: AppHandle) {
+    if let Some(win) = app.get_webview_window(MENU_LABEL) {
+        let _ = win.hide();
+    }
+}
+
+#[tauri::command]
+pub fn dock_menu_set_bounds(app: AppHandle, x: i32, y: i32, width: i32, height: i32, show: bool) -> Result<(), String> {
+    let win = app.get_webview_window(MENU_LABEL).ok_or("O menu não está aberto")?;
+    let hwnd = window_hwnd(&win).ok_or("Janela do menu sem identificador")?;
+    unsafe { SetWindowPos(hwnd, HWND_TOPMOST, x, y, width.max(1), height.max(1), SWP_NOACTIVATE) };
+    if show {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartApp {
+    pub name: String,
+    pub path: String,
+    /// Start menu folder it lives in ("" = top level).
+    pub folder: String,
+}
+
+fn scan_start_menu(dir: &std::path::Path, root: &std::path::Path, depth: u32, out: &mut Vec<StartApp>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if depth < 4 {
+                scan_start_menu(&path, root, depth + 1, out);
+            }
+            continue;
+        }
+        let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        if ext != "lnk" && ext != "url" {
+            continue;
+        }
+        let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let lower = name.to_lowercase();
+        if name.is_empty() || lower.contains("uninstall") || lower.contains("desinstalar") || lower.starts_with("remover ") {
+            continue;
+        }
+        let folder = path
+            .parent()
+            .and_then(|p| p.strip_prefix(root).ok())
+            .and_then(|p| p.components().next())
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
+            .unwrap_or_default();
+        out.push(StartApp { name, path: path.to_string_lossy().to_string(), folder });
+    }
+}
+
+/// Shortcuts from both Start menu folders (all users + current user), deduplicated by name.
+#[tauri::command]
+pub async fn dock_list_start_apps() -> Vec<StartApp> {
+    let mut roots = Vec::new();
+    if let Some(p) = std::env::var_os("ProgramData") {
+        roots.push(std::path::PathBuf::from(p).join(r"Microsoft\Windows\Start Menu\Programs"));
+    }
+    if let Some(p) = std::env::var_os("APPDATA") {
+        roots.push(std::path::PathBuf::from(p).join(r"Microsoft\Windows\Start Menu\Programs"));
+    }
+    let mut list = Vec::new();
+    for root in &roots {
+        scan_start_menu(root, root, 0, &mut list);
+    }
+    let mut seen = std::collections::HashSet::new();
+    list.retain(|a| seen.insert(a.name.to_lowercase()));
+    list.sort_by_key(|a| a.name.to_lowercase());
+    list
+}
+
+#[tauri::command]
+pub fn dock_user_name() -> Option<String> {
+    std::env::var("USERNAME").ok().filter(|s| !s.is_empty())
+}
+
+/// Lock / sign out / restart / shut down, using the standard Windows tools.
+#[tauri::command]
+pub fn dock_power_action(action: String) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let (exe, args): (&str, &[&str]) = match action.as_str() {
+        "lock" => ("rundll32.exe", &["user32.dll,LockWorkStation"]),
+        "signout" => ("shutdown.exe", &["/l"]),
+        "restart" => ("shutdown.exe", &["/r", "/t", "0"]),
+        "shutdown" => ("shutdown.exe", &["/s", "/t", "0"]),
+        other => return Err(format!("Ação desconhecida: {}", other)),
+    };
+    std::process::Command::new(exe)
+        .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("O Windows não deixou fazer isso agora: {}", e))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1185,6 +1325,11 @@ pub fn dock_shell_action(action: String) -> Result<(), String> {
         "quicksettings" => &[VK_LWIN, 0x41],
         "notifications" => &[VK_LWIN, 0x4E],
         "language" => &[VK_LWIN, 0x20],
+        "search" => &[VK_LWIN, 0x53],
+        "taskview" => &[VK_LWIN, 0x09],
+        "widgets" => &[VK_LWIN, 0x57],
+        "explorer" => &[VK_LWIN, 0x45],
+        "settings" => &[VK_LWIN, 0x49],
         other => return Err(format!("Ação desconhecida: {}", other)),
     };
     let key = |vk: u16, up: bool| INPUT {

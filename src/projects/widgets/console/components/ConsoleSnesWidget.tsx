@@ -9,6 +9,8 @@ import { useCoverUrl } from "../useCoverUrl";
 import { ConsoleGameWidget } from "./ConsoleGameWidget";
 import { AddGameWizard } from "./AddGameWizard";
 import { GameEditorModal } from "./GameEditorModal";
+import { GamepadSettings } from "./GamepadSettings";
+import { getSystem } from "../systems";
 
 const GameTile: React.FC<{
   game: ConsoleGame;
@@ -55,6 +57,8 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ConsoleGame | null>(null);
+  const [padsOpen, setPadsOpen] = useState(false);
+  const snes = getSystem("snes");
 
   useEffect(() => initConsoleLibrarySync(), []);
 
@@ -93,6 +97,13 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
           <span className="text-[10px] text-white/55 pointer-events-none">
             {playable.length} jogo{playable.length === 1 ? "" : "s"}
           </span>
+          <button
+            onClick={() => setPadsOpen(true)}
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-bold text-white/85 hover:bg-white/15"
+            title="Configurar controles (Xbox, GameSir, PlayStation…)"
+          >
+            <Gamepad2 size={13} /> Controles
+          </button>
           <button onClick={() => removeWidget(widget.id)} className="p-1 rounded-lg hover:bg-rose-500/80 text-white/80" title="Fechar">
             <X size={14} />
           </button>
@@ -161,6 +172,23 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
           />
         )}
         {editing && <GameEditorModal game={editing} onClose={() => setEditing(null)} onSaved={() => setEditing(null)} />}
+        {padsOpen && snes && (
+          <div className="absolute inset-0 z-30 flex flex-col bg-slate-950/95 backdrop-blur-md">
+            <div className="flex items-center gap-2 px-3 h-9 shrink-0 border-b border-white/10">
+              <Gamepad2 size={14} className="text-pink-300" />
+              <span className="flex-1 text-xs font-bold">Controles do Mini Console</span>
+              <button onClick={() => setPadsOpen(false)} className="p-1 rounded-lg hover:bg-white/15 text-white/80" title="Fechar">
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 text-xs custom-scrollbar">
+              <GamepadSettings system={snes} />
+              <p className="mt-3 text-[10px] text-white/45">
+                Vale para todos os jogos. Cada modelo de controle guarda seus próprios ajustes. As teclas do teclado ficam em Editar → Controles de cada jogo.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
