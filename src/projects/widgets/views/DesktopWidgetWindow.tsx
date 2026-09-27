@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useWidgetsStore } from "../store/widgetsStore";
 import { WidgetRenderer } from "../components/WidgetRenderer";
 import { WidgetConfigModal } from "../components/WidgetConfigModal";
@@ -8,6 +8,8 @@ import { getWidgetDefinition } from "../registry";
 import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
 import { WidgetInstance, WidgetType } from "../types";
 import { CONSOLE_SNES_TYPE, gameIdFromWidgetType, isConsoleWidgetType } from "../console/types";
+import { useWindowHitArea } from "../hooks/useWindowHitArea";
+import { DRAG_THRESHOLD_PX, isDragExempt } from "../dragLogic";
 
 const MIN_WIDGET_SCALE = 0.5;
 const MAX_WIDGET_SCALE = 2;
@@ -227,32 +229,89 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
     };
   }, [isConsole, recordWidgetBounds, setWidgetScale]);
 
-  // Handle native window dragging
-  const handleDragStart = async () => {
+  // Only the visible card takes the mouse; transparent corners/margins let clicks reach the desktop.
+  useWindowHitArea(null, {
+    selector: "[data-widget-card]",
+    radius: 24 * scale,
+    full: modalOpen,
+    enabled: !isConsole,
+  });
+
+  const [lockedHint, setLockedHint] = useState(false);
+  const lockedRef = useRef(resolvedWidget.locked);
+  lockedRef.current = resolvedWidget.locked;
+
+  const startWindowDrag = useCallback(() => {
+    if (lockedRef.current) {
+      setLockedHint(true);
+      return;
+    }
     try {
-      const appWindow = getCurrentWebviewWindow();
-      await appWindow.startDragging();
+      getCurrentWebviewWindow().startDragging().catch(() => {});
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!lockedHint) return;
+    const t = window.setTimeout(() => setLockedHint(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [lockedHint]);
+
+  // Custom widgets live in a sandboxed iframe, so their "hold and drag" arrives as a message.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "widget:drag") return;
+      const fromChild = Array.from(document.querySelectorAll("iframe")).some(
+        (f) => f.contentWindow === event.source
+      );
+      if (fromChild) startWindowDrag();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [startWindowDrag]);
+
+  // Hold and drag anywhere that is not a control; a plain click stays a click.
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || isDragExempt(e.target)) {
+      pressRef.current = null;
+      return;
+    }
+    pressRef.current = { x: e.screenX, y: e.screenY };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const press = pressRef.current;
+    if (!press) return;
+    if ((e.buttons & 1) === 0) {
+      pressRef.current = null;
+      return;
+    }
+    if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) >= DRAG_THRESHOLD_PX) {
+      pressRef.current = null;
+      startWindowDrag();
+    }
   };
 
   return (
     <div
       id="widget-desktop-root"
-      data-tauri-drag-region
-      onMouseDown={(e) => {
-        // Only start dragging if not clicking on interactive buttons or form fields
-        if (!(e.target as HTMLElement).closest("button, input, textarea, select, a, [data-no-drag]")) {
-          handleDragStart();
-        }
-      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={() => (pressRef.current = null)}
       className="relative w-screen h-screen select-none overflow-hidden"
       style={{ background: "transparent" }}
     >
+      {lockedHint && (
+        <div className="pointer-events-none absolute left-1/2 top-2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
+          🔒 Posição travada — destrave no cadeado
+        </div>
+      )}
       <div className={modalOpen ? "invisible" : "contents"}>
         <WidgetRenderer
           widget={resolvedWidget}
           fillWindow
           onOpenSettings={() => setModalOpen(true)}
+          onStartWindowDrag={startWindowDrag}
         />
       </div>
 

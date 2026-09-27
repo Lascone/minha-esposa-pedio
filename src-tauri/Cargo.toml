@@ -1,6 +1,6 @@
 [package]
 name = "pedi-para-meu-marido"
-version = "1.3.3"
+version = "1.3.4"
 description = "Central de utilitários e Crosshair Studio para minha esposa"
 authors = ["Marido Apaixonado"]
 edition = "2021"

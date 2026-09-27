@@ -14,6 +14,7 @@ interface WidgetContainerProps {
   thumbnail?: boolean;
   /** Custom widgets draw their own card, so the glass frame would double it. */
   frameless?: boolean;
+  onStartWindowDrag?: () => void;
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({
@@ -24,18 +25,11 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   fillWindow = false,
   thumbnail = false,
   frameless = false,
+  onStartWindowDrag,
 }) => {
-  const {
-    removeWidget,
-    toggleWidgetVisibility,
-    setWidgetAlwaysOnTop,
-    setWidgetLocked,
-    updateWidgetPosition,
-  } = useWidgetsStore();
+  const { removeWidget, setWidgetAlwaysOnTop, setWidgetLocked } = useWidgetsStore();
 
   const [isHovered, setIsHovered] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   // Theme styling presets
   const getThemeClass = () => {
@@ -56,30 +50,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
     }
   };
 
-  // Drag handling inside canvas/preview
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (widget.locked || !isDesktopPreview) return;
-    // Don't drag if clicking buttons
-    if ((e.target as HTMLElement).closest("button")) return;
-
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - widget.x,
-      y: e.clientY - widget.y,
-    });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || widget.locked || !isDesktopPreview) return;
-    const newX = Math.max(0, e.clientX - dragOffset.x);
-    const newY = Math.max(0, e.clientY - dragOffset.y);
-    updateWidgetPosition(widget.id, newX, newY);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
   const scale = widget.scale || 1;
   // A native window is resized to (width × scale); the unscaled layout box is
   // then 100%/scale of the window, so content never overflows or gets clipped.
@@ -92,13 +62,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setIsDragging(false);
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         ...sizeStyle,
         opacity: thumbnail ? 1 : widget.opacity,
@@ -111,9 +75,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
             }
           : {}),
       }}
-      data-tauri-drag-region
+      data-widget-card
       className={`group relative rounded-3xl transition-shadow select-none overflow-hidden ${getThemeClass()} ${
-        isDragging ? "cursor-grabbing ring-2 ring-pink-400" : isDesktopPreview && !widget.locked ? "cursor-grab" : ""
+        onStartWindowDrag && !widget.locked ? "cursor-grab active:cursor-grabbing" : ""
       }`}
     >
       {/* Aero Glass Specular Highlight (Windows 7 classic gloss effect) */}
@@ -128,10 +92,18 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        {isDesktopPreview && (
+        {onStartWindowDrag && (
           <div
-            title="Arraste para mover"
-            className="p-1 rounded-full bg-black/30 hover:bg-black/50 text-white/90 cursor-grab active:cursor-grabbing backdrop-blur-md"
+            title={widget.locked ? "Posição travada (destrave no cadeado)" : "Segure e arraste para mover"}
+            data-no-drag
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.stopPropagation();
+              onStartWindowDrag();
+            }}
+            className={`p-1 rounded-full bg-black/30 hover:bg-black/50 text-white/90 backdrop-blur-md ${
+              widget.locked ? "cursor-not-allowed opacity-60" : "cursor-grab active:cursor-grabbing"
+            }`}
           >
             <Move size={12} />
           </div>

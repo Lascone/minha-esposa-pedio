@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { WidgetInstance, WidgetType, WidgetTheme, SystemMetrics } from "../types";
 import { getWidgetDefinition } from "../registry";
 import { isConsoleWidgetType, migrateConsoleWidget } from "../console/types";
+import { arrangeInArea } from "../dragLogic";
+import { getPrimaryMonitorInfo } from "../monitor";
 
 /** v2: widgets stop being always-on-top by default. v3: one Mini Console SNES widget instead of one per game. */
 export function migrateWidgetsState(persistedState: any, version: number): any {
@@ -50,7 +52,7 @@ interface WidgetsState {
   setGlobalTheme: (theme: WidgetTheme) => void;
   setGlobalOpacity: (opacity: number) => void;
   setGlobalScale: (scale: number) => void;
-  resetAllPositions: () => void;
+  resetAllPositions: () => Promise<void>;
   fetchSystemMetrics: () => Promise<void>;
   launchNativeWidgetWindow: (widget: WidgetInstance) => Promise<void>;
   closeNativeWidgetWindow: (widgetId: string) => Promise<void>;
@@ -356,19 +358,23 @@ export const useWidgetsStore = create<WidgetsState>()(
       },
 
       resetAllPositions: () => {
-        // Cascade positions nicely
-        set((state) => {
-          const resetList = state.activeWidgets.map((w, index) => ({
-            ...w,
-            x: 80 + (index % 4) * 260,
-            y: 80 + Math.floor(index / 4) * 240,
-            visible: true,
-          }));
-          return { activeWidgets: resetList, allWidgetsVisible: true };
-        });
-
-        // Tell native Rust to reposition all active widget windows onto primary monitor
-        invoke("widget_reset_positions").catch(() => {});
+        return (async () => {
+          const { work } = await getPrimaryMonitorInfo();
+          // Brings back hidden/minimised windows first; the exact spots are set right after.
+          await invoke("widget_reset_positions").catch(() => {});
+          const widgets = get().activeWidgets;
+          const spots = arrangeInArea(
+            widgets.map((w) => ({ width: w.width * (w.scale || 1), height: w.height * (w.scale || 1) })),
+            work
+          );
+          set({
+            activeWidgets: widgets.map((w, i) => ({ ...w, x: spots[i].x, y: spots[i].y, visible: true })),
+            allWidgetsVisible: true,
+          });
+          widgets.forEach((w, i) => {
+            invoke("widget_set_position", { widgetId: w.id, x: spots[i].x, y: spots[i].y }).catch(() => {});
+          });
+        })();
       },
 
       fetchSystemMetrics: async () => {

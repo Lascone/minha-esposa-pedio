@@ -10,7 +10,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 mod widget_system;
 use widget_system::{
     widget_get_system_metrics, widget_open_window, widget_close_window,
-    widget_set_always_on_top, widget_set_position, widget_reset_positions,
+    widget_set_always_on_top, widget_set_position, widget_reset_positions, widget_set_hit_rects,
     widget_launch_target, companion_open_window, companion_close_window,
     companion_set_position, companion_set_always_on_top,
 };
@@ -577,6 +577,7 @@ pub fn run() {
             widget_close_window,
             widget_set_always_on_top,
             widget_set_position,
+            widget_set_hit_rects,
             widget_reset_positions,
             widget_launch_target,
             companion_open_window,

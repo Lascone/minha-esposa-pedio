@@ -34,6 +34,8 @@ interface WidgetRendererProps {
   isDesktopPreview?: boolean;
   fillWindow?: boolean;
   thumbnail?: boolean;
+  /** Own desktop window: the grip in the toolbar moves the window right away. */
+  onStartWindowDrag?: () => void;
 }
 
 export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
@@ -42,6 +44,7 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
   isDesktopPreview = false,
   fillWindow = false,
   thumbnail = false,
+  onStartWindowDrag,
 }) => {
   const { packages } = useCustomWidgetsStore();
   const { updateWidgetSettings, updateWidgetSize } = useWidgetsStore();
@@ -144,6 +147,7 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
       fillWindow={fillWindow}
       thumbnail={thumbnail}
       frameless={Boolean(customPkg)}
+      onStartWindowDrag={onStartWindowDrag}
     >
       {renderInner()}
     </WidgetContainer>

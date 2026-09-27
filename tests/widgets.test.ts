@@ -76,7 +76,7 @@ describe("Windows Desktop Widgets Module", () => {
     expect(useWidgetsStore.getState().activeWidgets.find((w) => w.id === newWidget.id)).toBeUndefined();
   });
 
-  it("should support resetting widget positions and toggling all widgets", () => {
+  it("should support resetting widget positions and toggling all widgets", async () => {
     const store = useWidgetsStore.getState();
 
     // Toggle all off
@@ -88,11 +88,12 @@ describe("Windows Desktop Widgets Module", () => {
     expect(useWidgetsStore.getState().allWidgetsVisible).toBe(true);
 
     // Reset positions
-    store.resetAllPositions();
+    await store.resetAllPositions();
     const active = useWidgetsStore.getState().activeWidgets;
     for (const w of active) {
       expect(w.x).toBeGreaterThanOrEqual(0);
       expect(w.y).toBeGreaterThanOrEqual(0);
+      expect(w.x + w.width * (w.scale || 1)).toBeLessThanOrEqual(1920);
       expect(w.visible).toBe(true);
     }
   });

@@ -242,30 +242,132 @@ pub fn widget_get_system_metrics() -> Result<SystemMetrics, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        Ok(SystemMetrics {
-            cpu_percent: 12.5,
-            cpu_name: "Simulated Processor".to_string(),
-            ram: RamInfo {
-                total_mb: 16384,
-                used_mb: 8192,
-                free_mb: 8192,
-                used_percent: 50.0,
-            },
-            disks: vec![DiskInfo {
-                drive: "C:".to_string(),
-                total_gb: 512.0,
-                free_gb: 256.0,
-                used_gb: 256.0,
-                used_percent: 50.0,
-            }],
-            battery: BatteryInfo {
-                has_battery: true,
-                is_on_battery: false,
-                is_charging: true,
-                percentage: 95,
-            },
-        })
+        Err("As métricas do sistema só estão disponíveis no Windows.".to_string())
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Click-through outside the visible content of widget and companion windows
+// ---------------------------------------------------------------------------------------------
+
+/// Visible area in logical pixels, relative to the window's top-left corner.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct WidgetHitRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    /// Corner radius (logical px): the transparent corners of a rounded card let clicks through too.
+    #[serde(default)]
+    pub radius: f64,
+}
+
+pub fn point_in_rounded_rect(px: f64, py: f64, r: &WidgetHitRect) -> bool {
+    if px < r.x || py < r.y || px > r.x + r.width || py > r.y + r.height {
+        return false;
+    }
+    let rad = r.radius.max(0.0).min(r.width / 2.0).min(r.height / 2.0);
+    if rad <= 0.0 {
+        return true;
+    }
+    let cx = px.clamp(r.x + rad, r.x + r.width - rad);
+    let cy = py.clamp(r.y + rad, r.y + r.height - rad);
+    let (dx, dy) = (px - cx, py - cy);
+    dx * dx + dy * dy <= rad * rad
+}
+
+struct HitEntry {
+    rects: Vec<WidgetHitRect>,
+    ignoring: Option<bool>,
+}
+
+static HIT_AREAS: Mutex<Option<std::collections::HashMap<String, HitEntry>>> = Mutex::new(None);
+static HIT_LOOP_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+fn set_window_click_through(hwnd: isize, ignore: bool) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_TRANSPARENT};
+    unsafe {
+        let mut ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        if ignore {
+            ex |= WS_EX_TRANSPARENT | WS_EX_LAYERED;
+        } else {
+            ex &= !(WS_EX_TRANSPARENT | WS_EX_LAYERED);
+        }
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex as isize);
+    }
+}
+
+/// Every 30 ms: a registered window only accepts the mouse while the pointer is over one of its
+/// visible rects, so its transparent parts never block the desktop.
+#[cfg(target_os = "windows")]
+fn start_hit_loop(app: AppHandle) {
+    use windows_sys::Win32::Foundation::{POINT, RECT};
+    use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowRect};
+    if HIT_LOOP_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        let mut pt = POINT { x: 0, y: 0 };
+        if unsafe { GetCursorPos(&mut pt) } == 0 {
+            continue;
+        }
+        // While a button is held (dragging or resizing a widget) nothing changes under the pointer.
+        let pressed = unsafe { GetAsyncKeyState(VK_LBUTTON as i32) } as u16 & 0x8000 != 0;
+        let mut guard = HIT_AREAS.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(map) = guard.as_mut() else { continue };
+        map.retain(|label, _| app.get_webview_window(label).is_some());
+        for (label, entry) in map.iter_mut() {
+            let Some(hwnd) = app.get_webview_window(label).and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize) else { continue };
+            let mut rect: RECT = unsafe { std::mem::zeroed() };
+            if unsafe { GetWindowRect(hwnd, &mut rect) } == 0 {
+                continue;
+            }
+            let scale = (unsafe { GetDpiForWindow(hwnd) }.max(96)) as f64 / 96.0;
+            let lx = (pt.x - rect.left) as f64 / scale;
+            let ly = (pt.y - rect.top) as f64 / scale;
+            let inside = entry.rects.iter().any(|r| point_in_rounded_rect(lx, ly, r));
+            let ignore = !inside;
+            if pressed && entry.ignoring == Some(false) {
+                continue;
+            }
+            if entry.ignoring != Some(ignore) {
+                set_window_click_through(hwnd, ignore);
+                entry.ignoring = Some(ignore);
+            }
+        }
+    });
+}
+
+/// `rects`: visible parts of the window (None = the whole window takes the mouse again).
+#[tauri::command]
+pub fn widget_set_hit_rects(app: AppHandle, label: String, rects: Option<Vec<WidgetHitRect>>) -> Result<(), String> {
+    let win = app.get_webview_window(&label).ok_or("Janela não encontrada")?;
+    let mut guard = HIT_AREAS.lock().unwrap_or_else(|e| e.into_inner());
+    let map = guard.get_or_insert_with(Default::default);
+    match rects {
+        Some(rects) => {
+            let entry = map.entry(label).or_insert(HitEntry { rects: vec![], ignoring: None });
+            entry.rects = rects;
+            entry.ignoring = None;
+        }
+        None => {
+            if map.remove(&label).is_some() {
+                #[cfg(target_os = "windows")]
+                if let Ok(h) = win.hwnd() {
+                    set_window_click_through(h.0 as isize, false);
+                }
+            }
+        }
+    }
+    drop(guard);
+    #[cfg(target_os = "windows")]
+    start_hit_loop(app);
+    let _ = win;
+    Ok(())
 }
 
 /// Spawns or focuses an independent native transparent desktop widget window
@@ -573,5 +675,29 @@ pub fn widget_launch_target(target: String) -> Result<(), String> {
     {
         let _ = target;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(radius: f64) -> WidgetHitRect {
+        WidgetHitRect { x: 10.0, y: 10.0, width: 100.0, height: 60.0, radius }
+    }
+
+    #[test]
+    fn hit_area_skips_transparent_corners() {
+        let r = rect(20.0);
+        assert!(point_in_rounded_rect(60.0, 40.0, &r));
+        assert!(point_in_rounded_rect(15.0, 40.0, &r));
+        assert!(!point_in_rounded_rect(11.0, 11.0, &r));
+        assert!(!point_in_rounded_rect(5.0, 40.0, &r));
+        assert!(!point_in_rounded_rect(60.0, 75.0, &r));
+    }
+
+    #[test]
+    fn square_hit_area_covers_its_corners() {
+        assert!(point_in_rounded_rect(11.0, 11.0, &rect(0.0)));
     }
 }

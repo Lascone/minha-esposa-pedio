@@ -10,6 +10,8 @@ import { useCompanionsStore } from "../store/companionsStore";
 import { getCompanionManifest } from "../registry";
 import { CompanionContextMenu } from "./CompanionContextMenu";
 import { frameCount, spriteStyle } from "../sprite";
+import { useWindowHitArea } from "../../hooks/useWindowHitArea";
+import { DRAG_THRESHOLD_PX, isDragExempt } from "../../dragLogic";
 
 interface CompanionAvatarProps {
   instance: CompanionInstance;
@@ -146,7 +148,8 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
       let currentY = instance.y;
       let facing = instance.facing;
 
-      const screenWidth = window.screen.width || 1920;
+      // Positions are physical pixels (companion_set_position).
+      const screenWidth = (window.screen.width || 1920) * (window.devicePixelRatio || 1);
       const margin = settings.boundaryMargin || 30;
 
       // Update position
@@ -227,34 +230,80 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
     if (onSelect) onSelect();
   };
 
-  // 5. Native Dragging Handlers
-  const handleMouseDown = async (e: React.MouseEvent) => {
+  // 5. Native Dragging: hold and drag moves the window, a plain click still pets.
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 2) {
       // Right click opens context menu
       e.preventDefault();
       setContextMenuOpen((prev) => !prev);
       return;
     }
+    pressRef.current = e.button === 0 && !isDragExempt(e.target) ? { x: e.screenX, y: e.screenY } : null;
+  };
 
-    if (e.button !== 0) return;
-
-    isDraggingRef.current = true;
-    updateCompanionState(instance.instanceId, { currentState: "drag" });
-
+  const handleMouseMove = async (e: React.MouseEvent) => {
+    const press = pressRef.current;
+    if (!press) return;
+    if ((e.buttons & 1) === 0) {
+      pressRef.current = null;
+      return;
+    }
+    if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) < DRAG_THRESHOLD_PX) return;
+    pressRef.current = null;
     try {
       const win = getCurrentWebviewWindow();
       if (win && win.label.startsWith("companion-")) {
+        isDraggingRef.current = true;
+        updateCompanionState(instance.instanceId, { currentState: "drag" });
         await win.startDragging();
       }
     } catch {}
   };
 
   const handleMouseUp = () => {
+    pressRef.current = null;
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
       updateCompanionState(instance.instanceId, { currentState: "idle" });
     }
   };
+
+  // The native move loop swallows mouseup, so the drop is detected from the window moves;
+  // the new spot is saved or walking would snap the companion back.
+  useEffect(() => {
+    if (!interactive) return;
+    let win: ReturnType<typeof getCurrentWebviewWindow>;
+    try {
+      win = getCurrentWebviewWindow();
+    } catch {
+      return;
+    }
+    if (!win.label.startsWith("companion-")) return;
+    let timer: number | undefined;
+    let unlisten: (() => void) | undefined;
+    win
+      .onMoved(({ payload }) => {
+        if (!isDraggingRef.current) return;
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          if (!isDraggingRef.current) return;
+          isDraggingRef.current = false;
+          updateCompanionState(instance.instanceId, { x: payload.x, y: payload.y, currentState: "idle" });
+        }, 250);
+      })
+      .then((u) => (unlisten = u))
+      .catch(() => {});
+    return () => {
+      window.clearTimeout(timer);
+      unlisten?.();
+    };
+  }, [interactive, instance.instanceId, updateCompanionState]);
+
+  // Only the character takes the mouse; the rest of its window lets clicks through.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useWindowHitArea(rootRef, { full: contextMenuOpen, enabled: interactive });
 
   const currentFrameSrc = frames[frameIndex] || manifest?.preview || "";
   const baseWidth = manifest?.dimensions.width || 100;
@@ -263,11 +312,13 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
 
   return (
     <div
+      ref={rootRef}
       onContextMenu={(e) => {
         e.preventDefault();
         setContextMenuOpen(true);
       }}
       onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onClick={handleAvatarClick}
       className="relative flex items-center justify-center select-none cursor-grab active:cursor-grabbing group"

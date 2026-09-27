@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { CustomWidgetPackage, SandboxMessageToParent } from "./types";
 import { WidgetTheme } from "../types";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { DRAG_EXEMPT_SELECTOR, DRAG_THRESHOLD_PX } from "../dragLogic";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -181,6 +182,23 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           });
         }
       });
+
+      // Hold and drag on any non-control spot moves the widget (the host window does the move).
+      var _press = null;
+      var _exempt = ${JSON.stringify(DRAG_EXEMPT_SELECTOR)};
+      document.addEventListener("pointerdown", function(e) {
+        var t = e.target;
+        _press = (e.button === 0 && !(t && t.closest && t.closest(_exempt))) ? { x: e.screenX, y: e.screenY } : null;
+      }, true);
+      document.addEventListener("pointermove", function(e) {
+        if (!_press) return;
+        if ((e.buttons & 1) === 0) { _press = null; return; }
+        if (Math.abs(e.screenX - _press.x) + Math.abs(e.screenY - _press.y) >= ${DRAG_THRESHOLD_PX}) {
+          _press = null;
+          window.parent.postMessage({ type: "widget:drag" }, "*");
+        }
+      }, true);
+      document.addEventListener("pointerup", function() { _press = null; }, true);
 
       // Capture runtime errors safely
       window.onerror = function(msg, url, line, col, error) {
