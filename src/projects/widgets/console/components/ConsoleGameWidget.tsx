@@ -20,6 +20,7 @@ import {
   Languages,
   AlertTriangle,
   LayoutGrid,
+  Palette,
 } from "lucide-react";
 import { WidgetInstance } from "../../types";
 import { useWidgetsStore } from "../../store/widgetsStore";
@@ -32,6 +33,8 @@ import { saveConsoleBounds } from "../launcher";
 import { KeyMappingEditor } from "./KeyMappingEditor";
 import { GamepadSettings } from "./GamepadSettings";
 import { playerPadConfig, useGamepadStore } from "../gamepadStore";
+import { useSnesCustomizerStore, SNES_SKINS } from "../snesCustomizer";
+import { SnesCustomizerModal } from "./SnesCustomizerModal";
 
 type Phase = "waiting" | "reading" | "loading" | "playing" | "error";
 type Panel = null | "volume" | "save" | "load" | "controls" | "about";
@@ -104,6 +107,10 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
   const [toast, setToast] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+
+  const snesCustom = useSnesCustomizerStore((s) => s.config);
+  const activeSkin = SNES_SKINS[snesCustom.skinId] || SNES_SKINS["snes-classic"];
 
   useEffect(() => initConsoleLibrarySync(), []);
 
@@ -456,9 +463,17 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
 
   return (
     <div className="w-screen h-screen p-1 select-none">
-      <div className="relative w-full h-full flex flex-col rounded-2xl overflow-hidden bg-slate-950 border border-pink-500/35 shadow-2xl text-white">
+      <div className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border shadow-2xl text-white ${activeSkin.chassisBorder} ${activeSkin.chassisBg}`}>
         {/* Title bar (drag handle) */}
-        <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-8 shrink-0 bg-gradient-to-r from-pink-600/40 via-purple-600/30 to-slate-900 cursor-grab">
+        <div data-tauri-drag-region className={`flex items-center gap-2 px-3 h-8 shrink-0 bg-gradient-to-r ${activeSkin.headerGradient} cursor-grab`}>
+          <div
+            className="w-2.5 h-2.5 rounded-full shrink-0 animate-pulse"
+            style={{
+              backgroundColor: snesCustom.ledColor === "green" ? "#22c55e" : snesCustom.ledColor === "cyan" ? "#06b6d4" : snesCustom.ledColor === "pink" ? "#ec4899" : snesCustom.ledColor === "amber" ? "#f59e0b" : snesCustom.ledColor === "purple" ? "#a855f7" : "#ef4444",
+              boxShadow: "0 0 6px currentColor",
+            }}
+            title="LED Power"
+          />
           <Gamepad2 size={14} className="text-pink-300 pointer-events-none" />
           <span data-tauri-drag-region className="text-xs font-bold truncate flex-1">
             {game?.name || "Mini Console"}
@@ -482,6 +497,18 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
         {/* Game area (EmulatorJS letterboxes to the console aspect ratio inside the canvas) */}
         <div className="relative flex-1 min-h-0 bg-black" onMouseDown={() => setPanel(null)}>
           {iframe}
+
+          {/* Retro CRT Scanlines Effect */}
+          {snesCustom.scanlineIntensity > 0 && (
+            <div
+              className="pointer-events-none absolute inset-0 z-10"
+              style={{
+                opacity: snesCustom.scanlineIntensity / 100,
+                background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.45) 50%)",
+                backgroundSize: "100% 4px",
+              }}
+            />
+          )}
 
           {phase !== "playing" && phase !== "error" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-white/80 text-xs">
@@ -622,6 +649,9 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
           <button onClick={() => togglePanel("controls")} disabled={!system} className={iconBtn} title="Configurar teclado ou controle">
             <Gamepad2 size={15} />
           </button>
+          <button onClick={() => setCustomizerOpen(true)} className={iconBtn} title="Personalizar Carcaça, LED e Cartucho (Skin)">
+            <Palette size={15} />
+          </button>
           <div className="flex-1" data-tauri-drag-region />
           {paused && playing && <span className="text-[10px] font-bold text-amber-300 mr-1">PAUSADO</span>}
           <button onClick={handleToggleFullscreen} className={iconBtn} title={fullscreen ? "Sair da tela cheia" : "Tela cheia"}>
@@ -643,6 +673,7 @@ export const ConsoleGameWidget: React.FC<ConsoleGameWidgetProps> = ({ widget, ga
             />
           )}
         </div>
+        {customizerOpen && <SnesCustomizerModal onClose={() => setCustomizerOpen(false)} />}
       </div>
     </div>
   );

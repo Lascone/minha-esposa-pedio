@@ -20,6 +20,10 @@ export type WidgetType =
   | "rss-news"
   | "hydration-reminder"
   | "ambient-audio"
+  | "desktop-shelf"
+  | "spotify"
+  | "youtube-music"
+  | "youtube"
   | (string & {});
 
 export type WidgetTheme =

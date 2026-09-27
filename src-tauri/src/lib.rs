@@ -22,22 +22,15 @@ use console_library::{
     console_list_saves, console_delete_save, console_get_data_dir,
 };
 
-mod dock_system;
-use dock_system::{
-    dock_open_window, dock_close_window, dock_set_bounds, dock_set_hit_rect, dock_set_effect, dock_list_windows,
-    dock_env_state, dock_window_action, dock_launch, dock_reveal, dock_resolve_item, dock_get_icon,
-    dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar, dock_shell_action,
-    dock_tray_open, dock_tray_close, dock_tray_set_bounds, dock_tray_state,
-    dock_menu_toggle, dock_menu_hide, dock_menu_set_bounds, dock_list_start_apps, dock_user_name, dock_power_action,
-    dock_change_volume,
+mod windhawk_system;
+use windhawk_system::{
+    windhawk_get_status, windhawk_launch, windhawk_restart_explorer,
+    windhawk_open_folder, windhawk_get_installed_mods, windhawk_get_mod_source,
+    windhawk_save_mod_source, windhawk_compile_mod, windhawk_toggle_mod,
+    windhawk_create_custom_mod, windhawk_setup_engine,
 };
 
 mod single_instance;
-mod diag_log;
-use diag_log::dock_open_logs;
-
-mod taskbar_mode;
-use taskbar_mode::{taskbar_mode_status, taskbar_mode_apply, taskbar_mode_restore, taskbar_peek};
 
 mod autoclick_engine;
 mod autoclick_db;
@@ -524,18 +517,6 @@ async fn download_and_run_installer(app: AppHandle, url: String) -> Result<(), S
 }
 
 pub fn run() {
-    // Used by the uninstaller: put the Windows taskbar back as it was and quit without any UI.
-    if std::env::args().any(|a| a == "--restore-taskbar") {
-        taskbar_mode::restore_from_backup(&taskbar_mode::default_backup_path());
-        return;
-    }
-    let args: Vec<String> = std::env::args().collect();
-    if let Some(i) = args.iter().position(|a| a == "--taskbar-watchdog") {
-        if let Some(pid) = args.get(i + 1).and_then(|p| p.parse().ok()) {
-            taskbar_mode::run_watchdog(pid);
-        }
-        return;
-    }
     if !single_instance::acquire() {
         return;
     }
@@ -611,45 +592,20 @@ pub fn run() {
             get_app_version,
             open_external_url,
             download_and_run_installer,
-            dock_open_window,
-            dock_close_window,
-            dock_set_bounds,
-            dock_set_hit_rect,
-            dock_set_effect,
-            dock_list_windows,
-            dock_env_state,
-            dock_window_action,
-            dock_launch,
-            dock_reveal,
-            dock_resolve_item,
-            dock_get_icon,
-            dock_list_monitors,
-            dock_pick_items,
-            dock_read_image,
-            dock_set_appbar,
-            dock_shell_action,
-            dock_tray_open,
-            dock_tray_close,
-            dock_tray_set_bounds,
-            dock_tray_state,
-            dock_menu_toggle,
-            dock_menu_hide,
-            dock_menu_set_bounds,
-            dock_list_start_apps,
-            dock_user_name,
-            dock_power_action,
-            dock_change_volume,
-            dock_open_logs,
-            taskbar_mode_status,
-            taskbar_mode_apply,
-            taskbar_mode_restore,
-            taskbar_peek,
+            windhawk_get_status,
+            windhawk_launch,
+            windhawk_restart_explorer,
+            windhawk_open_folder,
+            windhawk_get_installed_mods,
+            windhawk_get_mod_source,
+            windhawk_save_mod_source,
+            windhawk_compile_mod,
+            windhawk_toggle_mod,
+            windhawk_create_custom_mod,
+            windhawk_setup_engine,
         ])
 
         .setup(|app| {
-            // A backup still on disk means the app did not exit cleanly while "Modo dock" was on.
-            taskbar_mode::restore_if_active(app.handle());
-
             // Build system tray menu
             let toggle_app_i =
                 MenuItem::with_id(app, "toggle_app", "Abrir / Ocultar Central", true, None::<&str>)?;
@@ -667,13 +623,11 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let restore_taskbar_i =
-                MenuItem::with_id(app, "restore_taskbar", "Restaurar barra do Windows", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
             let menu = Menu::with_items(
                 app,
-                &[&toggle_app_i, &toggle_widgets_i, &toggle_crosshair_i, &restore_taskbar_i, &quit_i],
+                &[&toggle_app_i, &toggle_widgets_i, &toggle_crosshair_i, &quit_i],
             )?;
 
             let mut tray_builder = TrayIconBuilder::new()
@@ -703,10 +657,6 @@ pub fn run() {
                     }
                     "toggle_crosshair" => {
                         let _ = toggle_overlay(app.clone());
-                    }
-                    "restore_taskbar" => {
-                        taskbar_mode::restore_if_active(app);
-                        let _ = app.emit("taskbar-mode-restored", ());
                     }
                     "quit" => {
                         app.exit(0);
@@ -768,10 +718,5 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                dock_system::release_appbar();
-                taskbar_mode::restore_if_active(app);
-            }
-        });
+        .run(|_app, _event| {});
 }

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { checkForUpdates, getCurrentVersion, UpdateInfo } from "@/core/services/updateService";
 import { UpdateModal } from "@/core/components/UpdateModal";
+import { IntegrationsManagerCard } from "@/core/components/IntegrationsManagerCard";
 
 interface MonitorOption {
   name: string;
@@ -187,7 +188,22 @@ export const SettingsView: React.FC = () => {
         </div>
       </Card>
 
-      {/* 2. Sistema & Segundo Plano */}
+      {/* 2. Personalizações & Contas Conectadas (Spotify, YouTube Music, YouTube, Gmail via Mozilla Firefox) */}
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-center gap-2 border-b border-theme-border/60 pb-3">
+          <Sparkles size={18} className="text-pink-500" />
+          <div>
+            <h3 className="text-base font-bold text-theme-text">Contas & Integrações de Mídia</h3>
+            <p className="text-[11px] text-theme-text-muted">
+              Conecte Spotify, YouTube Music, YouTube e Gmail via seu navegador padrão (Mozilla Firefox) para alimentar seus gadgets e widgets.
+            </p>
+          </div>
+        </div>
+
+        <IntegrationsManagerCard />
+      </Card>
+
+      {/* 3. Sistema & Segundo Plano */}
       <Card className="flex flex-col gap-4">
         <div className="flex items-center gap-2 border-b border-theme-border/60 pb-3">
           <Power size={18} className="text-purple-500" />

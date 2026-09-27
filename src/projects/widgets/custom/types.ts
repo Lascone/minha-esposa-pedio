@@ -40,7 +40,7 @@ export interface CustomWidgetPackage {
 }
 
 export interface SandboxMessageToParent {
-  type: "widget:ready" | "widget:resize" | "widget:set_config" | "widget:log" | "widget:error" | "widget:drag";
+  type: "widget:ready" | "widget:resize" | "widget:set_config" | "widget:log" | "widget:error" | "widget:drag" | "media:control";
   payload?: any;
 }
 

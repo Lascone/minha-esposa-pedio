@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Gamepad2, Plus, Search, X, Edit2, Trash2, Languages, Loader2, AlertTriangle } from "lucide-react";
+import { Gamepad2, Plus, Search, X, Edit2, Trash2, Languages, Loader2, AlertTriangle, Palette } from "lucide-react";
 import { WidgetInstance } from "../../types";
 import { useWidgetsStore } from "../../store/widgetsStore";
 import { useConsoleLibraryStore, initConsoleLibrarySync } from "../consoleLibraryStore";
@@ -11,6 +11,8 @@ import { AddGameWizard } from "./AddGameWizard";
 import { GameEditorModal } from "./GameEditorModal";
 import { GamepadSettings } from "./GamepadSettings";
 import { getSystem } from "../systems";
+import { useSnesCustomizerStore, SNES_SKINS } from "../snesCustomizer";
+import { SnesCustomizerModal } from "./SnesCustomizerModal";
 
 const GameTile: React.FC<{
   game: ConsoleGame;
@@ -58,7 +60,10 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ConsoleGame | null>(null);
   const [padsOpen, setPadsOpen] = useState(false);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
   const snes = getSystem("snes");
+  const snesCustom = useSnesCustomizerStore((s) => s.config);
+  const activeSkin = SNES_SKINS[snesCustom.skinId] || SNES_SKINS["snes-classic"];
 
   useEffect(() => initConsoleLibrarySync(), []);
 
@@ -88,15 +93,30 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
 
   return (
     <div className="w-screen h-screen p-1 select-none">
-      <div className="relative w-full h-full flex flex-col rounded-2xl overflow-hidden bg-slate-950 border border-pink-500/35 shadow-2xl text-white">
-        <div data-tauri-drag-region className="flex items-center gap-2 px-3 h-8 shrink-0 bg-gradient-to-r from-pink-600/40 via-purple-600/30 to-slate-900 cursor-grab">
+      <div className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border shadow-2xl ${activeSkin.chassisBorder} ${activeSkin.chassisBg}`}>
+        <div data-tauri-drag-region className={`flex items-center gap-2 px-3 h-8 shrink-0 bg-gradient-to-r ${activeSkin.headerGradient} cursor-grab`}>
+          <div
+            className="w-2.5 h-2.5 rounded-full shrink-0 animate-pulse"
+            style={{
+              backgroundColor: snesCustom.ledColor === "green" ? "#22c55e" : snesCustom.ledColor === "cyan" ? "#06b6d4" : snesCustom.ledColor === "pink" ? "#ec4899" : snesCustom.ledColor === "amber" ? "#f59e0b" : snesCustom.ledColor === "purple" ? "#a855f7" : "#ef4444",
+              boxShadow: `0 0 6px currentColor`,
+            }}
+            title="LED Power"
+          />
           <Gamepad2 size={14} className="text-pink-300 pointer-events-none" />
           <span data-tauri-drag-region className="text-xs font-bold truncate flex-1">
-            Mini Console SNES
+            {activeSkin.badgeText}
           </span>
-          <span className="text-[10px] text-white/55 pointer-events-none">
+          <span className="text-[10px] opacity-70 pointer-events-none">
             {playable.length} jogo{playable.length === 1 ? "" : "s"}
           </span>
+          <button
+            onClick={() => setCustomizerOpen(true)}
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-bold text-white/85 hover:bg-white/15"
+            title="Personalizar carcaça, cores e cartucho do console"
+          >
+            <Palette size={13} className="text-pink-300" /> Skin
+          </button>
           <button
             onClick={() => setPadsOpen(true)}
             className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-bold text-white/85 hover:bg-white/15"
@@ -189,6 +209,7 @@ export const ConsoleSnesWidget: React.FC<{ widget: WidgetInstance }> = ({ widget
             </div>
           </div>
         )}
+        {customizerOpen && <SnesCustomizerModal onClose={() => setCustomizerOpen(false)} />}
       </div>
     </div>
   );

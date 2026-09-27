@@ -3,8 +3,8 @@ import { WIDGET_REGISTRY, getWidgetDefinition } from "../src/projects/widgets/re
 import { useWidgetsStore } from "../src/projects/widgets/store/widgetsStore";
 
 describe("Windows Desktop Widgets Module", () => {
-  it("should have all 21 standard widgets registered with complete metadata", () => {
-    expect(WIDGET_REGISTRY.length).toBe(21);
+  it("should have all 25 standard widgets registered with complete metadata", () => {
+    expect(WIDGET_REGISTRY.length).toBe(25);
 
     const types = [
       "analog-clock",
@@ -28,6 +28,10 @@ describe("Windows Desktop Widgets Module", () => {
       "rss-news",
       "hydration-reminder",
       "ambient-audio",
+      "desktop-shelf",
+      "spotify",
+      "youtube-music",
+      "youtube",
     ];
 
     for (const type of types) {

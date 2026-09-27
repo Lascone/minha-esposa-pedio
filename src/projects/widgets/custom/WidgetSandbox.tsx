@@ -3,6 +3,8 @@ import { CustomWidgetPackage, SandboxMessageToParent } from "./types";
 import { WidgetTheme } from "../types";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { DRAG_EXEMPT_SELECTOR, DRAG_THRESHOLD_PX } from "../dragLogic";
+import { useIntegrationsStore } from "@/core/stores/integrationsStore";
+import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -25,6 +27,11 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const configRef = useRef<Record<string, any>>(initialConfig);
+
+  const activeTrack = useIntegrationsStore((s) => s.activeTrack);
+  const gmailSummary = useIntegrationsStore((s) => s.gmailSummary);
+  const snesConfig = useSnesCustomizerStore((s) => s.config);
+  const snesSkin = SNES_SKINS[snesConfig.skinId] || SNES_SKINS["snes-classic"];
 
   // Keep configRef updated
   useEffect(() => {
@@ -72,6 +79,16 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           setSandboxError(String(data.payload || "Erro de execução no widget."));
           break;
 
+        case "media:control":
+          if (data.payload?.action === "toggle") {
+            useIntegrationsStore.getState().togglePlayPause();
+          } else if (data.payload?.action === "next") {
+            useIntegrationsStore.getState().skipTrack("next");
+          } else if (data.payload?.action === "prev") {
+            useIntegrationsStore.getState().skipTrack("prev");
+          }
+          break;
+
         case "widget:log":
           // Optional debug logging in sandbox
           break;
@@ -94,6 +111,45 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
       );
     }
   }, [theme]);
+
+  // Sync media track updates
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "media:track_changed",
+          payload: activeTrack,
+        },
+        "*"
+      );
+    }
+  }, [activeTrack]);
+
+  // Sync Gmail summary updates
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "gmail:summary_changed",
+          payload: gmailSummary,
+        },
+        "*"
+      );
+    }
+  }, [gmailSummary]);
+
+  // Sync SNES customization skin
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "snes:skin_changed",
+          payload: snesSkin,
+        },
+        "*"
+      );
+    }
+  }, [snesSkin]);
 
   // Construct srcdoc with isolated WidgetAPI bridge
   const srcDoc = useMemo(() => {
@@ -128,7 +184,13 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
       // Secure WidgetAPI Bridge
       var _config = ${safeConfigJson};
       var _theme = ${safeTheme};
+      var _mediaTrack = ${JSON.stringify(activeTrack).replace(/</g, "\\u003c")};
+      var _gmailSummary = ${JSON.stringify(gmailSummary).replace(/</g, "\\u003c")};
+      var _snesSkin = ${JSON.stringify(snesSkin).replace(/</g, "\\u003c")};
       var _themeListeners = [];
+      var _mediaListeners = [];
+      var _gmailListeners = [];
+      var _snesListeners = [];
 
       window.WidgetAPI = {
         getConfig: function(key, defaultValue) {
@@ -159,6 +221,45 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
             _themeListeners.push(callback);
           }
         },
+        media: {
+          getCurrentTrack: function() {
+            return _mediaTrack;
+          },
+          togglePlay: function() {
+            window.parent.postMessage({ type: "media:control", payload: { action: "toggle" } }, "*");
+          },
+          nextTrack: function() {
+            window.parent.postMessage({ type: "media:control", payload: { action: "next" } }, "*");
+          },
+          prevTrack: function() {
+            window.parent.postMessage({ type: "media:control", payload: { action: "prev" } }, "*");
+          },
+          onTrackChange: function(callback) {
+            if (typeof callback === "function") {
+              _mediaListeners.push(callback);
+            }
+          }
+        },
+        gmail: {
+          getSummary: function() {
+            return _gmailSummary;
+          },
+          onSummaryChange: function(callback) {
+            if (typeof callback === "function") {
+              _gmailListeners.push(callback);
+            }
+          }
+        },
+        snes: {
+          getSkin: function() {
+            return _snesSkin;
+          },
+          onSkinChange: function(callback) {
+            if (typeof callback === "function") {
+              _snesListeners.push(callback);
+            }
+          }
+        },
         emitReady: function() {
           window.parent.postMessage({ type: "widget:ready" }, "*");
         },
@@ -179,6 +280,24 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           document.documentElement.style.setProperty("--widget-theme", _theme);
           _themeListeners.forEach(function(fn) {
             try { fn(_theme); } catch(err) { console.error(err); }
+          });
+        }
+        if (e.data.type === "media:track_changed") {
+          _mediaTrack = e.data.payload;
+          _mediaListeners.forEach(function(fn) {
+            try { fn(_mediaTrack); } catch(err) { console.error(err); }
+          });
+        }
+        if (e.data.type === "gmail:summary_changed") {
+          _gmailSummary = e.data.payload;
+          _gmailListeners.forEach(function(fn) {
+            try { fn(_gmailSummary); } catch(err) { console.error(err); }
+          });
+        }
+        if (e.data.type === "snes:skin_changed") {
+          _snesSkin = e.data.payload;
+          _snesListeners.forEach(function(fn) {
+            try { fn(_snesSkin); } catch(err) { console.error(err); }
           });
         }
       });

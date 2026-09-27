@@ -304,7 +304,72 @@ WidgetAPI.emitReady();`;
                 <code className="text-pink-300 font-bold">WidgetAPI.emitReady()</code>
                 <p className="text-[11px] text-white/60 mt-0.5">Informa que o widget terminou de carregar e está pronto.</p>
               </div>
+              {/* Media Integrations (Spotify, YouTube Music, YouTube) */}
+              <div className="bg-black/30 p-2.5 rounded-xl border border-emerald-500/20">
+                <code className="text-emerald-300 font-bold">WidgetAPI.media.getCurrentTrack()</code>
+                <p className="text-[11px] text-white/60 mt-0.5">
+                  Retorna a faixa atual tocando no Spotify ou YouTube Music: &#123; title, artist, albumArt, isPlaying, provider &#125;.
+                </p>
+              </div>
+              <div className="bg-black/30 p-2.5 rounded-xl border border-emerald-500/20">
+                <code className="text-emerald-300 font-bold">WidgetAPI.media.togglePlay() / nextTrack() / prevTrack()</code>
+                <p className="text-[11px] text-white/60 mt-0.5">Controla a reprodução de mídia conectada.</p>
+              </div>
+              <div className="bg-black/30 p-2.5 rounded-xl border border-emerald-500/20">
+                <code className="text-emerald-300 font-bold">WidgetAPI.media.onTrackChange((track) =&gt; &#123; ... &#125;)</code>
+                <p className="text-[11px] text-white/60 mt-0.5">Ouve mudanças de música em tempo real.</p>
+              </div>
+              {/* Gmail Integration */}
+              <div className="bg-black/30 p-2.5 rounded-xl border border-amber-500/20">
+                <code className="text-amber-300 font-bold">WidgetAPI.gmail.getSummary() / onSummaryChange(cb)</code>
+                <p className="text-[11px] text-white/60 mt-0.5">
+                  Acessa o contador de e-mails não lidos e as mensagens mais recentes sincronizadas com o Gmail no Firefox.
+                </p>
+              </div>
+              {/* SNES Console Skin API */}
+              <div className="bg-black/30 p-2.5 rounded-xl border border-purple-500/20">
+                <code className="text-purple-300 font-bold">WidgetAPI.snes.getSkin() / onSkinChange(cb)</code>
+                <p className="text-[11px] text-white/60 mt-0.5">
+                  Retorna ou ouve alterações na carcaça ativa do Mini Console SNES (ex.: Classic US, Super Famicom, Cute Pastel Sakura, Atomic Purple ou Dark Cyber).
+                </p>
+              </div>
             </div>
+          </div>
+
+          {/* Section: Prateleira de Atalhos e Firefox */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-400/30 space-y-2">
+            <h3 className="text-sm font-bold text-amber-300 flex items-center gap-1.5">
+              ⭐ Prateleira da Área de Trabalho & Login com Mozilla Firefox
+            </h3>
+            <p className="text-white/80 leading-relaxed">
+              <strong>Como usar a Prateleira 3D:</strong> Adicione o widget <em>Prateleira da Área de Trabalho</em> na galeria. Arraste qualquer arquivo ou atalho (<code>.lnk</code>, <code>.url</code>, jogos ou pastas) do seu desktop diretamente para a madeira da prateleira. Ela suporta estéticas de Madeira Rústica, Carvalho Claro, Aero Glass e Cyber Neon, com decorações (gatinho dormindo, vasinho de planta, xícara de café) e redimensionamento livre!
+            </p>
+            <p className="text-white/70 leading-relaxed text-[11px]">
+              <strong>Como conectar Spotify, YouTube e Gmail:</strong> Vá na aba de <em>Configurações → Contas & Integrações</em>. Ao clicar em conectar, o aplicativo abrirá seu navegador padrão (<strong>Mozilla Firefox</strong>). Autorize com sua conta normalmente no Firefox e o aplicativo capturará o login com segurança local.
+            </p>
+          </div>
+
+          {/* Section: Widgets Específicos Personalizados (Spotify & YouTube) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-pink-500/10 border border-emerald-400/30 space-y-2.5">
+            <h3 className="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+              🎵 Widgets Específicos Personalizados (Spotify & YouTube)
+            </h3>
+            <p className="text-white/80 leading-relaxed text-xs">
+              <strong>Zero Tokens ou Chaves de API complicadas:</strong> Os widgets de Spotify e YouTube foram feitos para você simplesmente usar! Você não precisa criar conta de desenvolvedor, pegar tokens ou mexer em códigos.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 text-[11px] text-white/70">
+              <div className="p-2.5 rounded-xl bg-black/30 border border-white/5">
+                <strong className="text-emerald-400 block mb-0.5">🟢 Spotify Desktop:</strong>
+                Basta clicar no botão para abrir o navegador (Mozilla Firefox) e fazer login na sua conta normal do Spotify, ou colar o link de qualquer playlist sua. O widget sincroniza faixas, capa de álbum e controles de reprodução automaticamente.
+              </div>
+              <div className="p-2.5 rounded-xl bg-black/30 border border-white/5">
+                <strong className="text-red-400 block mb-0.5">🔴 YouTube & YouTube Music:</strong>
+                Pesquise músicas ou cole o link de qualquer vídeo/live do YouTube. Toca diretamente na janelinha compacta na sua área de trabalho sem necessidade de login obrigatório.
+              </div>
+            </div>
+            <p className="text-white/60 text-[10px] italic">
+              💡 No catálogo de widgets, escolha Spotify, YouTube, YouTube Music ou a Prateleira 3D e altere as opções ao seu gosto! Vamos adicionar mais opções com o tempo.
+            </p>
           </div>
 
           {/* Section: Complete Relógio Example */}

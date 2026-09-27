@@ -18,12 +18,13 @@
 
 ---
 
-## 🚀 Dock e Modo Dock
+## 🧩 Módulo de Customizações do Windows (Windhawk Mods)
 > [!IMPORTANT]
-> Consulte [/docs/dock/README.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/dock/README.md) antes de alterar o dock.
-> 1. Chamadas ao Windows ficam em `src-tauri/src/dock_system.rs` e `src-tauri/src/taskbar_mode.rs`.
-> 2. **NUNCA** mexa no Iniciar ou na bandeja do Windows, e sempre salve um backup antes de alterar a barra.
-> 3. **NUNCA** copie código do Seelen UI (AGPL-3.0).
+> **LEIA ISTO ANTES DE ALTERAR O MÓDULO DE MODS / WINDHAWK:**
+> 1. O gerenciador de mods consome o catálogo oficial do ecossistema Windhawk (`https://mods.windhawk.net/catalog.json`).
+> 2. Todas as chamadas ao sistema operacional e detecção do motor nativo ficam em `src-tauri/src/windhawk_system.rs`.
+> 3. **SEMPRE utilize nossa identidade visual e design próprio** (temas Cute Pastel, Aero Glass, Cyber Neon e Dark Modern), mantendo a experiência fofa, polida e integrada ao resto do aplicativo.
+> 4. O reinício seguro do Explorer (`windhawk_restart_explorer`) deve ser sempre acionado via confirmação ou feedback claro para a usuária.
 
 ---
 

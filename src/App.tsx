@@ -16,11 +16,7 @@ import { useCompanionsStore } from "./projects/widgets/companions/store/companio
 import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
 import { ManageGamesView } from "./projects/widgets/console/components/ManageGamesView";
 import { OverlayApp } from "./overlay/OverlayApp";
-import { DockWindow } from "./projects/dock/views/DockWindow";
-import { DockView } from "./projects/dock/views/DockView";
-import { DockTrayWindow } from "./projects/dock/views/DockTrayWindow";
-import { DockStartMenuWindow } from "./projects/dock/views/DockStartMenu";
-import { startDockOnLaunch } from "./projects/dock/dockLifecycle";
+import { ModsView } from "./projects/mods/views/ModsView";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -242,49 +238,20 @@ export const App: React.FC = () => {
     currentRoute === "/overlay" ||
     window.location.hash.startsWith("#/overlay");
 
-  const isDockTrayWindow = windowLabel === "docktray" || currentRoute === "/dock-tray";
-  const isDockMenuWindow = windowLabel === "dockmenu" || currentRoute === "/dock-menu";
-  const isDockWindow = isDockTrayWindow || isDockMenuWindow || windowLabel === "dock" || currentRoute === "/dock";
-
   // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
-    if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow && !isDockWindow) {
+    if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow) {
       const timer = setTimeout(() => {
         useWidgetsStore.getState().launchAllActiveWidgets();
         useCompanionsStore.getState().launchAllActiveCompanions();
-        startDockOnLaunch();
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [windowLabel, isWidgetWindow, isCompanionWindow, isOverlayWindow, isDockWindow]);
-
-  // "Configurar dock…" from the dock's context menu
-  useEffect(() => {
-    if (windowLabel !== "main") return;
-    const off = listen("dock-open-settings", () => {
-      window.location.hash = "/dock-settings";
-      setCurrentRoute("/dock-settings");
-    });
-    return () => {
-      off.then((f) => f()).catch(() => {});
-    };
-  }, [windowLabel]);
+  }, [windowLabel, isWidgetWindow, isCompanionWindow, isOverlayWindow]);
 
   // If this window is the dedicated overlay window, render only the overlay canvas
   if (isOverlayWindow) {
     return <OverlayApp />;
-  }
-
-  if (isDockTrayWindow) {
-    return <DockTrayWindow />;
-  }
-
-  if (isDockMenuWindow) {
-    return <DockStartMenuWindow />;
-  }
-
-  if (isDockWindow) {
-    return <DockWindow />;
   }
 
   // If this window is an independent native desktop widget window
@@ -330,8 +297,8 @@ export const App: React.FC = () => {
         </Suspense>
       );
     }
-    if (currentRoute === "/dock-settings") {
-      return <DockView />;
+    if (currentRoute === "/mods" || currentRoute === "/dock-settings") {
+      return <ModsView />;
     }
     if (currentRoute === "/projects") {
       return <ProjectsView onSelectProject={(slug) => navigate(`/projects/${slug}`)} />;

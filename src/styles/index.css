@@ -419,22 +419,6 @@ h1, h2, h3, h4, h5, h6 {
   transform-origin: center center;
 }
 
-/* Dock: launch bounce */
-@keyframes dockBounceY {
-  0%, 100% { transform: translateY(0); }
-  20% { transform: translateY(calc(var(--dock-bounce-dir, -1) * 16px)); }
-  40% { transform: translateY(0); }
-  60% { transform: translateY(calc(var(--dock-bounce-dir, -1) * 8px)); }
-  80% { transform: translateY(0); }
-}
-@keyframes dockBounceX {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(calc(var(--dock-bounce-dir, 1) * 16px)); }
-  40% { transform: translateX(0); }
-  60% { transform: translateX(calc(var(--dock-bounce-dir, 1) * 8px)); }
-  80% { transform: translateX(0); }
-}
-.dock-bounce-y { animation: dockBounceY 900ms ease-out 1; }
-.dock-bounce-x { animation: dockBounceX 900ms ease-out 1; }
+
 
 

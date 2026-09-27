@@ -22,6 +22,10 @@ import { CryptoCurrencyWidget } from "./CryptoCurrencyWidget";
 import { RssNewsWidget } from "./RssNewsWidget";
 import { HydrationWidget } from "./HydrationWidget";
 import { AmbientAudioWidget } from "./AmbientAudioWidget";
+import { DesktopShelfWidget } from "./DesktopShelfWidget";
+import { SpotifyWidget } from "./SpotifyWidget";
+import { YouTubeMusicWidget } from "./YouTubeMusicWidget";
+import { YouTubePlayerWidget } from "./YouTubePlayerWidget";
 import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
 import { WidgetSandbox } from "../custom/WidgetSandbox";
 import { useWidgetsStore } from "../store/widgetsStore";
@@ -121,6 +125,14 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
         return <HydrationWidget widget={widget} />;
       case "ambient-audio":
         return <AmbientAudioWidget widget={widget} />;
+      case "desktop-shelf":
+        return <DesktopShelfWidget widget={widget} />;
+      case "spotify":
+        return <SpotifyWidget widget={widget} />;
+      case "youtube-music":
+        return <YouTubeMusicWidget widget={widget} />;
+      case "youtube":
+        return <YouTubePlayerWidget widget={widget} />;
       default:
         return (
           <div className="text-xs text-slate-400 p-4 text-center">
