@@ -1,0 +1,89 @@
+import { DockAppearance, DockTheme } from "./types";
+
+export const DEFAULT_APPEARANCE: DockAppearance = {
+  edge: "bottom",
+  monitor: 0,
+  align: "center",
+  length: "auto",
+  iconSize: 48,
+  spacing: 8,
+  padding: 10,
+  offset: 10,
+  magnify: 1.5,
+  background: "glass",
+  bgColor: "#1c1a2b",
+  bgOpacity: 0.55,
+  blur: 18,
+  borderColor: "#ffffff",
+  borderOpacity: 0.18,
+  borderWidth: 1,
+  radius: 22,
+  shadow: 0.35,
+  indicator: "dot",
+  indicatorColor: "#f472b6",
+  animations: true,
+  animSpeed: 1,
+  showLabels: true,
+};
+
+/** Only visual fields: applying a theme never moves the dock or changes its size. */
+export const THEME_FIELDS: (keyof DockAppearance)[] = [
+  "background",
+  "bgColor",
+  "bgOpacity",
+  "blur",
+  "borderColor",
+  "borderOpacity",
+  "borderWidth",
+  "radius",
+  "shadow",
+  "indicator",
+  "indicatorColor",
+];
+
+export const BUILTIN_THEMES: DockTheme[] = [
+  {
+    id: "aero-glass",
+    name: "Aero Glass",
+    builtin: true,
+    appearance: { background: "glass", bgColor: "#9ec5ff", bgOpacity: 0.22, blur: 22, borderColor: "#ffffff", borderOpacity: 0.45, borderWidth: 1, radius: 20, shadow: 0.3, indicator: "bar", indicatorColor: "#e0f2fe" },
+  },
+  {
+    id: "cute-pastel",
+    name: "Cute Pastel",
+    builtin: true,
+    appearance: { background: "translucent", bgColor: "#fce7f3", bgOpacity: 0.78, blur: 14, borderColor: "#f9a8d4", borderOpacity: 0.7, borderWidth: 2, radius: 28, shadow: 0.25, indicator: "dot", indicatorColor: "#ec4899" },
+  },
+  {
+    id: "dark-modern",
+    name: "Dark Modern",
+    builtin: true,
+    appearance: { background: "solid", bgColor: "#111318", bgOpacity: 0.92, blur: 0, borderColor: "#ffffff", borderOpacity: 0.08, borderWidth: 1, radius: 18, shadow: 0.5, indicator: "dot", indicatorColor: "#e5e7eb" },
+  },
+  {
+    id: "cyber-neon",
+    name: "Cyber Neon",
+    builtin: true,
+    appearance: { background: "translucent", bgColor: "#0b0620", bgOpacity: 0.8, blur: 10, borderColor: "#22d3ee", borderOpacity: 0.85, borderWidth: 2, radius: 14, shadow: 0.6, indicator: "glow", indicatorColor: "#f0abfc" },
+  },
+  {
+    id: "clean-light",
+    name: "Clean Claro",
+    builtin: true,
+    appearance: { background: "glass", bgColor: "#ffffff", bgOpacity: 0.6, blur: 24, borderColor: "#ffffff", borderOpacity: 0.7, borderWidth: 1, radius: 24, shadow: 0.2, indicator: "dot", indicatorColor: "#334155" },
+  },
+];
+
+export function pickThemeFields(appearance: DockAppearance): Partial<DockAppearance> {
+  const out: Partial<DockAppearance> = {};
+  for (const key of THEME_FIELDS) (out as any)[key] = appearance[key];
+  return out;
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean.padEnd(6, "0").slice(0, 6);
+  const n = parseInt(full, 16);
+  const a = Math.max(0, Math.min(1, alpha));
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}

@@ -22,6 +22,16 @@ use console_library::{
     console_list_saves, console_delete_save, console_get_data_dir,
 };
 
+mod dock_system;
+use dock_system::{
+    dock_open_window, dock_close_window, dock_set_bounds, dock_set_hit_rect, dock_set_effect, dock_list_windows,
+    dock_env_state, dock_window_action, dock_launch, dock_reveal, dock_resolve_item, dock_get_icon,
+    dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar,
+};
+
+mod taskbar_mode;
+use taskbar_mode::{taskbar_mode_status, taskbar_mode_apply, taskbar_mode_restore};
+
 mod autoclick_engine;
 mod autoclick_db;
 use autoclick_engine::{AutoClickEngine, AutoClickEngineConfig, EngineStatus};
@@ -507,6 +517,12 @@ async fn download_and_run_installer(app: AppHandle, url: String) -> Result<(), S
 }
 
 pub fn run() {
+    // Used by the uninstaller: put the Windows taskbar back as it was and quit without any UI.
+    if std::env::args().any(|a| a == "--restore-taskbar") {
+        taskbar_mode::restore_from_backup(&taskbar_mode::default_backup_path());
+        return;
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -577,9 +593,31 @@ pub fn run() {
             get_app_version,
             open_external_url,
             download_and_run_installer,
+            dock_open_window,
+            dock_close_window,
+            dock_set_bounds,
+            dock_set_hit_rect,
+            dock_set_effect,
+            dock_list_windows,
+            dock_env_state,
+            dock_window_action,
+            dock_launch,
+            dock_reveal,
+            dock_resolve_item,
+            dock_get_icon,
+            dock_list_monitors,
+            dock_pick_items,
+            dock_read_image,
+            dock_set_appbar,
+            taskbar_mode_status,
+            taskbar_mode_apply,
+            taskbar_mode_restore,
         ])
 
         .setup(|app| {
+            // A backup still on disk means the app did not exit cleanly while "Modo dock" was on.
+            taskbar_mode::restore_if_active(app.handle());
+
             // Build system tray menu
             let toggle_app_i =
                 MenuItem::with_id(app, "toggle_app", "Abrir / Ocultar Central", true, None::<&str>)?;
@@ -597,9 +635,14 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
+            let restore_taskbar_i =
+                MenuItem::with_id(app, "restore_taskbar", "Restaurar barra do Windows", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
-            let menu = Menu::with_items(app, &[&toggle_app_i, &toggle_widgets_i, &toggle_crosshair_i, &quit_i])?;
+            let menu = Menu::with_items(
+                app,
+                &[&toggle_app_i, &toggle_widgets_i, &toggle_crosshair_i, &restore_taskbar_i, &quit_i],
+            )?;
 
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
@@ -628,6 +671,10 @@ pub fn run() {
                     }
                     "toggle_crosshair" => {
                         let _ = toggle_overlay(app.clone());
+                    }
+                    "restore_taskbar" => {
+                        taskbar_mode::restore_if_active(app);
+                        let _ = app.emit("taskbar-mode-restored", ());
                     }
                     "quit" => {
                         app.exit(0);
@@ -687,6 +734,12 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                dock_system::release_appbar();
+                taskbar_mode::restore_if_active(app);
+            }
+        });
 }

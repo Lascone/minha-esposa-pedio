@@ -16,6 +16,9 @@ import { useCompanionsStore } from "./projects/widgets/companions/store/companio
 import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
 import { ManageGamesView } from "./projects/widgets/console/components/ManageGamesView";
 import { OverlayApp } from "./overlay/OverlayApp";
+import { DockWindow } from "./projects/dock/views/DockWindow";
+import { DockView } from "./projects/dock/views/DockView";
+import { startDockOnLaunch } from "./projects/dock/dockLifecycle";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -237,20 +240,39 @@ export const App: React.FC = () => {
     currentRoute === "/overlay" ||
     window.location.hash.startsWith("#/overlay");
 
+  const isDockWindow = windowLabel === "dock" || currentRoute === "/dock";
+
   // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
-    if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow) {
+    if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow && !isDockWindow) {
       const timer = setTimeout(() => {
         useWidgetsStore.getState().launchAllActiveWidgets();
         useCompanionsStore.getState().launchAllActiveCompanions();
+        startDockOnLaunch();
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [windowLabel, isWidgetWindow, isCompanionWindow, isOverlayWindow]);
+  }, [windowLabel, isWidgetWindow, isCompanionWindow, isOverlayWindow, isDockWindow]);
+
+  // "Configurar dock…" from the dock's context menu
+  useEffect(() => {
+    if (windowLabel !== "main") return;
+    const off = listen("dock-open-settings", () => {
+      window.location.hash = "/dock-settings";
+      setCurrentRoute("/dock-settings");
+    });
+    return () => {
+      off.then((f) => f()).catch(() => {});
+    };
+  }, [windowLabel]);
 
   // If this window is the dedicated overlay window, render only the overlay canvas
   if (isOverlayWindow) {
     return <OverlayApp />;
+  }
+
+  if (isDockWindow) {
+    return <DockWindow />;
   }
 
   // If this window is an independent native desktop widget window
@@ -295,6 +317,9 @@ export const App: React.FC = () => {
           <AutoClickApp />
         </Suspense>
       );
+    }
+    if (currentRoute === "/dock-settings") {
+      return <DockView />;
     }
     if (currentRoute === "/projects") {
       return <ProjectsView onSelectProject={(slug) => navigate(`/projects/${slug}`)} />;

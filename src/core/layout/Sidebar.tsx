@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   MousePointer,
   Keyboard,
+  PanelBottom,
 } from "lucide-react";
 import { useThemeStore } from "../theme/themeManager";
 import { useProfileStore } from "../providers/dicebearProvider";
@@ -59,6 +60,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: "Widgets",
       icon: <LayoutGrid size={18} />,
       route: "/widgets",
+    },
+    {
+      id: "dock",
+      label: "Dock",
+      icon: <PanelBottom size={18} />,
+      route: "/dock-settings",
       badge: "NOVO",
     },
     {

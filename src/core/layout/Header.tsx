@@ -20,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ currentRoute }) => {
     if (currentRoute.startsWith("/projects/crosshair")) return "🎯 Crosshair Studio";
     if (currentRoute.startsWith("/projects")) return "Projetos & Módulos";
     if (currentRoute === "/settings") return "Configurações";
+    if (currentRoute === "/dock-settings") return "🚀 Dock da Área de Trabalho";
     if (currentRoute === "/about") return "Sobre & Mimos";
     return "Pedi para meu marido";
   };
