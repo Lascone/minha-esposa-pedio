@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 #  💕 PEDI PARA MEU MARIDO - Publicador de Release Desktop (GitHub Releases)
 #  Gera build local e publica instalador (.exe) + latest.json sem GitHub Actions!
 # ==============================================================================
