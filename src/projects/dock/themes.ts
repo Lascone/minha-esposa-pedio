@@ -131,10 +131,10 @@ export const MACOS_LAYOUT: Partial<DockAppearance> = {
   showLabels: true,
 };
 
-/** Floating Windows 11 look: small icons on the left, no magnification, tray pill on the right. */
+/** Floating Windows 11 look: small centered icons, no magnification, tray pill on the right. */
 export const WIN11_LAYOUT: Partial<DockAppearance> = {
   edge: "bottom",
-  align: "start",
+  align: "center",
   length: "auto",
   iconSize: 34,
   spacing: 4,

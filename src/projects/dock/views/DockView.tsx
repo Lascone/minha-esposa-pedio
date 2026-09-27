@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { Brush, Layers, LayoutPanelTop, MonitorSmartphone, Palette, PanelBottom, Settings2, Sparkles } from "lucide-react";
+import { Brush, CheckCircle2, Layers, LayoutPanelTop, MonitorSmartphone, Palette, PanelBottom, RotateCcw, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/core/components/Button";
 import { Card } from "@/core/components/Card";
+import { Modal } from "@/core/components/Modal";
+import { DockAppearance, DockBehavior } from "../types";
 import { Toggle } from "@/core/components/Toggle";
 import { useToast } from "@/core/components/Toast";
 import { useDockStore } from "../store/dockStore";
 import { dockService, isTauriRuntime } from "../dockService";
 import { addPathsToDock } from "../dockActions";
 import { setDockEnabled } from "../dockLifecycle";
-import { DEFAULT_APPEARANCE, MACOS_LAYOUT, MACOS_THEME_ID, WIN11_LAYOUT, WIN11_THEME_ID } from "../themes";
+import { BUILTIN_THEMES, DEFAULT_APPEARANCE, MACOS_LAYOUT, MACOS_THEME_ID, WIN11_LAYOUT, WIN11_THEME_ID } from "../themes";
 
 type StylePreset = "macos" | "win11";
 
@@ -18,16 +20,16 @@ const STYLE_PRESETS: { id: StylePreset; emoji: string; name: string; description
     id: "macos",
     emoji: "🍎",
     name: "Estilo macOS",
-    description: "Dock centralizado com ampliação, Iniciar em forma de Launchpad e um relógio no fim do dock que abre a bandeja.",
+    description: "Dock centralizado com ampliação, Iniciar em forma de Launchpad e o relógio com a bandeja à direita.",
   },
   {
     id: "win11",
     emoji: "🪟",
     name: "Windows 11 flutuante",
-    description: "Barra flutuante à esquerda com Iniciar e apps, e uma pílula separada à direita com relógio, idioma, rede e bandeja.",
+    description: "Barra flutuante centralizada com Iniciar, Pesquisar e apps, e uma pílula à direita com relógio, idioma, rede e bandeja.",
   },
 ];
-import { DockPreview } from "../components/DockPreview";
+import { DockPreview, TaskbarMock } from "../components/DockPreview";
 import { BehaviorSection, ItemsSection, PositionSection, SizeSection, ThemesSection, VisualSection } from "../components/DockSettingsSections";
 import { TaskbarModePanel } from "../components/TaskbarModePanel";
 
@@ -56,47 +58,82 @@ export const DockView: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const [suggestAutohide, setSuggestAutohide] = useState(0);
   const startButton = useDockStore((s) => s.behavior.startButton);
   const trayStyle = useDockStore((s) => s.behavior.trayStyle);
   const behavior = useDockStore((s) => s.behavior);
   const activeThemeId = useDockStore((s) => s.activeThemeId);
   const activePreset: StylePreset | null = !startButton ? null : activeThemeId === MACOS_THEME_ID ? "macos" : activeThemeId === WIN11_THEME_ID ? "win11" : null;
 
-  const applyStyle = async (preset: StylePreset) => {
-    const s = useDockStore.getState();
+  const [confirmPreset, setConfirmPreset] = useState<StylePreset | null>(null);
+  const replaced = taskbarMode.enabled && taskbarMode.hide;
+
+  const presetBehavior = (preset: StylePreset): Partial<DockBehavior> => ({
+    startButton: true,
+    autoHide: "never",
+    showRunning: true,
+    startWithApp: true,
     // Reserving the strip keeps maximized windows above the dock, like the real taskbar did.
-    s.setBehavior({
-      startButton: true,
-      autoHide: "never",
-      showRunning: true,
-      startWithApp: true,
-      reserveSpace: true,
-      trayStyle: preset === "win11" ? "pill" : "inDock",
-      startMenu: "dock",
-      shellButtons: preset === "win11" ? ["search", "taskview"] : [],
-    });
+    reserveSpace: true,
+    trayStyle: "pill",
+    startMenu: "dock",
+    shellButtons: preset === "win11" ? ["search", "taskview"] : [],
+  });
+  const presetAppearance = (preset: StylePreset): DockAppearance => {
+    const theme = BUILTIN_THEMES.find((t) => t.id === (preset === "win11" ? WIN11_THEME_ID : MACOS_THEME_ID));
+    return { ...appearance, ...(theme?.appearance || {}), ...(preset === "win11" ? WIN11_LAYOUT : MACOS_LAYOUT) };
+  };
+
+  /** Applies the look; with `replace`, also hides the Windows taskbar (the user just saw the preview and confirmed). */
+  const applyStyle = async (preset: StylePreset, replace: boolean) => {
+    setConfirmPreset(null);
+    const s = useDockStore.getState();
+    s.setBehavior(presetBehavior(preset));
     s.setAppearance(preset === "win11" ? WIN11_LAYOUT : MACOS_LAYOUT);
     s.applyTheme(preset === "win11" ? WIN11_THEME_ID : MACOS_THEME_ID);
-    if (!s.enabled && isTauriRuntime()) await toggleDock(true);
-    // The Windows taskbar only changes after the user reviews the preview and clicks "Aplicar".
-    setTab("taskbar");
-    setSuggestAutohide(Date.now());
+    if (!isTauriRuntime()) return;
+    if (!s.enabled) await toggleDock(true);
+    if (!useDockStore.getState().enabled) return;
+    if (!replace) {
+      addToast("Visual aplicado. A barra do Windows continua como estava.", "success");
+      return;
+    }
+    setSwitching(true);
+    try {
+      const status = await dockService.taskbarApply(true, true);
+      s.setTaskbarMode({ enabled: true, autohide: true, hide: true });
+      addToast(
+        status.hidden
+          ? "Pronto! O dock substituiu a barra do Windows. Para voltar, use “Restaurar barra do Windows”."
+          : "O dock está ligado, mas o Windows não deixou esconder a barra agora. Tente de novo em “Barra do Windows”.",
+        status.hidden ? "success" : "warning"
+      );
+    } catch (e) {
+      addToast(String(e), "warning");
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const restoreTaskbar = async () => {
+    setSwitching(true);
+    try {
+      await dockService.taskbarRestore();
+      useDockStore.getState().setTaskbarMode({ enabled: false, hide: false });
+      addToast("Barra do Windows restaurada como era antes.", "success");
+    } catch (e) {
+      addToast(String(e), "warning");
+    } finally {
+      setSwitching(false);
+    }
   };
 
   const undoStyle = async () => {
     const s = useDockStore.getState();
-    s.setBehavior({ startButton: false, reserveSpace: false, trayStyle: "inDock", startMenu: "windows", shellButtons: [] });
+    s.setBehavior({ startButton: false, reserveSpace: false, startMenu: "windows", shellButtons: [] });
     s.applyTheme("aero-glass");
     const d = DEFAULT_APPEARANCE;
     s.setAppearance({ align: d.align, iconSize: d.iconSize, spacing: d.spacing, padding: d.padding, offset: d.offset, magnify: d.magnify });
-    if (s.taskbarMode.enabled && s.taskbarMode.hide) {
-      await dockService
-        .taskbarApply(s.taskbarMode.autohide, false)
-        .then(() => s.setTaskbarMode({ hide: false }))
-        .catch((e) => addToast(String(e), "warning"));
-    }
-    setTab("taskbar");
+    if (s.taskbarMode.enabled) await restoreTaskbar();
   };
 
   // Drop shortcuts/apps/folders from Explorer onto this page.
@@ -161,10 +198,24 @@ export const DockView: React.FC = () => {
         </Card>
       </div>
 
+      {replaced && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-cute border border-emerald-500/40 bg-emerald-500/10 p-3.5">
+          <div className="flex items-center gap-2.5 text-xs text-theme-text">
+            <CheckCircle2 size={20} className="shrink-0 text-emerald-500" />
+            <span>
+              <b>O dock está substituindo a barra do Windows.</b> A barra original volta sozinha se o dock ou o aplicativo fechar.
+            </span>
+          </div>
+          <Button size="sm" variant="danger" icon={<RotateCcw size={14} />} onClick={restoreTaskbar} disabled={switching}>
+            Restaurar barra do Windows
+          </Button>
+        </div>
+      )}
+
       <Card className="flex flex-col gap-3 !p-4">
         <span className="text-xs text-theme-text-muted">
-          <b className="text-theme-text">Estilos prontos:</b> o dock vira sua barra principal, com o Iniciar dentro dele junto com os apps abertos, e a barra
-          do Windows sai de cena de verdade (depois da prévia e do botão Aplicar).
+          <b className="text-theme-text">Estilos prontos:</b> o dock vira sua barra principal, com o Iniciar, os apps abertos e o relógio à direita, e a
+          barra do Windows sai de cena de verdade. Antes de mudar qualquer coisa você vê a prévia e confirma.
         </span>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {STYLE_PRESETS.map((p) => {
@@ -186,11 +237,18 @@ export const DockView: React.FC = () => {
                   <span className="text-[11px] leading-snug text-theme-text-muted">{p.description}</span>
                 </div>
                 {active ? (
-                  <Button size="sm" variant="secondary" onClick={undoStyle}>
-                    Desfazer
-                  </Button>
+                  <div className="flex flex-col gap-1.5">
+                    {!replaced && (
+                      <Button size="sm" icon={<Sparkles size={14} />} onClick={() => setConfirmPreset(p.id)} disabled={switching}>
+                        Substituir a barra
+                      </Button>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={undoStyle} disabled={switching}>
+                      Desfazer
+                    </Button>
+                  </div>
                 ) : (
-                  <Button size="sm" icon={<Sparkles size={14} />} onClick={() => applyStyle(p.id)} disabled={switching}>
+                  <Button size="sm" icon={<Sparkles size={14} />} onClick={() => setConfirmPreset(p.id)} disabled={switching}>
                     Ativar
                   </Button>
                 )}
@@ -250,8 +308,70 @@ export const DockView: React.FC = () => {
         {tab === "visual" && <VisualSection />}
         {tab === "themes" && <ThemesSection />}
         {tab === "behavior" && <BehaviorSection />}
-        {tab === "taskbar" && <TaskbarModePanel suggestAutohide={suggestAutohide} />}
+        {tab === "taskbar" && <TaskbarModePanel />}
       </Card>
+
+      <Modal
+        isOpen={!!confirmPreset}
+        onClose={() => setConfirmPreset(null)}
+        title={confirmPreset ? `Ativar ${STYLE_PRESETS.find((p) => p.id === confirmPreset)!.name}` : ""}
+        maxWidth="2xl"
+      >
+        {confirmPreset && (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-theme-text-muted">Agora</span>
+                <div className="relative h-14 overflow-hidden rounded-lg border border-theme-border/60 bg-gradient-to-br from-indigo-400/50 to-pink-400/50">
+                  <TaskbarMock compact={false} />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-theme-text-muted">Como vai ficar</span>
+                <DockPreview
+                  entries={entries}
+                  appearance={presetAppearance(confirmPreset)}
+                  showRunning
+                  startButton
+                  taskbarHidden
+                  trayStyle="pill"
+                  shellButtons={presetBehavior(confirmPreset).shellButtons}
+                  trayItems={behavior.trayItems}
+                  height={170}
+                />
+              </div>
+            </div>
+            <ul className="flex flex-col gap-1.5 text-xs text-theme-text">
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-primary" />A barra do Windows fica escondida enquanto o dock estiver aberto, e o
+                dock ocupa o lugar dela.
+              </li>
+              <li className="flex gap-2">
+                <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-500" />
+                O Iniciar, a bandeja, o relógio e as notificações continuam sendo os verdadeiros do Windows (tecla Windows e Win + B também funcionam).
+              </li>
+              <li className="flex gap-2">
+                <RotateCcw size={13} className="mt-0.5 shrink-0 text-emerald-500" />
+                <span>
+                  A barra volta sozinha se você fechar o dock ou o aplicativo, se ele travar e ao desinstalar. E o botão <b>Restaurar barra do Windows</b> fica
+                  no topo desta página e no clique direito do Iniciar do dock.
+                </span>
+              </li>
+            </ul>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setConfirmPreset(null)}>
+                Cancelar
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => applyStyle(confirmPreset, false)} disabled={switching}>
+                Só o visual (manter a barra)
+              </Button>
+              <Button size="sm" icon={<Sparkles size={14} />} onClick={() => applyStyle(confirmPreset, true)} disabled={switching || !isTauriRuntime()}>
+                Substituir a barra do Windows
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <p className="text-center text-[11px] text-theme-text-muted">
         Inspirado no Seelen UI e no Cairo Desktop. Tudo é salvo automaticamente. Detalhes e licenças em Sobre.

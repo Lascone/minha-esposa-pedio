@@ -566,6 +566,9 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) ->
     if hide {
         start_watchdog();
         start_keeper(&app);
+        if app.get_webview_window("dock").is_some() {
+            set_taskbars_visible(false);
+        }
     } else {
         set_taskbars_visible(true);
     }

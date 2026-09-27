@@ -23,7 +23,7 @@ export const DEFAULT_BEHAVIOR: DockBehavior = {
   showRunning: true,
   startWithApp: true,
   startButton: false,
-  trayStyle: "inDock",
+  trayStyle: "pill",
   shellButtons: [],
   startMenu: "windows",
   startMenuSections: { pinned: true, allApps: true, power: true, user: true },

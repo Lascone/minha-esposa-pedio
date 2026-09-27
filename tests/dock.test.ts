@@ -183,8 +183,9 @@ describe("window matching", () => {
 
   it("opens the dock's Start menu next to the bar and keeps it on screen", () => {
     const m = monitor();
-    const a = { ...DEFAULT_APPEARANCE, edge: "bottom" as const };
+    const a = { ...DEFAULT_APPEARANCE, edge: "bottom" as const, align: "start" as const };
     const bar = { x: 10, y: 1030, width: 400, height: 44 };
+    expect(startMenuRect({ ...a, align: "center" }, m, bar, { x: 16, y: 1034 }, { w: 580, h: 640 }).x).toBe((1920 - 580) / 2);
     const r = startMenuRect(a, m, bar, { x: 16, y: 1034 }, { w: 580, h: 640 });
     expect(r).toEqual({ x: 8, y: 1030 - 640 - 8, width: 580, height: 640 });
     const right = startMenuRect(a, m, bar, { x: 1900, y: 1034 }, { w: 580, h: 640 });
@@ -326,7 +327,7 @@ describe("themes", () => {
   });
   it("Windows 11 floating preset keeps the dock on the left without magnification", () => {
     expect(BUILTIN_THEMES.find((t) => t.id === WIN11_THEME_ID)!.appearance.startIcon).toBe("win11");
-    expect(WIN11_LAYOUT).toMatchObject({ edge: "bottom", align: "start", magnify: 1 });
+    expect(WIN11_LAYOUT).toMatchObject({ edge: "bottom", align: "center", magnify: 1 });
     for (const key of Object.keys(WIN11_LAYOUT)) expect(THEME_FIELDS).not.toContain(key);
   });
   it("picks readable text for light and dark bars", () => {

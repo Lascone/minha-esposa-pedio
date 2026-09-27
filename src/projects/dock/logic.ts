@@ -234,15 +234,19 @@ export function startMenuRect(a: DockAppearance, m: DockMonitor, bar: Rect, anch
   const maxX = m.x + m.width - w - gap;
   const minY = m.y + gap;
   const maxY = m.y + m.height - h - gap;
+  // A centered dock opens a centered menu, like the Windows 11 taskbar.
+  const centered = a.align === "center";
+  const alongX = centered ? m.x + Math.round((m.width - w) / 2) : anchor.x - gap * 2;
+  const alongY = centered ? m.y + Math.round((m.height - h) / 2) : anchor.y - gap * 2;
   switch (a.edge) {
     case "top":
-      return { x: clamp(anchor.x - gap * 2, minX, maxX), y: clamp(bar.y + bar.height + gap, minY, maxY), width: w, height: h };
+      return { x: clamp(alongX, minX, maxX), y: clamp(bar.y + bar.height + gap, minY, maxY), width: w, height: h };
     case "left":
-      return { x: clamp(bar.x + bar.width + gap, minX, maxX), y: clamp(anchor.y - gap * 2, minY, maxY), width: w, height: h };
+      return { x: clamp(bar.x + bar.width + gap, minX, maxX), y: clamp(alongY, minY, maxY), width: w, height: h };
     case "right":
-      return { x: clamp(bar.x - w - gap, minX, maxX), y: clamp(anchor.y - gap * 2, minY, maxY), width: w, height: h };
+      return { x: clamp(bar.x - w - gap, minX, maxX), y: clamp(alongY, minY, maxY), width: w, height: h };
     default:
-      return { x: clamp(anchor.x - gap * 2, minX, maxX), y: clamp(bar.y - h - gap, minY, maxY), width: w, height: h };
+      return { x: clamp(alongX, minX, maxX), y: clamp(bar.y - h - gap, minY, maxY), width: w, height: h };
   }
 }
 

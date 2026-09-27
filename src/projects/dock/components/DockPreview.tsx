@@ -163,6 +163,9 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
               : appearance.edge === "right"
               ? { bottom: 16, right: appearance.offset + appearance.iconSize + appearance.padding * 2 + 12 }
               : { bottom: appearance.offset + appearance.iconSize + appearance.padding * 2 + 14, left: 16 }),
+            ...((appearance.edge === "top" || appearance.edge === "bottom") && appearance.align === "center"
+              ? { left: "50%", marginLeft: -(START_MENU_SIZE.w * menuScale) / 2 }
+              : {}),
           }}
         >
           <StartMenuPanel
