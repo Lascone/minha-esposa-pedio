@@ -55,6 +55,7 @@ export interface WindhawkMod {
   isFavorite: boolean;
   sourceCodeUrl: string;
   previewImageUrl?: string;
+  screenshots?: string[];
 }
 
 export interface WindhawkStatus {

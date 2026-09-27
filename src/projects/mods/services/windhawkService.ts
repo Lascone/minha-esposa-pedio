@@ -176,11 +176,6 @@ import localCatalogData from "./localCatalog.json";
 
 const KNOWN_SCREENSHOTS: Record<string, string> = {
   "no-focus-rectangle": "https://raw.githubusercontent.com/ItsProfessional/Screenshots/main/Windhawk/no-focus-rectangle/no_focus_rectangle.png",
-  "extension-change-no-warning": "https://i.imgur.com/ZV47UCC.png",
-  "windows-11-taskbar-styler": "https://i.imgur.com/w8qP4xJ.png",
-  "taskbar-clock-customization": "https://i.imgur.com/qg4T1i2.png",
-  "taskbar-labels": "https://i.imgur.com/gA3qH7T.png",
-  "alt-drag": "https://i.imgur.com/XUdfUvZ.png",
   "aerexplorer": "https://raw.githubusercontent.com/aubymori/images/main/aerexplorer-7.png",
 };
 

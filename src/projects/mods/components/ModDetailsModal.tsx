@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/core/components/Button";
 import { useToast } from "@/core/components/Toast";
+import { ModImageSlider } from "./ModImageSlider";
 
 export const ModDetailsModal: React.FC = () => {
   const {
@@ -340,6 +341,11 @@ export const ModDetailsModal: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col gap-6 text-sm text-theme-text-muted">
+              {/* Screenshots Slideshow Carousel */}
+              <div>
+                <ModImageSlider mod={mod} aspectRatio="modal" />
+              </div>
+
               {/* Description box */}
               <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border/50 text-theme-text text-sm leading-relaxed">
                 {mod.description}

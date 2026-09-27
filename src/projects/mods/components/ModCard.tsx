@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { WindhawkMod } from "../types";
 import { useModsStore } from "../store/modsStore";
+import { ModImageSlider } from "./ModImageSlider";
 import {
   Heart,
   Star,
@@ -192,7 +193,11 @@ export const ModCard: React.FC<ModCardProps> = ({ mod }) => {
     system: "Sistema & Áudio",
   };
 
-  const hasValidImage = Boolean(mod.previewImageUrl && !imgError);
+  const hasValidImage = Boolean(
+    mod.previewImageUrl &&
+    !imgError &&
+    !mod.previewImageUrl.includes("imgur.com")
+  );
 
   return (
     <div
@@ -234,19 +239,12 @@ export const ModCard: React.FC<ModCardProps> = ({ mod }) => {
           </button>
         </div>
 
-        {/* Cover Preview: Rich Visual Mockup or verified image */}
-        <div className="relative w-full h-32 mb-3 rounded-xl overflow-hidden bg-black/20 border border-theme-border/40 group-hover:border-theme-primary/30 transition-all flex items-center justify-center">
-          {hasValidImage ? (
-            <img
-              src={mod.previewImageUrl}
-              alt={mod.name}
-              loading="lazy"
-              onError={() => setImgError(true)}
-              className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <ModVisualMockup mod={mod} />
-          )}
+        {/* Cover Preview: Interactive multi-image slide carousel with real mod page screenshots */}
+        <div className="mb-3">
+          <ModImageSlider
+            mod={mod}
+            fallbackMockup={<ModVisualMockup mod={mod} />}
+          />
         </div>
 
         {/* Title and Author */}
