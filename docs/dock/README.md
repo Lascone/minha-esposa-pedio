@@ -41,9 +41,16 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
 - Estilos prontos na aba: **macOS** (tema `macos`, Launchpad, relógio dentro do dock) e **Windows 11 flutuante**
   (tema `windows11-float`, `WIN11_LAYOUT` à esquerda sem ampliação, `trayStyle: "pill"`). Ambos reservam espaço na tela.
 - A bandeja **não é simulada**: o botão "^" chama `taskbar_peek`, que abre a **lista real de ícones ocultos** (Win + B e Enter).
-  Com a barra substituída, ela aparece só o tempo necessário para o Windows abrir a lista e some de novo. Se o Windows fechar a
-  lista junto com a barra, os próximos cliques mantêm a barra durante o uso, escondendo a pílula para não cobrir a bandeja real.
+  O Windows abre essa lista mesmo com a barra escondida, logo acima da pílula, então a barra antiga não aparece. A lista é detectada
+  pela janela em primeiro plano (`TopLevelWindowForOverflowXamlIsland`; o `FindWindowW` não a enxerga). Se ela não abrir em 900 ms
+  (por exemplo, sem nenhum ícone oculto), a barra real aparece por alguns segundos e a pílula sai da frente.
   Ícones e menus dos apps continuam sendo os nativos.
+- Um gancho `EVENT_OBJECT_SHOW` esconde `Shell_TrayWnd` no mesmo instante em que o Explorer a mostra (Iniciar, painéis, borda da
+  tela), sem esperar a verificação periódica de 60 ms. Assim a barra antiga não pisca.
+- A pílula mostra ícones reais como no Windows 11: tipo de conexão (cabo, Wi-Fi com a força do sinal via WLAN API, rede celular),
+  volume (`IAudioEndpointVolume`; a rodinha do mouse muda o volume em 2 pontos) e bateria. O que o Windows não informar não aparece.
+- Com o dock centralizado, `taskbar_mode_apply(keepCenter)` mantém o `TaskbarAl` original, para o Iniciar do Windows abrir no centro.
+- Log de diagnóstico: `%APPDATA%\com.pediparameumarido.central\logs\dock.log` (botão "Abrir logs" em Barra do Windows).
 - Configurações rápidas, rede e notificações abrem pelos URIs do Windows (`ms-actioncenter:controlcenter/&showFooter=true`,
   `ms-availablenetworks:`, `ms-actioncenter:`), com Win + A / Win + N como alternativa.
 
