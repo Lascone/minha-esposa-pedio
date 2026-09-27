@@ -277,6 +277,7 @@ pub fn point_in_rounded_rect(px: f64, py: f64, r: &WidgetHitRect) -> bool {
 }
 
 struct HitEntry {
+    hwnd: isize,
     rects: Vec<WidgetHitRect>,
     ignoring: Option<bool>,
 }
@@ -300,12 +301,15 @@ fn set_window_click_through(hwnd: isize, ignore: bool) {
 
 /// Every 30 ms: a registered window only accepts the mouse while the pointer is over one of its
 /// visible rects, so its transparent parts never block the desktop.
+///
+/// Only raw Win32 calls happen here: asking Tauri for a window handle goes through the main thread,
+/// and doing that while holding `HIT_AREAS` deadlocks against `widget_set_hit_rects`.
 #[cfg(target_os = "windows")]
-fn start_hit_loop(app: AppHandle) {
+fn start_hit_loop() {
     use windows_sys::Win32::Foundation::{POINT, RECT};
     use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowRect};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowRect, IsWindow};
     if HIT_LOOP_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return;
     }
@@ -317,11 +321,12 @@ fn start_hit_loop(app: AppHandle) {
         }
         // While a button is held (dragging or resizing a widget) nothing changes under the pointer.
         let pressed = unsafe { GetAsyncKeyState(VK_LBUTTON as i32) } as u16 & 0x8000 != 0;
+        let mut changes: Vec<(isize, bool)> = Vec::new();
         let mut guard = HIT_AREAS.lock().unwrap_or_else(|e| e.into_inner());
         let Some(map) = guard.as_mut() else { continue };
-        map.retain(|label, _| app.get_webview_window(label).is_some());
-        for (label, entry) in map.iter_mut() {
-            let Some(hwnd) = app.get_webview_window(label).and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize) else { continue };
+        map.retain(|_, entry| unsafe { IsWindow(entry.hwnd) } != 0);
+        for entry in map.values_mut() {
+            let hwnd = entry.hwnd;
             let mut rect: RECT = unsafe { std::mem::zeroed() };
             if unsafe { GetWindowRect(hwnd, &mut rect) } == 0 {
                 continue;
@@ -335,38 +340,60 @@ fn start_hit_loop(app: AppHandle) {
                 continue;
             }
             if entry.ignoring != Some(ignore) {
-                set_window_click_through(hwnd, ignore);
+                changes.push((hwnd, ignore));
                 entry.ignoring = Some(ignore);
             }
+        }
+        // Changing styles sends messages to the window's thread: never do it while holding the lock.
+        drop(guard);
+        for (hwnd, ignore) in changes {
+            set_window_click_through(hwnd, ignore);
         }
     });
 }
 
 /// `rects`: visible parts of the window (None = the whole window takes the mouse again).
 #[tauri::command]
-pub fn widget_set_hit_rects(app: AppHandle, label: String, rects: Option<Vec<WidgetHitRect>>) -> Result<(), String> {
-    let win = app.get_webview_window(&label).ok_or("Janela não encontrada")?;
-    let mut guard = HIT_AREAS.lock().unwrap_or_else(|e| e.into_inner());
-    let map = guard.get_or_insert_with(Default::default);
-    match rects {
-        Some(rects) => {
-            let entry = map.entry(label).or_insert(HitEntry { rects: vec![], ignoring: None });
-            entry.rects = rects;
-            entry.ignoring = None;
-        }
-        None => {
-            if map.remove(&label).is_some() {
-                #[cfg(target_os = "windows")]
-                if let Ok(h) = win.hwnd() {
-                    set_window_click_through(h.0 as isize, false);
-                }
-            }
-        }
-    }
-    drop(guard);
+pub async fn widget_set_hit_rects(app: AppHandle, label: String, rects: Option<Vec<WidgetHitRect>>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
-    start_hit_loop(app);
-    let _ = win;
+    {
+        // Resolve the handle before taking the lock (see start_hit_loop).
+        let hwnd = app
+            .get_webview_window(&label)
+            .ok_or("Janela não encontrada")?
+            .hwnd()
+            .map_err(|e| e.to_string())?
+            .0 as isize;
+        let removed = {
+            let mut guard = HIT_AREAS.lock().unwrap_or_else(|e| e.into_inner());
+            let map = guard.get_or_insert_with(Default::default);
+            match rects {
+                Some(rects) => {
+                    let entry = map.entry(label).or_insert(HitEntry { hwnd, rects: vec![], ignoring: None });
+                    entry.hwnd = hwnd;
+                    // Unchanged area: keep the current state, no style flicker while resizing.
+                    let same = entry.rects.len() == rects.len()
+                        && entry.rects.iter().zip(&rects).all(|(a, b)| {
+                            a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height && a.radius == b.radius
+                        });
+                    if !same {
+                        entry.rects = rects;
+                        entry.ignoring = None;
+                    }
+                    false
+                }
+                None => map.remove(&label).is_some(),
+            }
+        };
+        if removed {
+            set_window_click_through(hwnd, false);
+        }
+        start_hit_loop();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app, label, rects);
+    }
     Ok(())
 }
 

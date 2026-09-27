@@ -50,6 +50,8 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
 - **Cliques atravessam as partes transparentes:** cada janela de widget/companheiro informa sua área visível (`useWindowHitArea` → comando `widget_set_hit_rects`). Um laço em Rust (`widget_system.rs`, 30 ms) alterna `WS_EX_TRANSPARENT | WS_EX_LAYERED` direto no Win32 conforme o cursor está ou não sobre o card (cantos arredondados incluídos). Não use `set_ignore_cursor_events` do tao: ele pode esconder a janela.
 - Com as configurações abertas ou o menu do companheiro aberto, a janela inteira recebe o mouse (`full`).
 - **Segurar e arrastar:** em qualquer ponto que não seja um controle, depois de 4 px de movimento (`dragLogic.ts`). Um clique simples continua sendo clique. O puxador ✥ da barra do widget começa o arraste na hora. Widgets travados (cadeado) não se movem e mostram um aviso.
+- **Tamanho:** arrastar a borda da janela ou Ctrl + roda do mouse (50%–200%, também no simulador); um selo "85%" mostra o tamanho atual.
+- O laço de click-through em Rust nunca pede nada ao Tauri nem muda estilos segurando a trava `HIT_AREAS` (isso travava o app ao redimensionar); o `hwnd` é guardado quando a área é registrada e o comando é `async`.
 - Companheiros salvam a nova posição quando o arraste termina (`onMoved`); sem isso, andar os devolvia ao lugar antigo.
 - **Simulador do painel:** usa o monitor principal real (`primaryMonitor()`, em px lógicos) na mesma proporção, com a barra de tarefas pela área de trabalho. O arraste converte pela escala e mantém o widget inteiro dentro da tela. "Alinhar Todos" organiza em linhas dentro da área útil do monitor.
 

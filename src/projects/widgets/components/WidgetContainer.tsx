@@ -94,7 +94,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       >
         {onStartWindowDrag && (
           <div
-            title={widget.locked ? "Posição travada (destrave no cadeado)" : "Segure e arraste para mover"}
+            title={widget.locked ? "Posição travada (destrave no cadeado)" : "Segure e arraste para mover · Ctrl + roda do mouse muda o tamanho"}
             data-no-drag
             onPointerDown={(e) => {
               if (e.button !== 0) return;

@@ -26,7 +26,7 @@ interface DragState {
 export const DesktopWidgetsCanvas: React.FC<DesktopWidgetsCanvasProps> = ({
   onConfigureWidget,
 }) => {
-  const { activeWidgets, resetAllPositions, updateWidgetPosition, setWidgetLocked } = useWidgetsStore();
+  const { activeWidgets, resetAllPositions, updateWidgetPosition, setWidgetLocked, setWidgetScale } = useWidgetsStore();
   const [showGrid, setShowGrid] = useState(true);
   const [monitor, setMonitor] = useState<MonitorInfo | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -182,7 +182,17 @@ export const DesktopWidgetsCanvas: React.FC<DesktopWidgetsCanvasProps> = ({
                   onPointerUp={(e) => onPointerUp(e, widget)}
                   onPointerCancel={(e) => onPointerUp(e, widget)}
                   onDoubleClick={() => onConfigureWidget(widget.id)}
-                  title={widget.locked ? `${widget.title} (travado)` : `${widget.title} — segure e arraste`}
+                  onWheel={(e) => {
+                    if (!e.ctrlKey) return;
+                    const s = widget.scale || 1;
+                    const next = Math.round(Math.min(2, Math.max(0.5, s + (e.deltaY < 0 ? 0.05 : -0.05))) * 100) / 100;
+                    if (next !== s) setWidgetScale(widget.id, next);
+                  }}
+                  title={
+                    widget.locked
+                      ? `${widget.title} (travado)`
+                      : `${widget.title} — segure e arraste · Ctrl + roda: ${Math.round((widget.scale || 1) * 100)}%`
+                  }
                   className={`group absolute ${dragging ? "z-40" : "z-10"} ${
                     widget.locked ? "cursor-not-allowed" : dragging ? "cursor-grabbing" : "cursor-grab"
                   }`}

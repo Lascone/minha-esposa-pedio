@@ -270,6 +270,26 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
     return () => window.removeEventListener("message", onMessage);
   }, [startWindowDrag]);
 
+  // Ctrl + wheel zooms the widget without hunting for the window edge.
+  const onWheel = (e: React.WheelEvent) => {
+    if (!e.ctrlKey || isConsole || !storeId || modalOpen) return;
+    const next = Math.round(Math.min(MAX_WIDGET_SCALE, Math.max(MIN_WIDGET_SCALE, scale + (e.deltaY < 0 ? 0.05 : -0.05))) * 100) / 100;
+    if (next !== scale) setWidgetScale(storeId, next);
+  };
+
+  // Brief "85%" badge whenever the size changes (resize or Ctrl + wheel).
+  const [scaleBadge, setScaleBadge] = useState(false);
+  const firstScaleRef = useRef(true);
+  useEffect(() => {
+    if (firstScaleRef.current) {
+      firstScaleRef.current = false;
+      return;
+    }
+    setScaleBadge(true);
+    const t = window.setTimeout(() => setScaleBadge(false), 1200);
+    return () => window.clearTimeout(t);
+  }, [scale]);
+
   // Hold and drag anywhere that is not a control; a plain click stays a click.
   const pressRef = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
@@ -298,9 +318,15 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={() => (pressRef.current = null)}
+      onWheel={onWheel}
       className="relative w-screen h-screen select-none overflow-hidden"
       style={{ background: "transparent" }}
     >
+      {scaleBadge && !modalOpen && (
+        <div className="pointer-events-none absolute bottom-2 left-1/2 z-50 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-md">
+          {Math.round(scale * 100)}%
+        </div>
+      )}
       {lockedHint && (
         <div className="pointer-events-none absolute left-1/2 top-2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
           🔒 Posição travada — destrave no cadeado

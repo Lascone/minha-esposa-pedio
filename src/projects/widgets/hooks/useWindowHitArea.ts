@@ -60,16 +60,26 @@ export function useWindowHitArea(
       invoke("widget_set_hit_rects", { label, rects }).catch(() => {});
     };
     push();
-    const ro = new ResizeObserver(push);
+    // Resizing fires dozens of events per second: send at most one update per burst.
+    let pending: number | undefined;
+    const schedule = () => {
+      if (pending !== undefined) return;
+      pending = window.setTimeout(() => {
+        pending = undefined;
+        push();
+      }, 80);
+    };
+    const ro = new ResizeObserver(schedule);
     const el = target();
     if (el) ro.observe(el);
-    window.addEventListener("resize", push);
+    window.addEventListener("resize", schedule);
     // Animations and CSS transforms do not trigger the observer.
     const timer = window.setInterval(push, 500);
     return () => {
       ro.disconnect();
-      window.removeEventListener("resize", push);
+      window.removeEventListener("resize", schedule);
       window.clearInterval(timer);
+      window.clearTimeout(pending);
       invoke("widget_set_hit_rects", { label, rects: null }).catch(() => {});
     };
   }, [ref, radius, full, enabled, selector]);
