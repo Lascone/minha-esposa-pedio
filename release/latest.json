@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.2",
-    "notes":  "Barra antiga do Windows não pisca mais (setinha e tecla Windows), ícones reais de rede (cabo/Wi-Fi) e volume na pílula com ajuste pela rodinha, Iniciar do Windows centralizado com o dock centralizado e log de diagnóstico.",
-    "pub_date":  "2026-09-27T02:30:26.9179516Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.2/Pedi.para.meu.marido_1.3.2_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.2_x64-setup.exe",
-    "size":  3733295
+    "version":  "1.3.3",
+    "notes":  "Abrir o app de novo não restaura mais a barra nem faz o dock sumir (instância única). Inclui tudo da 1.3.2: barra antiga sem piscar, ícones reais de rede e volume, Iniciar centralizado e log de diagnóstico.",
+    "pub_date":  "2026-09-27T02:35:37.2227611Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.3/Pedi.para.meu.marido_1.3.3_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.3_x64-setup.exe",
+    "size":  3735219
 }
