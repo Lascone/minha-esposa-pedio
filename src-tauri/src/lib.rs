@@ -27,7 +27,8 @@ use windhawk_system::{
     windhawk_get_status, windhawk_launch, windhawk_restart_explorer,
     windhawk_open_folder, windhawk_get_installed_mods, windhawk_get_mod_source,
     windhawk_save_mod_source, windhawk_compile_mod, windhawk_toggle_mod,
-    windhawk_create_custom_mod, windhawk_setup_engine,
+    windhawk_create_custom_mod, windhawk_setup_engine, windhawk_apply_theme,
+    windhawk_open_in_app,
 };
 
 mod media_system;
@@ -454,8 +455,10 @@ fn get_app_version() -> String {
 fn open_external_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         std::process::Command::new("cmd")
             .args(["/c", "start", "", &url])
+            .creation_flags(0x08000000)
             .spawn()
             .map_err(|e| format!("Erro ao abrir link: {}", e))?;
     }
@@ -606,6 +609,8 @@ pub fn run() {
             windhawk_toggle_mod,
             windhawk_create_custom_mod,
             windhawk_setup_engine,
+            windhawk_apply_theme,
+            windhawk_open_in_app,
             media_send_command,
             media_open_firefox,
             media_get_status,

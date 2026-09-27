@@ -53,6 +53,28 @@ export const DesktopWidgetWindow: React.FC<DesktopWidgetWindowProps> = ({
     } catch {}
   }
 
+  // Se o widget existia e foi removido do activeWidgets (pelo X ou pela galeria), fecha a janela imediatamente
+  const hasEverExistedRef = useRef(false);
+  useEffect(() => {
+    if (!targetId) return;
+    const exists = activeWidgets.some(
+      (w) =>
+        w.id === targetId ||
+        `widget-${w.id}` === targetId ||
+        (targetId && targetId.replace("widget-", "") === w.id)
+    );
+    if (exists) {
+      hasEverExistedRef.current = true;
+    } else if (hasEverExistedRef.current) {
+      try {
+        const win = getCurrentWebviewWindow();
+        if (win && win.label && win.label !== "main") {
+          win.destroy().catch(() => win.close().catch(() => {}));
+        }
+      } catch {}
+    }
+  }, [activeWidgets, targetId]);
+
   // Resolve widget instance with ultra-resilient fallback
   const resolvedWidget: WidgetInstance = useMemo(() => {
     // 1. Try finding in activeWidgets store

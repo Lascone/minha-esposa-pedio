@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import { WindhawkMod } from "../types";
 import { useModsStore } from "../store/modsStore";
 import { ModImageSlider } from "./ModImageSlider";
+import { getModThemes } from "../services/modThemesData";
 import {
   Heart,
   Star,
   Users,
   Code2,
+  Palette,
 } from "lucide-react";
 
 interface ModCardProps {
@@ -150,12 +152,18 @@ export const ModCard: React.FC<ModCardProps> = ({ mod }) => {
   const {
     enabledModIds,
     favoriteModIds,
+    selectedThemes,
     toggleMod,
+    setSelectedTheme,
     toggleFavorite,
     setSelectedModForModal,
   } = useModsStore();
 
   const [imgError, setImgError] = useState(false);
+
+  const themeDef = getModThemes(mod.id);
+  const selectedThemeId = selectedThemes[mod.id] || themeDef?.defaultThemeId;
+  const currentTheme = themeDef?.themes.find((t) => t.id === selectedThemeId);
 
   const isEnabled = enabledModIds.includes(mod.id);
   const isFavorite = favoriteModIds.includes(mod.id);
@@ -261,6 +269,45 @@ export const ModCard: React.FC<ModCardProps> = ({ mod }) => {
         <p className="text-xs text-theme-text-muted/90 mt-2.5 line-clamp-2 leading-relaxed">
           {mod.description}
         </p>
+
+        {/* Theme Picker if mod has customizable visual themes */}
+        {themeDef && (
+          <div className="mt-3 p-2.5 rounded-xl bg-theme-primary/5 border border-theme-primary/20 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="flex items-center gap-1 font-semibold text-theme-primary">
+                <Palette size={12} />
+                <span>Estilo & Tema</span>
+              </span>
+              <span className="text-[10px] text-theme-text-muted font-medium truncate max-w-[120px]">
+                {currentTheme ? currentTheme.name : "Padrão"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+              {themeDef.themes.map((theme) => {
+                const isSelected = (selectedThemeId || themeDef.defaultThemeId) === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTheme(mod.id, theme.id);
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] whitespace-nowrap transition-all border ${
+                      isSelected
+                        ? "bg-theme-primary text-white border-theme-primary shadow-xs font-bold"
+                        : "bg-theme-surface-card hover:bg-theme-primary/10 text-theme-text-muted hover:text-theme-text border-theme-border/60 font-medium"
+                    }`}
+                    title={theme.description}
+                  >
+                    {theme.badge ? `${theme.badge} ` : ""}{theme.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom section: Rating, Users count, Toggle & Details button */}
@@ -281,14 +328,29 @@ export const ModCard: React.FC<ModCardProps> = ({ mod }) => {
             )}
           </div>
 
-          <button
-            onClick={() => setSelectedModForModal(mod)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-theme-primary/10 hover:bg-theme-primary/20 text-theme-primary border border-theme-primary/25 text-[11px] font-bold transition-all shadow-2xs"
-            title="Abrir código-fonte C++ (.wh.cpp) do mod"
-          >
-            <Code2 size={13} />
-            <span>Código C++</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {themeDef && (
+              <button
+                type="button"
+                onClick={() => setSelectedModForModal(mod)}
+                className="flex items-center gap-1 px-2 py-1 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/25 text-[11px] font-bold transition-all shadow-2xs"
+                title="Configurar temas e estilos visuais"
+              >
+                <Palette size={12} />
+                <span>Temas ({themeDef.themes.length})</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedModForModal(mod)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-theme-primary/10 hover:bg-theme-primary/20 text-theme-primary border border-theme-primary/25 text-[11px] font-bold transition-all shadow-2xs"
+              title="Abrir código-fonte C++ (.wh.cpp) do mod"
+            >
+              <Code2 size={13} />
+              <span>Código</span>
+            </button>
+          </div>
         </div>
 
         {/* Toggle switch action */}

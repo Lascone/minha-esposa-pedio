@@ -492,11 +492,18 @@ pub fn widget_close_window(app: AppHandle, widget_id: String) -> Result<(), Stri
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
         .collect();
     let label = if safe_id.starts_with("widget-") {
-        safe_id
+        safe_id.clone()
     } else {
         format!("widget-{}", safe_id)
     };
     if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.close();
+    }
+    if let Some(win) = app.get_webview_window(&safe_id) {
+        let _ = win.close();
+    }
+    let stripped = safe_id.trim_start_matches("widget-");
+    if let Some(win) = app.get_webview_window(stripped) {
         let _ = win.close();
     }
     Ok(())
@@ -691,8 +698,10 @@ pub fn widget_launch_target(target: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
+        use std::os::windows::process::CommandExt;
         Command::new("explorer")
             .arg(&target)
+            .creation_flags(0x08000000)
             .spawn()
             .map_err(|e| format!("Falha ao iniciar {}: {}", target, e))?;
         Ok(())

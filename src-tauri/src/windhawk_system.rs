@@ -2,6 +2,18 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn silent_cmd<S: AsRef<std::ffi::OsStr>>(cmd: S) -> Command {
+    let mut c = Command::new(cmd);
+    #[cfg(windows)]
+    c.creation_flags(CREATE_NO_WINDOW);
+    c
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineSetupResult {
     pub success: bool,
@@ -57,7 +69,7 @@ fn find_compiler_executable() -> Option<PathBuf> {
     }
 
     // 2. Check PATH for clang++ or g++
-    if let Ok(out) = Command::new("where").arg("clang++.exe").output() {
+    if let Ok(out) = silent_cmd("where").arg("clang++.exe").output() {
         if out.status.success() {
             let s = String::from_utf8_lossy(&out.stdout);
             if let Some(first_line) = s.lines().next() {
@@ -74,27 +86,38 @@ fn find_compiler_executable() -> Option<PathBuf> {
 
 /// Restart Windows 11 StartMenuExperienceHost so Start Menu mods reload immediately
 pub fn restart_start_menu_host() {
-    let _ = Command::new("taskkill")
+    let _ = silent_cmd("taskkill")
         .args(["/F", "/IM", "StartMenuExperienceHost.exe"])
         .status();
 }
 
 /// Broadcast changes to Windows Explorer so registry and UI tweaks apply immediately
+#[cfg(windows)]
 pub fn notify_windows_shell() {
-    // 1. Update Per-User System Parameters via user32.dll
-    let _ = Command::new("rundll32.exe")
-        .args(["user32.dll,UpdatePerUserSystemParameters", "1,", "True"])
-        .spawn();
-
-    // 2. Broadcast WM_SETTINGCHANGE (0x001A) to HWND_BROADCAST via PowerShell
-    let _ = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-Command",
-            "$c = [System.UInt32]0x001A; [System.IntPtr]$r = [System.IntPtr]0xFFFF; (Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern long SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);' -Name 'PMMNative' -Namespace 'PMM' -PassThru)::SendMessageTimeout($r, $c, [System.UIntPtr]::Zero, 'Environment', 2, 200, [ref][System.UIntPtr]::Zero)"
-        ])
-        .spawn();
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG,
+    };
+    unsafe {
+        let mut result: usize = 0;
+        let env_param: [u16; 12] = [
+            b'E' as u16, b'n' as u16, b'v' as u16, b'i' as u16, b'r' as u16, b'o' as u16,
+            b'n' as u16, b'm' as u16, b'e' as u16, b'n' as u16, b't' as u16, 0,
+        ];
+        SendMessageTimeoutW(
+            HWND_BROADCAST as _,
+            WM_SETTINGCHANGE,
+            0,
+            env_param.as_ptr() as isize,
+            SMTO_ABORTIFHUNG,
+            200,
+            &mut result,
+        );
+    }
 }
+
+#[cfg(not(windows))]
+pub fn notify_windows_shell() {}
+
 
 /// Apply real native Windows tweaks directly when a mod is toggled
 pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
@@ -104,7 +127,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 1: Show all apps by default in start menu (Windows 11 Start Menu)
     if lower_id.contains("start-menu-all-apps") || lower_id.contains("all-apps") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowAllAppsByDefault", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
         restart_start_menu = true;
@@ -115,13 +138,13 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
         let val_rec = if enabled { "0" } else { "1" };
         let val_bing = if enabled { "0" } else { "1" };
         let val_suggestions = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowRecommendations", "/t", "REG_DWORD", "/d", val_rec, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Search", "/v", "BingSearchEnabled", "/t", "REG_DWORD", "/d", val_bing, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "DisableSearchBoxSuggestions", "/t", "REG_DWORD", "/d", val_suggestions, "/f"])
             .status();
         restart_start_menu = true;
@@ -131,41 +154,41 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     if lower_id.contains("start-menu-size") || lower_id.contains("compact-start-menu") {
         if enabled {
             // Windows 11 Compact Layout: More Pins, remove Recommendations section (shrinks Start menu)
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_Layout", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowMorePins", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowRecommendations", "/t", "REG_DWORD", "/d", "0", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_TrackProgs", "/t", "REG_DWORD", "/d", "0", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_TrackDocs", "/t", "REG_DWORD", "/d", "0", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "HideRecentlyAddedApps", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
         } else {
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_Layout", "/t", "REG_DWORD", "/d", "0", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowMorePins", "/t", "REG_DWORD", "/d", "0", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowRecommendations", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_TrackProgs", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_TrackDocs", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["delete", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "HideRecentlyAddedApps", "/f"])
                 .status();
         }
@@ -176,7 +199,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     if lower_id.contains("shell-flyout-positions") || lower_id.contains("start-menu-open-location") {
         // Toggle or set alignment: 0 = Left, 1 = Center
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAl", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
         restart_start_menu = true;
@@ -185,7 +208,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 5: Windows 11 Start Menu Power Buttons / Quick Power Actions
     if lower_id.contains("power-buttons") || lower_id.contains("start-menu-power") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowPowerOptions", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
         restart_start_menu = true;
@@ -194,7 +217,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 6: Translucent Windows & Acrylic Desktop Effects
     if lower_id.contains("translucent") || lower_id.contains("acrylic") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "/v", "EnableTransparency", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -202,7 +225,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 7: Taskbar Icon Size / Taskbar Small Icons
     if lower_id.contains("taskbar-icon-size") || lower_id.contains("taskbar-small-icons") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarSmallIcons", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -210,10 +233,10 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 8: Shell Animation Disabler / Speed up Windows UI
     if lower_id.contains("animation-disabler") || lower_id.contains("disable-animations") {
         let anim_val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Control Panel\Desktop\WindowMetrics", "/v", "MinAnimate", "/t", "REG_SZ", "/d", anim_val, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAnimations", "/t", "REG_DWORD", "/d", anim_val, "/f"])
             .status();
     }
@@ -221,7 +244,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 9: Taskbar Dock Animation
     if lower_id.contains("taskbar-dock-animation") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAnimations", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -229,10 +252,10 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 10: No Focus Rectangle (Explorer / Desktop dotted border)
     if lower_id.contains("focus-rectangle") || lower_id.contains("hide-focus-border") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Control Panel\Desktop", "/v", "FocusBorderWidth", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Control Panel\Desktop", "/v", "FocusBorderHeight", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -240,7 +263,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 11: Turn off change file extension warning / Show File Extensions
     if lower_id.contains("extension-change") || lower_id.contains("extension-warning") || lower_id.contains("rename-extension") || lower_id.contains("show-file-extensions") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "HideFileExt", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -248,11 +271,11 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 12: Open With - Remove Microsoft Store Menu Item
     if lower_id.contains("open-with") || lower_id.contains("remove-microsoft-store") {
         if enabled {
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "NoUseStoreOpenWith", "/t", "REG_DWORD", "/d", "1", "/f"])
                 .status();
         } else {
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["delete", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "NoUseStoreOpenWith", "/f"])
                 .status();
         }
@@ -261,7 +284,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 13: Taskbar Clock Customization (Show Seconds in Clock)
     if lower_id.contains("taskbar-clock") || lower_id.contains("taskbar-seconds") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "ShowSecondsInSystemClock", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -269,11 +292,11 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 14: Classic Context Menu / Windows 10 style context menu on Windows 11
     if lower_id.contains("classic-context") || lower_id.contains("explorer-context-menu") {
         if enabled {
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["add", r"HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32", "/f", "/ve"])
                 .status();
         } else {
-            let _ = Command::new("reg")
+            let _ = silent_cmd("reg")
                 .args(["delete", r"HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}", "/f"])
                 .status();
         }
@@ -282,7 +305,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 15: Taskbar Labels / Disable Grouping on the Taskbar
     if lower_id.contains("disable-grouping") || lower_id.contains("taskbar-labels") {
         let val = if enabled { "2" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarGlomLevel", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -290,7 +313,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 16: Shadowplay Anti-Disable
     if lower_id.contains("shadowplay") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\SOFTWARE\NVIDIA Corporation\Global\ShadowPlay\NVSPCAPS", "/v", "DwmCaptureOption", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -298,20 +321,20 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 17: Windows 11 Taskbar Styler (Themes, transparency, dock-like alignment)
     if lower_id.contains("taskbar-styler") {
         let trans_val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "/v", "EnableTransparency", "/t", "REG_DWORD", "/d", trans_val, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAcrylicOpacity", "/t", "REG_DWORD", "/d", "0", "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAnimations", "/t", "REG_DWORD", "/d", "1", "/f"])
             .status();
     }
 
     // Mod 18: Windows 11 Notification Center Styler
     if lower_id.contains("notification-center") {
-        let _ = Command::new("taskkill")
+        let _ = silent_cmd("taskkill")
             .args(["/F", "/IM", "ShellExperienceHost.exe"])
             .status();
     }
@@ -319,7 +342,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 19: Windows 11 File Explorer Styler / Compact View
     if lower_id.contains("file-explorer-styler") || lower_id.contains("compact-view") || lower_id.contains("explorer-compact") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "UseCompactMode", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -327,7 +350,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 20: Show Hidden Files and Folders
     if lower_id.contains("hidden-files") || lower_id.contains("show-hidden") {
         let val = if enabled { "1" } else { "2" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Hidden", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -335,7 +358,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 21: Checkboxes in File Explorer (Clean list without checkbox squares)
     if lower_id.contains("checkboxes") || lower_id.contains("item-checkboxes") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "AutoCheckSelect", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -344,10 +367,10 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     if lower_id.contains("disable-bing") || lower_id.contains("bing-search") || lower_id.contains("search-box-suggestions") {
         let bing_val = if enabled { "0" } else { "1" };
         let sugg_val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Search", "/v", "BingSearchEnabled", "/t", "REG_DWORD", "/d", bing_val, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "/v", "DisableSearchBoxSuggestions", "/t", "REG_DWORD", "/d", sugg_val, "/f"])
             .status();
     }
@@ -355,7 +378,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 23: Snap Assist (Disable snap suggestions flyout)
     if lower_id.contains("snap-assist") || lower_id.contains("snap-layouts") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "SnapAssist", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -363,7 +386,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 24: Show Drive Letters First
     if lower_id.contains("drive-letters") {
         let val = if enabled { "4" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer", "/v", "ShowDriveLettersFirst", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -371,7 +394,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 25: Remove Lock Screen Tips & Ads
     if lower_id.contains("lock-screen-tips") || lower_id.contains("lock-screen-ads") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", "/v", "RotatingLockScreenOverlayEnabled", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -379,10 +402,10 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 26: Disable Windows Game Bar / Game DVR
     if lower_id.contains("game-bar") || lower_id.contains("disable-game-bar") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\System\GameConfigStore", "/v", "GameDVR_Enabled", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\GameDVR", "/v", "AppCaptureEnabled", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -390,7 +413,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 27: Taskbar Badges
     if lower_id.contains("taskbar-badges") || lower_id.contains("hide-taskbar-badges") {
         let val = if enabled { "0" } else { "1" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarBadges", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -398,7 +421,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     // Mod 28: Virtual Desktop Indicator
     if lower_id.contains("virtual-desktop") {
         let val = if enabled { "1" } else { "0" };
-        let _ = Command::new("reg")
+        let _ = silent_cmd("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "VirtualDesktopTaskbarGrouping", "/t", "REG_DWORD", "/d", val, "/f"])
             .status();
     }
@@ -468,12 +491,12 @@ pub fn windhawk_launch() -> Result<bool, String> {
 #[tauri::command]
 pub fn windhawk_restart_explorer() -> Result<bool, String> {
     // Also terminate StartMenuExperienceHost so both Start Menu and Explorer reload cleanly
-    let _ = Command::new("taskkill")
+    let _ = silent_cmd("taskkill")
         .args(["/F", "/IM", "StartMenuExperienceHost.exe"])
         .status();
 
     // Kill explorer.exe forcefully
-    let _ = Command::new("taskkill")
+    let _ = silent_cmd("taskkill")
         .args(["/F", "/IM", "explorer.exe"])
         .status();
 
@@ -481,7 +504,7 @@ pub fn windhawk_restart_explorer() -> Result<bool, String> {
     std::thread::sleep(std::time::Duration::from_millis(600));
 
     // Restart explorer.exe
-    Command::new("cmd")
+    silent_cmd("cmd")
         .args(["/C", "start", "explorer.exe"])
         .spawn()
         .map_err(|e| format!("Falha ao reiniciar o Explorer: {e}"))?;
@@ -501,7 +524,7 @@ pub fn windhawk_open_folder(folder_type: String) -> Result<bool, String> {
 
     let _ = std::fs::create_dir_all(&target_path);
 
-    Command::new("explorer")
+    silent_cmd("explorer")
         .arg(target_path)
         .spawn()
         .map_err(|e| format!("Falha ao abrir pasta: {e}"))?;
@@ -527,7 +550,7 @@ pub fn windhawk_get_mod_source(mod_id: String) -> Result<String, String> {
         mod_id
     );
 
-    let curl_res = Command::new("curl.exe")
+    let curl_res = silent_cmd("curl.exe")
         .args(["-s", "-L", &url])
         .output();
 
@@ -622,7 +645,7 @@ pub fn windhawk_compile_mod(mod_id: String, source_code: String) -> Result<Strin
     // 4. If compiler toolchain exists on the machine, compile to DLL
     let mut compile_info = String::new();
     if let Some(compiler) = find_compiler_executable() {
-        let res = Command::new(&compiler)
+        let res = silent_cmd(&compiler)
             .args([
                 "-shared",
                 "-O2",
@@ -816,3 +839,64 @@ pub fn windhawk_get_installed_mods() -> Result<Vec<LocalModState>, String> {
 
     Ok(mods)
 }
+
+#[tauri::command]
+pub fn windhawk_apply_theme(mod_id: String, theme_id: String) -> Result<bool, String> {
+    let lower_mod = mod_id.to_lowercase();
+    let lower_theme = theme_id.to_lowercase();
+
+    if lower_mod.contains("taskbar-styler") {
+        match lower_theme.as_str() {
+            "translucent-glass" | "frosted-acrylic" => {
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "/v", "EnableTransparency", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAcrylicOpacity", "/t", "REG_DWORD", "/d", "0", "/f"]).status();
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAl", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+            }
+            "floating-dock" | "compact-pill" => {
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "/v", "EnableTransparency", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAl", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarSmallIcons", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+            }
+            "classic-win10" => {
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAl", "/t", "REG_DWORD", "/d", "0", "/f"]).status();
+            }
+            _ => {}
+        }
+    } else if lower_mod.contains("start-menu-styler") {
+        match lower_theme.as_str() {
+            "clean-no-rec" | "compact-start" => {
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowRecommendations", "/t", "REG_DWORD", "/d", "0", "/f"]).status();
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "Start_ShowMorePins", "/t", "REG_DWORD", "/d", "1", "/f"]).status();
+                restart_start_menu_host();
+            }
+            "classic-aligned-left" => {
+                let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "TaskbarAl", "/t", "REG_DWORD", "/d", "0", "/f"]).status();
+                restart_start_menu_host();
+            }
+            _ => {}
+        }
+    } else if lower_mod.contains("file-explorer-styler") {
+        let val = if lower_theme.contains("compact") { "1" } else { "0" };
+        let _ = silent_cmd("reg").args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "/v", "UseCompactMode", "/t", "REG_DWORD", "/d", val, "/f"]).status();
+    }
+
+    notify_windows_shell();
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn windhawk_open_in_app(mod_id: String) -> Result<bool, String> {
+    #[cfg(windows)]
+    {
+        let url = format!("https://windhawk.net/mods/{}", mod_id);
+        let _ = silent_cmd("explorer")
+            .arg(&url)
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = mod_id;
+    }
+    Ok(true)
+}
+

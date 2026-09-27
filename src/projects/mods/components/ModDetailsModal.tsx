@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useModsStore } from "../store/modsStore";
 import { windhawkService } from "../services/windhawkService";
+import { getModThemes, ModThemeOption } from "../services/modThemesData";
 import {
   X,
   Star,
@@ -19,6 +20,7 @@ import {
   Eye,
   FileCode,
   Cpu,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/core/components/Button";
 import { useToast } from "@/core/components/Toast";
@@ -30,6 +32,8 @@ export const ModDetailsModal: React.FC = () => {
     setSelectedModForModal,
     enabledModIds,
     favoriteModIds,
+    selectedThemes,
+    setSelectedTheme,
     toggleMod,
     toggleFavorite,
     restartExplorer,
@@ -38,15 +42,28 @@ export const ModDetailsModal: React.FC = () => {
   } = useModsStore();
 
   const { addToast } = useToast();
-  // Default directly to code so user always has the source code immediately visible
-  const [activeTab, setActiveTab] = useState<"code" | "overview">("code");
+  const mod = selectedModForModal;
+  const themeDef = mod ? getModThemes(mod.id) : undefined;
+  const selectedThemeId = mod ? (selectedThemes[mod.id] || themeDef?.defaultThemeId) : undefined;
+
+  // Default to themes if available, otherwise code view
+  const [activeTab, setActiveTab] = useState<"themes" | "code" | "overview">("themes");
   const [sourceCode, setSourceCode] = useState<string>("");
   const [isLoadingCode, setIsLoadingCode] = useState<boolean>(false);
   const [isEditingCode, setIsEditingCode] = useState<boolean>(false);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
-  const mod = selectedModForModal;
+  // Set default tab based on whether mod has custom themes
+  useEffect(() => {
+    if (mod) {
+      if (getModThemes(mod.id)) {
+        setActiveTab("themes");
+      } else {
+        setActiveTab("code");
+      }
+    }
+  }, [mod?.id]);
 
   // Fetch source code immediately on modal open
   useEffect(() => {
@@ -118,6 +135,24 @@ export const ModDetailsModal: React.FC = () => {
     }
   };
 
+  const handleApplyTheme = async (theme: ModThemeOption) => {
+    setSelectedTheme(mod.id, theme.id);
+    addToast(`Tema "${theme.name}" selecionado! ✨`, "sparkle");
+    try {
+      await windhawkService.applyModTheme(mod.id, theme.id);
+      if (isEnabled) {
+        addToast(`Estilos de "${theme.name}" aplicados com sucesso!`, "sparkle");
+      }
+    } catch (e: any) {
+      console.warn("Could not apply mod theme:", e);
+    }
+  };
+
+  const handleOpenInWindhawk = async () => {
+    addToast(`Abrindo ${mod.name} no aplicativo Windhawk... 🚀`, "info");
+    await windhawkService.openInWindhawkApp(mod.id);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
       <div
@@ -135,6 +170,11 @@ export const ModDetailsModal: React.FC = () => {
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
                 ⚡ C++ Nativo
               </span>
+              {themeDef && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center gap-1">
+                  <Palette size={11} /> {themeDef.themes.length} Temas Visuais
+                </span>
+              )}
               {mod.targetProcesses.map((p) => (
                 <span
                   key={p}
@@ -185,9 +225,28 @@ export const ModDetailsModal: React.FC = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center justify-between px-6 pt-3 border-b border-theme-border/40 bg-theme-surface-card">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 pt-3 border-b border-theme-border/40 bg-theme-surface-card flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {themeDef && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("themes")}
+                className={`pb-2.5 px-3 text-xs font-bold transition-all flex items-center gap-1.5 relative ${
+                  activeTab === "themes"
+                    ? "text-theme-primary border-b-2 border-theme-primary"
+                    : "text-theme-text-muted hover:text-theme-text"
+                }`}
+              >
+                <Palette size={14} />
+                <span>Temas & Estilos Visuais</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 font-semibold">
+                  {themeDef.themes.length}
+                </span>
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => setActiveTab("code")}
               className={`pb-2.5 px-3 text-xs font-bold transition-all flex items-center gap-1.5 relative ${
                 activeTab === "code"
@@ -203,7 +262,9 @@ export const ModDetailsModal: React.FC = () => {
                 </span>
               )}
             </button>
+
             <button
+              type="button"
               onClick={() => setActiveTab("overview")}
               className={`pb-2.5 px-3 text-xs font-bold transition-all relative ${
                 activeTab === "overview"
@@ -228,7 +289,121 @@ export const ModDetailsModal: React.FC = () => {
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 scrollbar-thin">
-          {activeTab === "code" ? (
+          {activeTab === "themes" && themeDef ? (
+            <div className="flex flex-col gap-5">
+              {/* Header Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-indigo-500/10 border border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-theme-text flex items-center gap-1.5">
+                      <Sparkles size={16} className="text-purple-500" />
+                      Galeria de Estilos & Temas
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold">
+                      Pronto para Ativar
+                    </span>
+                  </div>
+                  <p className="text-xs text-theme-text-muted leading-relaxed">
+                    Mods de interface como <strong>{mod.name}</strong> funcionam através de regras de estilo e temas no Windows 11. Escolha abaixo a aparência que mais combina com seu desktop antes ou depois de ativar o mod.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleOpenInWindhawk}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-theme-surface hover:bg-theme-border/40 text-theme-text border border-theme-border/60 text-xs font-semibold transition-all shadow-2xs"
+                    title="Abrir no aplicativo Windhawk instalado"
+                  >
+                    <ExternalLink size={13} />
+                    <span>Abrir no Windhawk</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Theme Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {themeDef.themes.map((theme) => {
+                  const isSelected = (selectedThemeId || themeDef.defaultThemeId) === theme.id;
+                  return (
+                    <div
+                      key={theme.id}
+                      onClick={() => handleApplyTheme(theme)}
+                      className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 flex flex-col justify-between gap-3 ${
+                        isSelected
+                          ? "bg-theme-primary/10 border-theme-primary ring-2 ring-theme-primary/30 shadow-md"
+                          : "bg-theme-surface-card hover:bg-theme-surface border-theme-border/60 hover:border-theme-primary/40"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-2">
+                        {/* Theme Header */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {theme.badge && (
+                              <span className="text-base select-none">{theme.badge}</span>
+                            )}
+                            <h4 className="text-sm font-bold text-theme-text">
+                              {theme.name}
+                            </h4>
+                          </div>
+
+                          {isSelected && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-theme-primary text-white flex items-center gap-1 shadow-2xs">
+                              <Check size={11} /> Selecionado
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Theme Description */}
+                        <p className="text-xs text-theme-text-muted leading-relaxed">
+                          {theme.description}
+                        </p>
+                      </div>
+
+                      {/* Theme Action Button */}
+                      <div className="pt-2 border-t border-theme-border/40 flex items-center justify-between">
+                        <span className="text-[11px] font-mono text-theme-text-muted">
+                          ID: {theme.id}
+                        </span>
+
+                        <Button
+                          type="button"
+                          variant={isSelected ? "primary" : "secondary"}
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApplyTheme(theme);
+                          }}
+                        >
+                          {isSelected ? "Tema Ativo ✨" : "Aplicar Este Tema"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Restart Explorer Hint */}
+              <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border/60 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-theme-text-muted">
+                  <RotateCcw size={14} className="text-theme-primary shrink-0" />
+                  <span>
+                    Após selecionar o tema e ativar o mod, reinicie o Windows Explorer para carregar os novos elementos na tela.
+                  </span>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRestartExplorer}
+                  className="shrink-0"
+                >
+                  Reiniciar Explorer
+                </Button>
+              </div>
+            </div>
+          ) : activeTab === "code" ? (
             <div className="flex flex-col gap-3">
               {/* Code Toolbar */}
               <div className="flex items-center justify-between flex-wrap gap-2 text-xs">

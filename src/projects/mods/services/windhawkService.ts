@@ -331,6 +331,34 @@ void Wh_ModUninit() {
   },
 
   /**
+   * Apply specific visual theme / styling preset to a mod
+   */
+  async applyModTheme(modId: string, themeId: string): Promise<boolean> {
+    try {
+      if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+        return await invoke<boolean>("windhawk_apply_theme", { modId, themeId });
+      }
+    } catch (e) {
+      console.error("Falha ao aplicar tema do mod:", e);
+    }
+    return true;
+  },
+
+  /**
+   * Open mod directly in official Windhawk app or windhawk.net
+   */
+  async openInWindhawkApp(modId: string): Promise<boolean> {
+    try {
+      if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+        return await invoke<boolean>("windhawk_open_in_app", { modId });
+      }
+    } catch {
+      window.open(`https://windhawk.net/mods/${modId}`, "_blank");
+    }
+    return true;
+  },
+
+  /**
    * Ensure the native Windhawk injection engine is installed and running in the background
    */
   async setupOrStartEngine(): Promise<{ success: boolean; message: string }> {

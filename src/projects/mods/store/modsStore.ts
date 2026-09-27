@@ -19,12 +19,14 @@ interface ModsStore {
   installedModIds: string[];
   enabledModIds: string[];
   favoriteModIds: string[];
+  selectedThemes: Record<string, string>;
   selectedModForModal: WindhawkMod | null;
 
   // Actions
   loadInitialData: () => Promise<void>;
   refreshStatus: () => Promise<void>;
-  toggleMod: (id: string) => void;
+  toggleMod: (id: string, themeId?: string) => void;
+  setSelectedTheme: (modId: string, themeId: string) => Promise<void>;
   installMod: (id: string) => void;
   uninstallMod: (id: string) => void;
   toggleFavorite: (id: string) => void;
@@ -50,6 +52,21 @@ function getStoredArray(key: string, fallback: string[] = []): string[] {
   }
 }
 
+function getStoredRecord(key: string, fallback: Record<string, string> = {}): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function setStoredRecord(key: string, obj: Record<string, string>) {
+  try {
+    localStorage.setItem(key, JSON.stringify(obj));
+  } catch {}
+}
+
 function setStoredArray(key: string, items: string[]) {
   try {
     localStorage.setItem(key, JSON.stringify(items));
@@ -68,6 +85,7 @@ export const useModsStore = create<ModsStore>((set, get) => ({
   installedModIds: getStoredArray("pmm_windhawk_installed", []),
   enabledModIds: getStoredArray("pmm_windhawk_enabled", []),
   favoriteModIds: getStoredArray("pmm_windhawk_favorites", []),
+  selectedThemes: getStoredRecord("pmm_windhawk_mod_themes", {}),
   selectedModForModal: null,
 
   loadInitialData: async () => {
@@ -118,7 +136,16 @@ export const useModsStore = create<ModsStore>((set, get) => ({
     }
   },
 
-  toggleMod: (id: string) => {
+  setSelectedTheme: async (modId: string, themeId: string) => {
+    const current = { ...get().selectedThemes, [modId]: themeId };
+    setStoredRecord("pmm_windhawk_mod_themes", current);
+    set({ selectedThemes: current });
+    if (get().enabledModIds.includes(modId)) {
+      await windhawkService.applyModTheme(modId, themeId);
+    }
+  },
+
+  toggleMod: (id: string, themeId?: string) => {
     const currentEnabled = new Set(get().enabledModIds);
     const currentInstalled = new Set(get().installedModIds);
     const isEnabling = !currentEnabled.has(id);
@@ -137,13 +164,26 @@ export const useModsStore = create<ModsStore>((set, get) => ({
     setStoredArray("pmm_windhawk_enabled", nextEnabled);
     setStoredArray("pmm_windhawk_installed", nextInstalled);
 
+    if (themeId) {
+      const themes = { ...get().selectedThemes, [id]: themeId };
+      setStoredRecord("pmm_windhawk_mod_themes", themes);
+      set({ selectedThemes: themes });
+    }
+
     set({
       enabledModIds: nextEnabled,
       installedModIds: nextInstalled,
     });
 
     // Notify native engine asynchronously
-    windhawkService.toggleMod(id, isEnabling).catch((err) => {
+    windhawkService.toggleMod(id, isEnabling).then(() => {
+      if (isEnabling) {
+        const themeToApply = themeId || get().selectedThemes[id];
+        if (themeToApply) {
+          windhawkService.applyModTheme(id, themeToApply).catch(() => {});
+        }
+      }
+    }).catch((err) => {
       console.warn("Failed to notify native engine of mod toggle:", err);
     });
   },

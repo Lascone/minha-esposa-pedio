@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { WidgetInstance } from "../types";
 import { useWidgetsStore } from "../store/widgetsStore";
 import { Settings, X, Lock, Unlock, Pin, Move } from "lucide-react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 interface WidgetContainerProps {
   widget: WidgetInstance;
@@ -30,6 +31,19 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const { removeWidget, setWidgetAlwaysOnTop, setWidgetLocked } = useWidgetsStore();
 
   const [isHovered, setIsHovered] = useState(false);
+
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    removeWidget(widget.id);
+    try {
+      const win = getCurrentWebviewWindow();
+      if (win && win.label && win.label !== "main") {
+        win.close().catch(() => win.destroy().catch(() => {}));
+      }
+    } catch {}
+  };
+
 
   // Theme styling presets
   const getThemeClass = () => {
@@ -88,8 +102,13 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       {/* Floating Hover Controls (Windows 7 Gadget toolbar) */}
       {!thumbnail && (
       <div
-        className={`absolute top-2 right-2 flex items-center gap-1 z-30 transition-opacity duration-200 ${
-          isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+        data-no-drag
+        className={`absolute top-2 right-2 flex items-center gap-1 z-30 transition-all duration-200 ${
+          isHovered
+            ? "opacity-100 scale-100 pointer-events-auto"
+            : fillWindow
+            ? "opacity-35 hover:opacity-100 scale-95 pointer-events-auto"
+            : "opacity-0 pointer-events-none scale-90"
         }`}
       >
         {onStartWindowDrag && (
@@ -101,7 +120,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
               e.stopPropagation();
               onStartWindowDrag();
             }}
-            className={`p-1 rounded-full bg-black/30 hover:bg-black/50 text-white/90 backdrop-blur-md ${
+            className={`p-1 rounded-full bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md transition-colors ${
               widget.locked ? "cursor-not-allowed opacity-60" : "cursor-grab active:cursor-grabbing"
             }`}
           >
@@ -114,7 +133,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           className={`p-1 rounded-full backdrop-blur-md transition-colors ${
             widget.locked
               ? "bg-amber-500/80 text-white"
-              : "bg-black/30 hover:bg-black/50 text-white/90"
+              : "bg-black/40 hover:bg-black/60 text-white/90"
           }`}
           title={widget.locked ? "Destravar posição" : "Travar posição"}
         >
@@ -126,7 +145,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           className={`p-1 rounded-full backdrop-blur-md transition-colors ${
             widget.alwaysOnTop
               ? "bg-purple-600/80 text-white"
-              : "bg-black/30 hover:bg-black/50 text-white/90"
+              : "bg-black/40 hover:bg-black/60 text-white/90"
           }`}
           title={widget.alwaysOnTop ? "Sempre no Topo: Ativado" : "Fixar Sempre no Topo"}
         >
@@ -136,7 +155,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
-            className="p-1 rounded-full bg-black/30 hover:bg-black/50 text-white/90 backdrop-blur-md transition-colors"
+            className="p-1 rounded-full bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md transition-colors"
             title="Configurações do Gadget"
           >
             <Settings size={12} />
@@ -144,8 +163,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         )}
 
         <button
-          onClick={() => removeWidget(widget.id)}
-          className="p-1 rounded-full bg-rose-500/80 hover:bg-rose-600 text-white backdrop-blur-md transition-colors"
+          onClick={handleClose}
+          className="p-1 rounded-full bg-rose-500/85 hover:bg-rose-600 text-white backdrop-blur-md transition-all shadow-md hover:scale-110 active:scale-95 cursor-pointer"
           title="Fechar Gadget"
         >
           <X size={12} />
