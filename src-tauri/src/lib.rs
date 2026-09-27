@@ -30,6 +30,9 @@ use windhawk_system::{
     windhawk_create_custom_mod, windhawk_setup_engine,
 };
 
+mod media_system;
+use media_system::{media_send_command, media_open_firefox, media_get_status};
+
 mod single_instance;
 
 mod autoclick_engine;
@@ -603,6 +606,9 @@ pub fn run() {
             windhawk_toggle_mod,
             windhawk_create_custom_mod,
             windhawk_setup_engine,
+            media_send_command,
+            media_open_firefox,
+            media_get_status,
         ])
 
         .setup(|app| {
