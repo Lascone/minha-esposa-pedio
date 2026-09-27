@@ -97,7 +97,10 @@ export const DockWindow: React.FC = () => {
   // --- layout -------------------------------------------------------------------------------
   const nativeGlass = appearance.background === "acrylic";
   const running = useMemo(() => matchWindows(entries, windows), [entries, windows]);
-  const slots = useMemo(() => buildSlots(entries, running, behavior.showRunning), [entries, running, behavior.showRunning]);
+  const slots = useMemo(
+    () => buildSlots(entries, running, behavior.showRunning, behavior.startButton),
+    [entries, running, behavior.showRunning, behavior.startButton]
+  );
   const counts = countSlots(slots);
   const monitor = pickMonitor(monitors, appearance.monitor);
   const group = openGroup ? (entries.find((e) => e.id === openGroup.id && e.type === "group") as DockGroup | undefined) : undefined;
@@ -275,6 +278,11 @@ export const DockWindow: React.FC = () => {
 
   const onActivate = async (slot: DockSlot, info: ActivateInfo) => {
     const newInstance = info.middle || info.shift;
+    if (slot.kind === "start") {
+      setOpenGroup(null);
+      dockService.shellAction("start").catch((e) => showNotice(String(e)));
+      return;
+    }
     if (slot.kind === "item") {
       setOpenGroup(null);
       if (!newInstance && (await actOnWindows(slot.windows))) return;
@@ -397,6 +405,28 @@ export const DockWindow: React.FC = () => {
         { text: "Remover grupo do dock", action: () => store.removeEntry(target.group.id) },
         "separator",
         { text: "Renomear no painel…", action: openSettings },
+      ]);
+    }
+    if (target.kind === "start") {
+      const shell = (action: "start" | "quicklinks" | "desktop") => () => void dockService.shellAction(action).catch((e) => showNotice(String(e)));
+      return void popupMenu([
+        { text: "Abrir o Iniciar", action: shell("start") },
+        { text: "Menu de links rápidos (Win + X)", action: shell("quicklinks") },
+        { text: "Mostrar a área de trabalho", action: shell("desktop") },
+        "separator",
+        {
+          text: "Restaurar barra do Windows",
+          action: () =>
+            void dockService
+              .taskbarRestore()
+              .then(() => {
+                store.setTaskbarMode({ enabled: false });
+                emit("taskbar-mode-restored").catch(() => {});
+              })
+              .catch((e) => showNotice(String(e))),
+        },
+        { text: "Tirar o Iniciar do dock", action: () => store.setBehavior({ startButton: false }) },
+        { text: "Configurar dock…", action: openSettings },
       ]);
     }
     if (target.kind === "separator") return void popupMenu([{ text: "Remover separador", action: () => store.removeEntry(target.id) }]);

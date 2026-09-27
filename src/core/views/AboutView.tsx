@@ -131,6 +131,30 @@ export const AboutView: React.FC = () => {
               Sanitizador estrito contra injeção de scripts e vetores XSS em uploads SVG.
             </span>
           </div>
+
+          <div className="pt-3 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-theme-text">Seelen UI (inspiração do Dock)</span>
+              <span className="px-2 py-0.5 rounded bg-theme-surface-card border border-theme-border text-[10px] font-mono">
+                AGPL-3.0
+              </span>
+            </div>
+            <span className="text-theme-text-muted">
+              Ideias de dock e filtragem de janelas. Nenhum código foi copiado: o dock deste app é uma implementação própria.
+            </span>
+          </div>
+
+          <div className="pt-3 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-theme-text">Cairo Desktop (inspiração do Dock)</span>
+              <span className="px-2 py-0.5 rounded bg-theme-surface-card border border-theme-border text-[10px] font-mono">
+                Apache 2.0
+              </span>
+            </div>
+            <span className="text-theme-text-muted">
+              Referência de como uma barra alternativa convive com a barra do Windows (AppBar, bandeja intacta). Só conceitos, sem código copiado.
+            </span>
+          </div>
         </div>
       </Card>
 

@@ -24,6 +24,7 @@ export const DEFAULT_APPEARANCE: DockAppearance = {
   animations: true,
   animSpeed: 1,
   showLabels: true,
+  startIcon: "windows",
 };
 
 /** Only visual fields: applying a theme never moves the dock or changes its size. */
@@ -39,9 +40,31 @@ export const THEME_FIELDS: (keyof DockAppearance)[] = [
   "shadow",
   "indicator",
   "indicatorColor",
+  "startIcon",
 ];
 
-export const BUILTIN_THEMES: DockTheme[] = [
+export const MACOS_THEME_ID = "macos";
+
+export const BUILTIN_THEMES: DockTheme[] = ([
+  {
+    id: MACOS_THEME_ID,
+    name: "macOS",
+    builtin: true,
+    appearance: {
+      background: "glass",
+      bgColor: "#f5f5f7",
+      bgOpacity: 0.3,
+      blur: 30,
+      borderColor: "#ffffff",
+      borderOpacity: 0.38,
+      borderWidth: 1,
+      radius: 20,
+      shadow: 0.4,
+      indicator: "dot",
+      indicatorColor: "#f5f5f7",
+      startIcon: "launchpad",
+    },
+  },
   {
     id: "aero-glass",
     name: "Aero Glass",
@@ -72,7 +95,21 @@ export const BUILTIN_THEMES: DockTheme[] = [
     builtin: true,
     appearance: { background: "glass", bgColor: "#ffffff", bgOpacity: 0.6, blur: 24, borderColor: "#ffffff", borderOpacity: 0.7, borderWidth: 1, radius: 24, shadow: 0.2, indicator: "dot", indicatorColor: "#334155" },
   },
-];
+] as DockTheme[]).map((t): DockTheme => ({ ...t, appearance: { startIcon: "windows", ...t.appearance } }));
+
+/** Layout that goes with the macOS look (applied by "Ativar estilo macOS", not by the theme). */
+export const MACOS_LAYOUT: Partial<DockAppearance> = {
+  edge: "bottom",
+  align: "center",
+  length: "auto",
+  iconSize: 52,
+  spacing: 6,
+  padding: 7,
+  offset: 6,
+  magnify: 1.8,
+  animations: true,
+  showLabels: true,
+};
 
 export function pickThemeFields(appearance: DockAppearance): Partial<DockAppearance> {
   const out: Partial<DockAppearance> = {};

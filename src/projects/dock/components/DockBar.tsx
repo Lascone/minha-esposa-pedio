@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { DockAppearance, DockGroup, DockLaunchItem, DockWindowInfo } from "../types";
-import { DockSlot, magnifyScale } from "../logic";
+import { DockSlot, isPinnedSlot, magnifyScale } from "../logic";
 import { hexToRgba } from "../themes";
 import { DockIcon } from "./DockIcon";
 
@@ -9,6 +9,7 @@ export type DockContextTarget =
   | { kind: "group"; group: DockGroup; windows: DockWindowInfo[] }
   | { kind: "separator"; id: string }
   | { kind: "running"; exe: string; windows: DockWindowInfo[] }
+  | { kind: "start" }
   | { kind: "bar" };
 
 export interface ActivateInfo {
@@ -65,6 +66,7 @@ export function slotLabel(slot: DockSlot): string {
   if (slot.kind === "item") return slot.item.name;
   if (slot.kind === "group") return `${slot.group.name} (${slot.group.items.length})`;
   if (slot.kind === "running") return slot.windows[0]?.title || prettyExe(slot.exe);
+  if (slot.kind === "start") return "Iniciar";
   return "";
 }
 
@@ -110,7 +112,8 @@ export const DockBar: React.FC<DockBarProps> = ({
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const pinnedCount = slots.filter((s) => !(s.kind === "running" || (s.kind === "separator" && s.auto))).length;
+  const pinnedCount = slots.filter(isPinnedSlot).length;
+  const firstPinned = slots.findIndex(isPinnedSlot);
 
   // Unmagnified slot centers, relative to the content anchor (start, middle or end of the icons).
   const { centers, contentLen } = useMemo(() => {
@@ -194,8 +197,7 @@ export const DockBar: React.FC<DockBarProps> = ({
 
   const handlePointerDown = (slot: DockSlot, e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    const pinned = !(slot.kind === "running" || (slot.kind === "separator" && slot.auto));
-    if (!pinned || !onMove) return;
+    if (!isPinnedSlot(slot) || !onMove) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setDragState({ id: slot.key, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, active: false, insertIndex: null, groupTarget: null });
   };
@@ -268,12 +270,12 @@ export const DockBar: React.FC<DockBarProps> = ({
     >
       {slots.map((slot, i) => {
         const scale = scales[i];
-        const isPinned = !(slot.kind === "running" || (slot.kind === "separator" && slot.auto));
+        const isPinned = isPinnedSlot(slot);
         if (isPinned) pinnedIndex++;
         const dragging = drag?.active && drag.id === slot.key;
         const groupHover = drag?.active && drag.groupTarget === slot.key;
         const showInsertBefore = drag?.active && drag.insertIndex !== null && isPinned && insertionBefore(slots, drag, slot.key);
-        const insertAtEnd = drag?.active && drag.insertIndex !== null && i === pinnedCount - 1 && drag.insertIndex >= pinnedCount - 1 && drag.id !== slot.key;
+        const insertAtEnd = drag?.active && drag.insertIndex !== null && i === firstPinned + pinnedCount - 1 && drag.insertIndex >= pinnedCount - 1 && drag.id !== slot.key;
 
         if (slot.kind === "separator") {
           return (
@@ -306,8 +308,9 @@ export const DockBar: React.FC<DockBarProps> = ({
         }
 
         const size = a.iconSize * scale;
-        const running = slot.windows.length > 0;
-        const focused = slot.windows.some((w) => w.focused && !w.minimized);
+        const slotWindows = slot.kind === "start" ? [] : slot.windows;
+        const running = slotWindows.length > 0;
+        const focused = slotWindows.some((w) => w.focused && !w.minimized);
         const bounce = slot.kind === "item" && bouncing?.has(slot.item.id);
         const label = slotLabel(slot);
         const isHovered = hovered === slot.key && !drag?.active;
@@ -327,6 +330,7 @@ export const DockBar: React.FC<DockBarProps> = ({
               e.stopPropagation();
               if (slot.kind === "item") onContext?.({ kind: "item", item: slot.item, windows: slot.windows }, e);
               else if (slot.kind === "group") onContext?.({ kind: "group", group: slot.group, windows: slot.windows }, e);
+              else if (slot.kind === "start") onContext?.({ kind: "start" }, e);
               else onContext?.({ kind: "running", exe: slot.exe, windows: slot.windows }, e);
             }}
             style={{
@@ -362,13 +366,19 @@ export const DockBar: React.FC<DockBarProps> = ({
                 <GroupIcon group={slot.group} size={size} radius={a.radius} active={activeGroupId === slot.group.id} ring={a.indicatorColor} />
               ) : slot.kind === "item" ? (
                 <DockIcon path={slot.item.path} customIcon={slot.item.customIcon} kind={slot.item.kind} size={size} />
+              ) : slot.kind === "start" ? (
+                a.startIcon === "launchpad" ? (
+                  <LaunchpadIcon size={size} />
+                ) : (
+                  <StartIcon size={size} radius={a.radius} accent={a.indicatorColor} />
+                )
               ) : (
                 <DockIcon path={slot.exe.startsWith("pid:") ? null : slot.exe} size={size} />
               )}
             </div>
 
             {running && a.indicator !== "none" && (
-              <Indicator a={a} vertical={vertical} focused={focused} count={slot.windows.length} gap={indicatorGap} ms={ms(200)} />
+              <Indicator a={a} vertical={vertical} focused={focused} count={slotWindows.length} gap={indicatorGap} ms={ms(200)} />
             )}
 
             {a.showLabels && isHovered && label && (
@@ -402,7 +412,7 @@ export const DockBar: React.FC<DockBarProps> = ({
 /** True when the insertion point (index among pinned entries, excluding the dragged one) sits right before `key`. */
 function insertionBefore(slots: DockSlot[], drag: DragState, key: string): boolean {
   if (key === drag.id) return false;
-  const pinned = slots.filter((s) => !(s.kind === "running" || (s.kind === "separator" && s.auto)) && s.key !== drag.id);
+  const pinned = slots.filter((s) => isPinnedSlot(s) && s.key !== drag.id);
   return pinned[drag.insertIndex!]?.key === key;
 }
 
@@ -451,6 +461,58 @@ const Indicator: React.FC<{ a: DockAppearance; vertical: boolean; focused: boole
     );
   }
   return <div style={base} />;
+};
+
+/** Windows-logo tile for the Start button, tinted with the dock's accent color. */
+const StartIcon: React.FC<{ size: number; radius: number; accent: string }> = ({ size, radius, accent }) => {
+  const pane = size * 0.2;
+  const gap = size * 0.05;
+  return (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.min(radius, size * 0.28),
+        background: `linear-gradient(145deg, ${hexToRgba(accent, 0.95)}, ${hexToRgba(accent, 0.55)})`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 8px ${hexToRgba(accent, 0.35)}`,
+      }}
+    >
+      <div className="grid grid-cols-2" style={{ gap }}>
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} style={{ width: pane, height: pane, borderRadius: pane * 0.18, background: "rgba(255,255,255,0.95)" }} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const LAUNCHPAD_COLORS = ["#ff453a", "#ff9f0a", "#ffd60a", "#32d74b", "#64d2ff", "#0a84ff", "#5e5ce6", "#bf5af2", "#ff375f"];
+
+/** macOS Launchpad-style tile (grid of colorful squares on a squircle) for the Start button. */
+const LaunchpadIcon: React.FC<{ size: number }> = ({ size }) => {
+  const cell = size * 0.15;
+  return (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.225,
+        background: "linear-gradient(180deg, #5a5a60 0%, #2c2c30 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div className="grid grid-cols-3" style={{ gap: size * 0.06 }}>
+        {LAUNCHPAD_COLORS.map((c) => (
+          <span
+            key={c}
+            style={{ width: cell, height: cell, borderRadius: cell * 0.3, background: `linear-gradient(180deg, ${c}, ${hexToRgba(c, 0.75)})`, boxShadow: "0 0.5px 1px rgba(0,0,0,0.4)" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 };
 
 const GroupIcon: React.FC<{ group: DockGroup; size: number; radius: number; active: boolean; ring: string }> = ({ group, size, radius, active, ring }) => {

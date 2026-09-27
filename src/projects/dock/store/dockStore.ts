@@ -22,6 +22,7 @@ export const DEFAULT_BEHAVIOR: DockBehavior = {
   hideOnFullscreen: true,
   showRunning: true,
   startWithApp: true,
+  startButton: false,
 };
 
 interface DockState {

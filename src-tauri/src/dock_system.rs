@@ -1023,6 +1023,31 @@ pub async fn dock_pick_items(app: AppHandle, kind: String) -> Result<Vec<String>
     }
 }
 
+/// Opens native shell surfaces from the dock: the real Start menu ("start"), the Win+X menu
+/// ("quicklinks") or show desktop ("desktop"). Uses the same keys as the user would press, so
+/// Windows keeps full control of those menus.
+#[tauri::command]
+pub fn dock_shell_action(action: String) -> Result<(), String> {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_LWIN};
+    let keys: &[u16] = match action.as_str() {
+        "start" => &[VK_LWIN],
+        "quicklinks" => &[VK_LWIN, 0x58],
+        "desktop" => &[VK_LWIN, 0x44],
+        other => return Err(format!("Ação desconhecida: {}", other)),
+    };
+    let key = |vk: u16, up: bool| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: if up { KEYEVENTF_KEYUP } else { 0 }, time: 0, dwExtraInfo: 0 } },
+    };
+    let mut inputs: Vec<INPUT> = keys.iter().map(|&k| key(k, false)).collect();
+    inputs.extend(keys.iter().rev().map(|&k| key(k, true)));
+    let sent = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
+    if sent as usize != inputs.len() {
+        return Err("O Windows não deixou abrir o menu agora.".into());
+    }
+    Ok(())
+}
+
 /// Reads a small image chosen as a custom icon and returns it as a data URL.
 #[tauri::command]
 pub async fn dock_read_image(path: String) -> Result<String, String> {

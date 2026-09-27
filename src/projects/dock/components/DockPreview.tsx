@@ -8,7 +8,10 @@ interface DockPreviewProps {
   entries: DockEntry[];
   appearance: DockAppearance;
   showRunning: boolean;
+  startButton?: boolean;
   compactTaskbar?: boolean;
+  /** The native taskbar auto-hides (drawn faded in the preview). */
+  taskbarAutohide?: boolean;
   onMove?: (id: string, toIndex: number) => void;
   onGroup?: (sourceId: string, targetId: string) => void;
   onSelect?: (id: string) => void;
@@ -16,7 +19,18 @@ interface DockPreviewProps {
 }
 
 /** Mock desktop with the real dock component, so every change is visible immediately. */
-export const DockPreview: React.FC<DockPreviewProps> = ({ entries, appearance, showRunning, compactTaskbar, onMove, onGroup, onSelect, height = 270 }) => {
+export const DockPreview: React.FC<DockPreviewProps> = ({
+  entries,
+  appearance,
+  showRunning,
+  startButton = false,
+  compactTaskbar,
+  taskbarAutohide,
+  onMove,
+  onGroup,
+  onSelect,
+  height = 270,
+}) => {
   const [windows, setWindows] = useState<DockWindowInfo[]>([]);
 
   useEffect(() => {
@@ -31,7 +45,10 @@ export const DockPreview: React.FC<DockPreviewProps> = ({ entries, appearance, s
     };
   }, [showRunning]);
 
-  const slots = useMemo(() => buildSlots(entries, matchWindows(entries, windows), showRunning), [entries, windows, showRunning]);
+  const slots = useMemo(
+    () => buildSlots(entries, matchWindows(entries, windows), showRunning, startButton),
+    [entries, windows, showRunning, startButton]
+  );
   const vertical = appearance.edge === "left" || appearance.edge === "right";
   const align = appearance.align === "start" ? "flex-start" : appearance.align === "end" ? "flex-end" : "center";
   const edge = appearance.edge === "bottom" || appearance.edge === "right" ? "flex-end" : "flex-start";
@@ -58,14 +75,20 @@ export const DockPreview: React.FC<DockPreviewProps> = ({ entries, appearance, s
       <div
         className="absolute inset-x-0 top-0 flex"
         style={{
-          bottom: 30,
+          bottom: taskbarAutohide ? 2 : 30,
+          transition: "bottom 500ms ease",
           flexDirection: vertical ? "row" : "column",
           justifyContent: edge,
           alignItems: appearance.length === "full" ? "stretch" : align,
           padding: appearance.offset,
         }}
       >
-        <div style={appearance.length === "full" ? (vertical ? { height: "100%" } : { width: "100%" }) : undefined}>
+        <div
+          style={{
+            ...(appearance.length === "full" ? (vertical ? { height: "100%" } : { width: "100%" }) : {}),
+            ...(slots.length === 0 ? { visibility: "hidden" as const } : {}),
+          }}
+        >
           <DockBar
             slots={slots}
             appearance={previewAppearance}
@@ -83,7 +106,7 @@ export const DockPreview: React.FC<DockPreviewProps> = ({ entries, appearance, s
         )}
       </div>
 
-      <TaskbarMock compact={!!compactTaskbar} />
+      <TaskbarMock compact={!!compactTaskbar} autohide={taskbarAutohide} />
     </div>
   );
 };
@@ -91,8 +114,9 @@ export const DockPreview: React.FC<DockPreviewProps> = ({ entries, appearance, s
 /** Very small drawing of the Windows taskbar (Start on the left or center, tray on the right). */
 export const TaskbarMock: React.FC<{ compact: boolean; autohide?: boolean }> = ({ compact, autohide }) => (
   <div
-    className="absolute inset-x-0 bottom-0 flex h-[30px] items-center gap-1.5 border-t border-white/10 bg-black/45 px-2 backdrop-blur-md transition-all"
-    style={{ opacity: autohide ? 0.35 : 1 }}
+    className="absolute inset-x-0 bottom-0 flex h-[30px] items-center gap-1.5 border-t border-white/10 bg-black/45 px-2 backdrop-blur-md transition-all duration-500"
+    title={autohide ? "Barra do Windows oculta: aparece ao encostar o mouse na borda" : undefined}
+    style={{ transform: autohide ? "translateY(28px)" : "none" }}
   >
     <div className="flex h-5 w-5 items-center justify-center rounded bg-sky-400/80 text-[9px] font-bold text-white" title="Iniciar">
       ⊞

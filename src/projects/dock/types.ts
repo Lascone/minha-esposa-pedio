@@ -63,6 +63,8 @@ export interface DockAppearance {
   /** Multiplier: 0.5 = slower, 2 = faster. */
   animSpeed: number;
   showLabels: boolean;
+  /** Look of the Start button: Windows logo or a macOS Launchpad-style grid. */
+  startIcon: "windows" | "launchpad";
 }
 
 export interface DockBehavior {
@@ -73,6 +75,8 @@ export interface DockBehavior {
   showRunning: boolean;
   /** Start the dock automatically together with the app. */
   startWithApp: boolean;
+  /** First icon opens the real Windows Start menu (macOS-like: the dock becomes the main bar). */
+  startButton: boolean;
 }
 
 export interface DockTheme {

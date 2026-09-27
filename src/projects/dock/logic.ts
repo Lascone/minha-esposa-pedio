@@ -124,17 +124,28 @@ export type DockSlot =
   | { key: string; kind: "item"; item: DockLaunchItem; windows: DockWindowInfo[] }
   | { key: string; kind: "group"; group: DockGroup; windows: DockWindowInfo[] }
   | { key: string; kind: "separator"; auto: boolean }
-  | { key: string; kind: "running"; exe: string; windows: DockWindowInfo[] };
+  | { key: string; kind: "running"; exe: string; windows: DockWindowInfo[] }
+  | { key: string; kind: "start" };
 
-/** What the bar shows, in order: pinned entries, then (optionally) unpinned running apps. */
-export function buildSlots(entries: DockEntry[], running: RunningMatch | null | undefined, showRunning: boolean): DockSlot[] {
-  const slots: DockSlot[] = entries.map((e): DockSlot => {
+/** Slots that belong to the user's saved list (can be dragged and reordered). */
+export function isPinnedSlot(slot: DockSlot): boolean {
+  return slot.kind === "item" || slot.kind === "group" || (slot.kind === "separator" && !slot.auto);
+}
+
+/** What the bar shows, in order: Start button (optional), pinned entries, then (optionally) unpinned running apps. */
+export function buildSlots(entries: DockEntry[], running: RunningMatch | null | undefined, showRunning: boolean, startButton = false): DockSlot[] {
+  const slots: DockSlot[] = [];
+  if (startButton) {
+    slots.push({ key: "start", kind: "start" });
+    if (entries.length || (showRunning && running?.unpinned.length)) slots.push({ key: "sep-start", kind: "separator", auto: true });
+  }
+  slots.push(...entries.map((e): DockSlot => {
     if (e.type === "separator") return { key: e.id, kind: "separator", auto: false };
     if (e.type === "group") return { key: e.id, kind: "group", group: e, windows: e.items.flatMap((i) => running?.byItem[i.id] || []) };
     return { key: e.id, kind: "item", item: e, windows: running?.byItem[e.id] || [] };
-  });
+  }));
   if (showRunning && running?.unpinned.length) {
-    if (slots.length) slots.push({ key: "sep-running", kind: "separator", auto: true });
+    if (entries.length) slots.push({ key: "sep-running", kind: "separator", auto: true });
     for (const u of running.unpinned) slots.push({ key: `run-${u.exe}`, kind: "running", exe: u.exe, windows: u.windows });
   }
   return slots;
@@ -239,8 +250,11 @@ export function computeDockLayout(input: DockLayoutInput): DockLayout {
   const barLength = Math.min(a.length === "full" ? maxLen : auto, maxLen);
 
   const magExtra = a.iconSize * (magnify - 1);
-  const headroom = input.nativeGlass ? 0 : magExtra + (a.showLabels ? 36 : 10) + (input.expanded || 0);
-  const winLen = input.nativeGlass ? barLength : Math.min(workLen, Math.max(barLength + magExtra * 3 + 48, input.minLength || 0));
+  // Labels open on the inner side: short and wide for horizontal docks, long for vertical ones.
+  const labelRoom = a.showLabels ? (vertical ? 200 : 36) : 10;
+  const lengthRoom = a.showLabels && !vertical ? 160 : 48;
+  const headroom = input.nativeGlass ? 0 : magExtra + labelRoom + (input.expanded || 0);
+  const winLen = input.nativeGlass ? barLength : Math.min(workLen, Math.max(barLength + magExtra * 3 + lengthRoom, input.minLength || 0));
   const edgeGap = input.nativeGlass ? 0 : a.offset;
   const winThick = edgeGap + barThickness + headroom;
 

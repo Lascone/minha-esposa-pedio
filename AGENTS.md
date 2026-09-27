@@ -18,6 +18,15 @@
 
 ---
 
+## 🚀 Dock e Modo Dock
+> [!IMPORTANT]
+> Consulte [/docs/dock/README.md](file:///c:/Projetos/Minha%20Esposa%20Pedio/docs/dock/README.md) antes de alterar o dock.
+> 1. Chamadas ao Windows ficam em `src-tauri/src/dock_system.rs` e `src-tauri/src/taskbar_mode.rs`.
+> 2. **NUNCA** mexa no Iniciar ou na bandeja do Windows, e sempre salve um backup antes de alterar a barra.
+> 3. **NUNCA** copie código do Seelen UI (AGPL-3.0).
+
+---
+
 ## 🖱️ Instruções para o Módulo Auto Click
 > [!IMPORTANT]
 > **LEIA ISTO ANTES DE ALTERAR O AUTO CLICK:**

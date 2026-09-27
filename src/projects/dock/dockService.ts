@@ -47,6 +47,7 @@ export const dockService = {
   getIcon: (path: string) => call<string>("dock_get_icon", { path }),
   listMonitors: () => call<DockMonitor[]>("dock_list_monitors", undefined, []),
   pickItems: (kind: "files" | "folder" | "icon") => call<string[]>("dock_pick_items", { kind }),
+  shellAction: (action: "start" | "quicklinks" | "desktop") => call<void>("dock_shell_action", { action }),
   readImage: (path: string) => call<string>("dock_read_image", { path }),
   setAppBar: (reserve: boolean, edge: string, thickness: number, monitor: number) =>
     call<Rect | null>("dock_set_appbar", { reserve, edge, thickness: Math.round(thickness), monitor }, null),

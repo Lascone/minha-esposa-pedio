@@ -26,7 +26,7 @@ mod dock_system;
 use dock_system::{
     dock_open_window, dock_close_window, dock_set_bounds, dock_set_hit_rect, dock_set_effect, dock_list_windows,
     dock_env_state, dock_window_action, dock_launch, dock_reveal, dock_resolve_item, dock_get_icon,
-    dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar,
+    dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar, dock_shell_action,
 };
 
 mod taskbar_mode;
@@ -609,6 +609,7 @@ pub fn run() {
             dock_pick_items,
             dock_read_image,
             dock_set_appbar,
+            dock_shell_action,
             taskbar_mode_status,
             taskbar_mode_apply,
             taskbar_mode_restore,
