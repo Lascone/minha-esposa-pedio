@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.4",
-    "notes":  "Widgets: as areas transparentes nao bloqueiam mais cliques na area de trabalho; segurar e arrastar move todos os widgets (inclusive os personalizados) e os companheiros, respeitando o cadeado; o simulador do painel usa o tamanho real do monitor e Alinhar Todos organiza dentro da tela.",
-    "pub_date":  "2026-09-27T03:13:26.3260463Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.4/Pedi.para.meu.marido_1.3.4_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.4_x64-setup.exe",
-    "size":  3746790
+    "version":  "1.3.5",
+    "notes":  "Corrige o travamento ao diminuir o tamanho dos widgets. Novidades: Ctrl + roda do mouse aumenta ou diminui o widget (50% a 200%, tambem no simulador do painel) e um selo mostra a porcentagem.",
+    "pub_date":  "2026-09-27T03:35:15.0229512Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.5/Pedi.para.meu.marido_1.3.5_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.5_x64-setup.exe",
+    "size":  3745042
 }
