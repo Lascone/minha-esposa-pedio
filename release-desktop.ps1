@@ -142,14 +142,16 @@ Write-Host ""
 Write-Host "  [4/5] Gerando arquivo de metadados latest.json..." -ForegroundColor Cyan
 $repoOwner = "Lascone"
 $repoName = "minha-esposa-pedio"
-$downloadUrl = "https://github.com/$repoOwner/$repoName/releases/download/v$ver/$setupFileName"
+# O GitHub troca espaços por pontos no nome dos arquivos anexados à release.
+$assetName = $setupFileName -replace ' ', '.'
+$downloadUrl = "https://github.com/$repoOwner/$repoName/releases/download/v$ver/$assetName"
 
 $latestData = [ordered]@{
     version      = $ver
     notes        = $Notes
     pub_date     = [DateTime]::UtcNow.ToString("o")
     url          = $downloadUrl
-    fileName     = $setupFileName
+    fileName     = $assetName
     size         = $setupFileSize
 }
 
