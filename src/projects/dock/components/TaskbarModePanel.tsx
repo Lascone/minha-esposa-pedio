@@ -20,6 +20,8 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
   const [status, setStatus] = useState<TaskbarStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [autohide, setAutohide] = useState(taskbarMode.autohide);
+  const [hide, setHide] = useState(taskbarMode.hide);
+  const dockEnabled = useDockStore((s) => s.enabled);
   const [previewing, setPreviewing] = useState(false);
   const [working, setWorking] = useState(false);
 
@@ -49,20 +51,26 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
   }, [refresh, setTaskbarMode]);
 
   useEffect(() => {
+    setHide(taskbarMode.hide);
+  }, [taskbarMode.hide]);
+
+  useEffect(() => {
     if (!suggestAutohide) return;
     setAutohide(true);
+    setHide(true);
     setPreviewing(true);
   }, [suggestAutohide]);
 
   const apply = async () => {
     setWorking(true);
     try {
-      const s = await dockService.taskbarApply(autohide);
+      const s = await dockService.taskbarApply(autohide || hide, hide);
       setStatus(s);
-      setTaskbarMode({ enabled: true, autohide });
+      setTaskbarMode({ enabled: true, autohide: autohide || hide, hide });
       setPreviewing(false);
       const failed = s.changes.filter((c) => c.error);
       if (failed.length) addToast(`Modo dock ligado, mas ${failed.length} ajuste(s) foram bloqueados pelo Windows.`, "warning");
+      else if (hide) addToast("Pronto! O dock virou sua barra. Bandeja e relógio ficam no último ícone do dock.", "success");
       else addToast("Modo dock ligado! A barra do Windows ficou compacta.", "success");
     } catch (e) {
       addToast(String(e), "warning");
@@ -104,6 +112,10 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
             {status?.isWindows11 ? ", ícones à esquerda" : ""}) e, se você quiser, <b>ocultar a barra automaticamente</b>. O Iniciar, a bandeja, os ícones
             e os menus dos apps continuam funcionando normalmente. A barra aparece quando o mouse encosta na borda.
           </span>
+          <span>
+            Para o dock <b>virar</b> a barra (estilo macOS), ligue <b>Substituir a barra do Windows pelo dock</b>: a barra original fica escondida enquanto
+            o dock estiver aberto e não sobe mais por cima dele. A bandeja, o relógio e as notificações verdadeiras aparecem ao clicar no relógio do dock.
+          </span>
         </div>
       </div>
 
@@ -123,7 +135,7 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
                 <span className="text-sm font-bold text-theme-text">{active ? "Modo dock ligado" : "Barra do Windows original"}</span>
                 <span className="text-[11px] text-theme-text-muted">
                   {status.isWindows11 ? "Windows 11" : "Windows 10"} · build {status.windowsBuild}
-                  {status.autohide ? " · barra ocultando automaticamente" : ""}
+                  {status.hidden ? " · substituída pelo dock" : status.autohide ? " · barra ocultando automaticamente" : ""}
                 </span>
               </div>
             </div>
@@ -135,8 +147,20 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
           <Toggle
             label="Ocultar a barra do Windows automaticamente"
             description="Ela some e reaparece quando o mouse encosta na borda da tela. O Iniciar e a bandeja continuam a um movimento de distância."
-            checked={autohide}
+            checked={autohide || hide}
             onChange={setAutohide}
+            disabled={working || hide}
+          />
+
+          <Toggle
+            label="Substituir a barra do Windows pelo dock"
+            description={
+              dockEnabled
+                ? "A barra original some enquanto o dock estiver aberto e não passa mais por cima dele. Clique no relógio do dock para usar a bandeja de verdade; ela volta sozinha se o dock fechar."
+                : "Ligue o dock primeiro: sem ele aberto a barra do Windows continua aparecendo normalmente."
+            }
+            checked={hide}
+            onChange={setHide}
             disabled={working}
           />
 
@@ -154,7 +178,7 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
                   <TaskbarMock compact={false} autohide={status.autohide} />
                 </MockFrame>
                 <MockFrame title="Com o modo dock">
-                  <TaskbarMock compact autohide={autohide} />
+                  <TaskbarMock compact autohide={autohide || hide} />
                 </MockFrame>
               </div>
               <ul className="flex flex-col gap-1 text-xs text-theme-text">
@@ -173,7 +197,13 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
                 ))}
                 <li className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-theme-primary" />
-                  <span>{autohide ? "Ocultar a barra automaticamente" : "Manter a barra sempre visível"}</span>
+                  <span>
+                    {hide
+                      ? "Esconder a barra do Windows enquanto o dock estiver aberto (bandeja e relógio no botão de relógio do dock)"
+                      : autohide
+                      ? "Ocultar a barra automaticamente"
+                      : "Manter a barra sempre visível"}
+                  </span>
                 </li>
                 <li className="flex items-center gap-2 text-theme-text-muted">
                   <ShieldCheck size={13} className="text-emerald-500" />
@@ -181,8 +211,8 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
                 </li>
               </ul>
               <p className="text-[11px] leading-relaxed text-theme-text-muted">
-                Os valores atuais são salvos antes de qualquer mudança. A barra volta ao normal quando você desliga o modo, fecha o aplicativo, reabre depois de
-                um travamento ou desinstala. Também dá para restaurar pelo ícone na bandeja → <b>Restaurar barra do Windows</b>.
+                Os valores atuais são salvos antes de qualquer mudança. A barra volta ao normal quando você desliga o modo, fecha o dock ou o aplicativo, se
+                o aplicativo travar ou for encerrado à força, e ao desinstalar. Também dá para restaurar pelo ícone na bandeja → <b>Restaurar barra do Windows</b>.
                 {pending.length === 0 && !autohide ? " Nada muda na barra além do que já está configurado." : ""}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -198,7 +228,7 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
 
           <p className="text-[11px] leading-relaxed text-theme-text-muted">
             Limitações: alguns ajustes (como Widgets em versões recentes do Windows 11) podem ser bloqueados pelo próprio Windows. Nesse caso eles aparecem com
-            um aviso e o resto continua funcionando. Os apps abertos continuam na barra do Windows. Use a ocultação automática para deixar só o dock à vista.
+            um aviso e o resto continua funcionando. Com a substituição ligada, a tecla Windows continua abrindo o Iniciar e Win + B mostra a bandeja.
           </p>
         </>
       )}

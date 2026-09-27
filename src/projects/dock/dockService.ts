@@ -19,8 +19,18 @@ export interface TaskbarStatus {
   windowsBuild: number;
   isWindows11: boolean;
   autohide: boolean;
+  hidden: boolean;
   changes: TaskbarChange[];
   backupPath: string;
+}
+
+export type DockShellAction = "start" | "quicklinks" | "desktop" | "tray" | "quicksettings" | "notifications" | "language";
+
+/** Real indicators from `dock_tray_state`; null = Windows did not report it. */
+export interface TrayState {
+  language: string | null;
+  network: "internet" | "local" | "none" | null;
+  battery: { percent: number; charging: boolean } | null;
 }
 
 async function call<T>(cmd: string, args?: Record<string, unknown>, fallback?: T): Promise<T> {
@@ -47,14 +57,20 @@ export const dockService = {
   getIcon: (path: string) => call<string>("dock_get_icon", { path }),
   listMonitors: () => call<DockMonitor[]>("dock_list_monitors", undefined, []),
   pickItems: (kind: "files" | "folder" | "icon") => call<string[]>("dock_pick_items", { kind }),
-  shellAction: (action: "start" | "quicklinks" | "desktop") => call<void>("dock_shell_action", { action }),
+  shellAction: (action: DockShellAction) => call<void>("dock_shell_action", { action }),
+  trayOpen: () => call<void>("dock_tray_open"),
+  trayClose: () => (isTauriRuntime() ? invoke<void>("dock_tray_close") : Promise.resolve()),
+  traySetBounds: (r: Rect, visible: boolean) =>
+    call<void>("dock_tray_set_bounds", { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height), visible }),
+  trayState: () => call<TrayState>("dock_tray_state"),
   readImage: (path: string) => call<string>("dock_read_image", { path }),
   setAppBar: (reserve: boolean, edge: string, thickness: number, monitor: number) =>
     call<Rect | null>("dock_set_appbar", { reserve, edge, thickness: Math.round(thickness), monitor }, null),
 
   taskbarStatus: () => call<TaskbarStatus>("taskbar_mode_status"),
-  taskbarApply: (autohide: boolean) => call<TaskbarStatus>("taskbar_mode_apply", { autohide }),
+  taskbarApply: (autohide: boolean, hide = false) => call<TaskbarStatus>("taskbar_mode_apply", { autohide, hide }),
   taskbarRestore: () => call<TaskbarStatus>("taskbar_mode_restore"),
+  taskbarPeek: () => call<void>("taskbar_peek"),
 };
 
 const iconCache = new Map<string, Promise<string | null>>();

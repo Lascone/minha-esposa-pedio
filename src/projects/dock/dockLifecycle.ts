@@ -10,7 +10,7 @@ export async function startDockOnLaunch(): Promise<void> {
   }
   // The native taskbar is always restored when the app closes; re-apply the user's choice.
   if (s.taskbarMode.enabled) {
-    await dockService.taskbarApply(s.taskbarMode.autohide).catch(() => {});
+    await dockService.taskbarApply(s.taskbarMode.autohide, s.taskbarMode.hide).catch(() => {});
   }
 }
 

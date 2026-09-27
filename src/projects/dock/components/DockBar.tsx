@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DockAppearance, DockGroup, DockLaunchItem, DockWindowInfo } from "../types";
 import { DockSlot, isPinnedSlot, magnifyScale } from "../logic";
-import { hexToRgba } from "../themes";
+import { contrastText, hexToRgba } from "../themes";
 import { DockIcon } from "./DockIcon";
 
 export type DockContextTarget =
@@ -10,6 +10,7 @@ export type DockContextTarget =
   | { kind: "separator"; id: string }
   | { kind: "running"; exe: string; windows: DockWindowInfo[] }
   | { kind: "start" }
+  | { kind: "tray" }
   | { kind: "bar" };
 
 export interface ActivateInfo {
@@ -67,6 +68,7 @@ export function slotLabel(slot: DockSlot): string {
   if (slot.kind === "group") return `${slot.group.name} (${slot.group.items.length})`;
   if (slot.kind === "running") return slot.windows[0]?.title || prettyExe(slot.exe);
   if (slot.kind === "start") return "Iniciar";
+  if (slot.kind === "tray") return "Bandeja, relógio e notificações";
   return "";
 }
 
@@ -230,6 +232,7 @@ export const DockBar: React.FC<DockBarProps> = ({
     : "none";
 
   const outerSide = a.edge; // icons grow away from this side
+  const hoverTint = contrastText(a.bgColor, a.bgOpacity);
   const indicatorGap = Math.max(2, (a.padding + 4) / 2 - 1);
 
   const style: React.CSSProperties = {
@@ -308,7 +311,7 @@ export const DockBar: React.FC<DockBarProps> = ({
         }
 
         const size = a.iconSize * scale;
-        const slotWindows = slot.kind === "start" ? [] : slot.windows;
+        const slotWindows = slot.kind === "start" || slot.kind === "tray" ? [] : slot.windows;
         const running = slotWindows.length > 0;
         const focused = slotWindows.some((w) => w.focused && !w.minimized);
         const bounce = slot.kind === "item" && bouncing?.has(slot.item.id);
@@ -331,6 +334,7 @@ export const DockBar: React.FC<DockBarProps> = ({
               if (slot.kind === "item") onContext?.({ kind: "item", item: slot.item, windows: slot.windows }, e);
               else if (slot.kind === "group") onContext?.({ kind: "group", group: slot.group, windows: slot.windows }, e);
               else if (slot.kind === "start") onContext?.({ kind: "start" }, e);
+              else if (slot.kind === "tray") onContext?.({ kind: "tray" }, e);
               else onContext?.({ kind: "running", exe: slot.exe, windows: slot.windows }, e);
             }}
             style={{
@@ -346,6 +350,13 @@ export const DockBar: React.FC<DockBarProps> = ({
           >
             {showInsertBefore && <InsertMarker vertical={vertical} color={a.indicatorColor} spacing={a.spacing} />}
             {insertAtEnd && <InsertMarker vertical={vertical} color={a.indicatorColor} spacing={a.spacing} end />}
+
+            {magnify <= 1 && (isHovered || focused) && (
+              <div
+                className="pointer-events-none absolute"
+                style={{ inset: -Math.max(2, Math.round(a.padding * 0.5)), borderRadius: Math.min(a.radius, 8), background: hexToRgba(hoverTint, focused ? 0.14 : 0.1) }}
+              />
+            )}
 
             <div
               className={bounce ? (vertical ? "dock-bounce-x" : "dock-bounce-y") : ""}
@@ -369,9 +380,13 @@ export const DockBar: React.FC<DockBarProps> = ({
               ) : slot.kind === "start" ? (
                 a.startIcon === "launchpad" ? (
                   <LaunchpadIcon size={size} />
+                ) : a.startIcon === "win11" ? (
+                  <Win11Logo size={size} />
                 ) : (
                   <StartIcon size={size} radius={a.radius} accent={a.indicatorColor} />
                 )
+              ) : slot.kind === "tray" ? (
+                <TrayClockIcon size={size} mac={a.startIcon === "launchpad"} accent={a.indicatorColor} />
               ) : (
                 <DockIcon path={slot.exe.startsWith("pid:") ? null : slot.exe} size={size} />
               )}
@@ -487,6 +502,29 @@ const StartIcon: React.FC<{ size: number; radius: number; accent: string }> = ({
   );
 };
 
+/** Plain Windows 11 Start logo (four blue panes, no tile), like the native taskbar. */
+const Win11Logo: React.FC<{ size: number }> = ({ size }) => {
+  const pane = size * 0.3;
+  const gap = size * 0.04;
+  return (
+    <div className="flex items-center justify-center" style={{ width: size, height: size }}>
+      <div className="grid grid-cols-2" style={{ gap }}>
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: pane,
+              height: pane,
+              borderRadius: pane * 0.08,
+              background: i < 2 ? "linear-gradient(160deg, #3ccbff, #1e90ff)" : "linear-gradient(160deg, #1e9bff, #0a64e0)",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const LAUNCHPAD_COLORS = ["#ff453a", "#ff9f0a", "#ffd60a", "#32d74b", "#64d2ff", "#0a84ff", "#5e5ce6", "#bf5af2", "#ff375f"];
 
 /** macOS Launchpad-style tile (grid of colorful squares on a squircle) for the Start button. */
@@ -511,6 +549,48 @@ const LaunchpadIcon: React.FC<{ size: number }> = ({ size }) => {
           />
         ))}
       </div>
+    </div>
+  );
+};
+
+function useClock(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer: number;
+    const tick = () => {
+      setNow(new Date());
+      timer = window.setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50);
+    };
+    timer = window.setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return now;
+}
+
+/** Tile with the real local time; clicking it shows the native taskbar tray. */
+const TrayClockIcon: React.FC<{ size: number; mac: boolean; accent: string }> = ({ size, mac, accent }) => {
+  const now = useClock();
+  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const day = now.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+  return (
+    <div
+      className="flex flex-col items-center justify-center leading-none text-white"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.225,
+        background: mac ? "linear-gradient(180deg, #4a4a50 0%, #1f1f23 100%)" : `linear-gradient(145deg, ${hexToRgba(accent, 0.9)}, ${hexToRgba(accent, 0.5)})`,
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.3)",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span style={{ fontSize: size * 0.16, opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.5 }}>{day}</span>
+      <span style={{ fontSize: size * 0.27, fontWeight: 700, marginTop: size * 0.04 }}>{time}</span>
+      <span className="flex gap-[2px]" style={{ marginTop: size * 0.07 }}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} style={{ width: size * 0.06, height: size * 0.06, borderRadius: 999, background: "rgba(255,255,255,0.7)" }} />
+        ))}
+      </span>
     </div>
   );
 };

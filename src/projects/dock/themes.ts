@@ -44,8 +44,28 @@ export const THEME_FIELDS: (keyof DockAppearance)[] = [
 ];
 
 export const MACOS_THEME_ID = "macos";
+export const WIN11_THEME_ID = "windows11-float";
 
 export const BUILTIN_THEMES: DockTheme[] = ([
+  {
+    id: WIN11_THEME_ID,
+    name: "Windows 11 flutuante",
+    builtin: true,
+    appearance: {
+      background: "glass",
+      bgColor: "#e4e4e9",
+      bgOpacity: 0.72,
+      blur: 30,
+      borderColor: "#ffffff",
+      borderOpacity: 0.55,
+      borderWidth: 1,
+      radius: 10,
+      shadow: 0.25,
+      indicator: "bar",
+      indicatorColor: "#4f8ef7",
+      startIcon: "win11",
+    },
+  },
   {
     id: MACOS_THEME_ID,
     name: "macOS",
@@ -110,6 +130,29 @@ export const MACOS_LAYOUT: Partial<DockAppearance> = {
   animations: true,
   showLabels: true,
 };
+
+/** Floating Windows 11 look: small icons on the left, no magnification, tray pill on the right. */
+export const WIN11_LAYOUT: Partial<DockAppearance> = {
+  edge: "bottom",
+  align: "start",
+  length: "auto",
+  iconSize: 34,
+  spacing: 4,
+  padding: 6,
+  offset: 6,
+  magnify: 1,
+  animations: true,
+  showLabels: true,
+};
+
+/** Readable text color for content drawn on the dock background. */
+export function contrastText(bgHex: string, opacity: number): string {
+  const clean = bgHex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean.padEnd(6, "0").slice(0, 6);
+  const n = parseInt(full, 16);
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 && opacity >= 0.35 ? "#1f2328" : "#ffffff";
+}
 
 export function pickThemeFields(appearance: DockAppearance): Partial<DockAppearance> {
   const out: Partial<DockAppearance> = {};

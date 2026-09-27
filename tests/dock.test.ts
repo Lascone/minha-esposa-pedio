@@ -5,6 +5,7 @@ import {
   contentLength,
   groupEntries,
   isPinnedSlot,
+  trayWindowRect,
   itemExe,
   magnifyScale,
   matchWindows,
@@ -18,7 +19,18 @@ import {
   ungroup,
   updateItem,
 } from "../src/projects/dock/logic";
-import { BUILTIN_THEMES, DEFAULT_APPEARANCE, hexToRgba, MACOS_LAYOUT, MACOS_THEME_ID, pickThemeFields, THEME_FIELDS } from "../src/projects/dock/themes";
+import {
+  BUILTIN_THEMES,
+  contrastText,
+  DEFAULT_APPEARANCE,
+  hexToRgba,
+  MACOS_LAYOUT,
+  MACOS_THEME_ID,
+  pickThemeFields,
+  THEME_FIELDS,
+  WIN11_LAYOUT,
+  WIN11_THEME_ID,
+} from "../src/projects/dock/themes";
 import { DEFAULT_BEHAVIOR, useDockStore } from "../src/projects/dock/store/dockStore";
 import { DockEntry, DockLaunchItem, DockMonitor, DockWindowInfo } from "../src/projects/dock/types";
 
@@ -142,6 +154,22 @@ describe("window matching", () => {
     expect(buildSlots([], m, true, true).map((s) => s.kind)).toEqual(["start", "separator", "running"]);
   });
 
+  it("puts the tray/clock button last, after a separator", () => {
+    const slots = buildSlots(entries, null, true, true, true);
+    expect(slots.map((s) => s.kind)).toEqual(["start", "separator", "item", "item", "item", "separator", "tray"]);
+    expect(slots.filter(isPinnedSlot).map((s) => s.key)).toEqual(["a", "b", "f"]);
+    expect(buildSlots([], null, false, false, true).map((s) => s.kind)).toEqual(["tray"]);
+  });
+
+  it("places the tray pill at the free end of the dock's edge", () => {
+    const m = monitor({ scale: 1.5 });
+    const size = { w: 200, h: 40 };
+    const a = { ...DEFAULT_APPEARANCE, edge: "bottom" as const, align: "start" as const, offset: 6 };
+    expect(trayWindowRect(a, m, size)).toEqual({ x: 1920 - 300 - 9, y: 1080 - 60 - 9, width: 300, height: 60 });
+    expect(trayWindowRect({ ...a, align: "end" }, m, size).x).toBe(9);
+    expect(trayWindowRect({ ...a, edge: "left" }, m, size)).toMatchObject({ x: 9, y: 1080 - 60 - 9 });
+  });
+
   it("focuses, cycles and minimizes like a taskbar", () => {
     expect(nextWindow([])).toBeNull();
     expect(nextWindow([win(1, "a")])).toMatchObject({ action: "focus", window: { hwnd: 1 } });
@@ -260,9 +288,19 @@ describe("themes", () => {
   it("macOS preset swaps the Windows start icon for Launchpad and other themes restore it", () => {
     const mac = BUILTIN_THEMES.find((t) => t.id === MACOS_THEME_ID)!;
     expect(mac.appearance.startIcon).toBe("launchpad");
-    for (const t of BUILTIN_THEMES.filter((t) => t.id !== MACOS_THEME_ID)) expect(t.appearance.startIcon).toBe("windows");
+    for (const t of BUILTIN_THEMES.filter((t) => t.id !== MACOS_THEME_ID)) expect(["windows", "win11"]).toContain(t.appearance.startIcon);
     expect(MACOS_LAYOUT).toMatchObject({ edge: "bottom", align: "center" });
     for (const key of Object.keys(MACOS_LAYOUT)) expect(THEME_FIELDS).not.toContain(key);
+  });
+  it("Windows 11 floating preset keeps the dock on the left without magnification", () => {
+    expect(BUILTIN_THEMES.find((t) => t.id === WIN11_THEME_ID)!.appearance.startIcon).toBe("win11");
+    expect(WIN11_LAYOUT).toMatchObject({ edge: "bottom", align: "start", magnify: 1 });
+    for (const key of Object.keys(WIN11_LAYOUT)) expect(THEME_FIELDS).not.toContain(key);
+  });
+  it("picks readable text for light and dark bars", () => {
+    expect(contrastText("#e4e4e9", 0.72)).toBe("#1f2328");
+    expect(contrastText("#1c1a2b", 0.55)).toBe("#ffffff");
+    expect(contrastText("#ffffff", 0.1)).toBe("#ffffff");
   });
 });
 

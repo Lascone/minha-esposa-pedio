@@ -34,8 +34,21 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
 - Clique direito no Iniciar: Win + X (`quicklinks`), mostrar área de trabalho (`desktop`), restaurar a barra do Windows.
 - Botão "Ativar estilo macOS" na aba: liga o Iniciar no dock, dock embaixo e centralizado com ampliação, apps abertos visíveis,
   e abre a **prévia** do Modo dock já com "ocultar automaticamente". A barra do Windows só muda quando a pessoa clica em Aplicar.
-- A bandeja e o relógio continuam na barra nativa, que aparece ao encostar o mouse na borda. A bandeja não é simulada,
-  para não quebrar ícones e menus dos apps.
+- Estilos prontos na aba: **macOS** (tema `macos`, Launchpad, relógio dentro do dock) e **Windows 11 flutuante**
+  (tema `windows11-float`, `WIN11_LAYOUT` à esquerda sem ampliação, `trayStyle: "pill"`). Ambos reservam espaço na tela.
+- A bandeja **não é simulada**: o botão "^" (e o relógio do dock no estilo macOS) chama `taskbar_peek`, que mostra a barra
+  verdadeira por alguns segundos e manda Win + B. Ícones e menus dos apps continuam sendo os nativos.
+
+### Substituir a barra (`taskbarMode.hide`)
+- `taskbar_mode_apply(autohide, hide)`: com `hide`, liga a ocultação automática e esconde `Shell_TrayWnd`/`Shell_SecondaryTrayWnd`
+  com `ShowWindow(SW_HIDE)`, **só enquanto a janela do dock existir** (thread em `taskbar_mode.rs` reesconde depois de reiniciar o
+  Explorer e mostra de volta quando o dock fecha). Nada dentro da barra é alterado.
+- `backup.hidden` fica no backup. Um processo vigia (`--taskbar-watchdog <pid>`) espera o app terminar; se ele travar ou for
+  encerrado à força com a barra escondida, restaura tudo na hora.
+- Pílula da bandeja: janela `docktray` (`#/dock-tray`, `DockTrayWindow`), do tamanho exato da pílula, na ponta livre da borda
+  (`trayWindowRect`). Dados reais via `dock_tray_state`: idioma do teclado do app em primeiro plano, `GetNetworkConnectivityHint`
+  (carregado em tempo de execução) e `GetSystemPowerStatus`. O que o Windows não informa não aparece.
+  Botões: "^" bandeja real, idioma (Win + Espaço), Configurações rápidas (Win + A), relógio → notificações/calendário (Win + N).
 
 ### Modo dock (barra do Windows)
 - Só usa configurações oficiais por usuário (HKCU): pesquisa, Visão de tarefas, Widgets, Chat, Copilot, Cortana

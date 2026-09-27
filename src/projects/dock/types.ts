@@ -63,8 +63,8 @@ export interface DockAppearance {
   /** Multiplier: 0.5 = slower, 2 = faster. */
   animSpeed: number;
   showLabels: boolean;
-  /** Look of the Start button: Windows logo or a macOS Launchpad-style grid. */
-  startIcon: "windows" | "launchpad";
+  /** Look of the Start button: tinted Windows tile, plain Windows 11 logo, or a macOS Launchpad-style grid. */
+  startIcon: "windows" | "win11" | "launchpad";
 }
 
 export interface DockBehavior {
@@ -77,6 +77,11 @@ export interface DockBehavior {
   startWithApp: boolean;
   /** First icon opens the real Windows Start menu (macOS-like: the dock becomes the main bar). */
   startButton: boolean;
+  /**
+   * Where tray/clock go while the dock replaces the taskbar: a clock icon inside the dock, or a
+   * separate floating pill at the other end of the edge (Windows 11 "floating taskbar" look).
+   */
+  trayStyle: "inDock" | "pill";
 }
 
 export interface DockTheme {
@@ -89,6 +94,8 @@ export interface DockTheme {
 export interface DockTaskbarMode {
   enabled: boolean;
   autohide: boolean;
+  /** Hide the native taskbar while the dock is open (the dock's tray button shows it on demand). */
+  hide: boolean;
 }
 
 /** Window reported by `dock_list_windows`. */

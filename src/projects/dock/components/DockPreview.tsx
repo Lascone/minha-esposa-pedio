@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { DockAppearance, DockEntry, DockWindowInfo } from "../types";
 import { buildSlots, matchWindows } from "../logic";
-import { dockService } from "../dockService";
+import { dockService, isTauriRuntime, TrayState } from "../dockService";
 import { DockBar } from "./DockBar";
+import { TrayPill } from "./TrayPill";
 
 interface DockPreviewProps {
   entries: DockEntry[];
@@ -12,6 +13,9 @@ interface DockPreviewProps {
   compactTaskbar?: boolean;
   /** The native taskbar auto-hides (drawn faded in the preview). */
   taskbarAutohide?: boolean;
+  /** The dock replaces the native taskbar: no taskbar drawn, tray/clock button in the dock. */
+  taskbarHidden?: boolean;
+  trayStyle?: "inDock" | "pill";
   onMove?: (id: string, toIndex: number) => void;
   onGroup?: (sourceId: string, targetId: string) => void;
   onSelect?: (id: string) => void;
@@ -26,6 +30,8 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
   startButton = false,
   compactTaskbar,
   taskbarAutohide,
+  taskbarHidden = false,
+  trayStyle = "inDock",
   onMove,
   onGroup,
   onSelect,
@@ -45,9 +51,16 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
     };
   }, [showRunning]);
 
+  const [trayState, setTrayState] = useState<TrayState | null>(null);
+  const showPill = taskbarHidden && trayStyle === "pill";
+  useEffect(() => {
+    if (!showPill || !isTauriRuntime()) return;
+    dockService.trayState().then(setTrayState).catch(() => {});
+  }, [showPill]);
+
   const slots = useMemo(
-    () => buildSlots(entries, matchWindows(entries, windows), showRunning, startButton),
-    [entries, windows, showRunning, startButton]
+    () => buildSlots(entries, matchWindows(entries, windows), showRunning, startButton, taskbarHidden && trayStyle === "inDock"),
+    [entries, windows, showRunning, startButton, taskbarHidden, trayStyle]
   );
   const vertical = appearance.edge === "left" || appearance.edge === "right";
   const align = appearance.align === "start" ? "flex-start" : appearance.align === "end" ? "flex-end" : "center";
@@ -75,7 +88,7 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
       <div
         className="absolute inset-x-0 top-0 flex"
         style={{
-          bottom: taskbarAutohide ? 2 : 30,
+          bottom: taskbarHidden ? 0 : taskbarAutohide ? 2 : 30,
           transition: "bottom 500ms ease",
           flexDirection: vertical ? "row" : "column",
           justifyContent: edge,
@@ -106,7 +119,20 @@ export const DockPreview: React.FC<DockPreviewProps> = ({
         )}
       </div>
 
-      <TaskbarMock compact={!!compactTaskbar} autohide={taskbarAutohide} />
+      {taskbarHidden && trayStyle === "pill" && (
+        <div
+          className="absolute"
+          style={{
+            margin: appearance.offset,
+            ...(vertical
+              ? { [appearance.edge]: 0, ...(appearance.align === "end" ? { top: 0 } : { bottom: 0 }) }
+              : { [appearance.edge]: 0, ...(appearance.align === "end" ? { left: 0 } : { right: 0 }) }),
+          }}
+        >
+          <TrayPill appearance={previewAppearance} state={trayState} onAction={() => {}} />
+        </div>
+      )}
+      {!taskbarHidden && <TaskbarMock compact={!!compactTaskbar} autohide={taskbarAutohide} />}
     </div>
   );
 };

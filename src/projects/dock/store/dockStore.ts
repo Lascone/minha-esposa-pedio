@@ -23,6 +23,7 @@ export const DEFAULT_BEHAVIOR: DockBehavior = {
   showRunning: true,
   startWithApp: true,
   startButton: false,
+  trayStyle: "inDock",
 };
 
 interface DockState {
@@ -64,7 +65,7 @@ export const useDockStore = create<DockState>()(
       behavior: DEFAULT_BEHAVIOR,
       customThemes: [],
       activeThemeId: null,
-      taskbarMode: { enabled: false, autohide: false },
+      taskbarMode: { enabled: false, autohide: false, hide: false },
 
       setEnabled: (enabled) => set({ enabled }),
 
@@ -134,7 +135,7 @@ export const useDockStore = create<DockState>()(
         ...(persisted || {}),
         appearance: { ...DEFAULT_APPEARANCE, ...(persisted?.appearance || {}) },
         behavior: { ...DEFAULT_BEHAVIOR, ...(persisted?.behavior || {}) },
-        taskbarMode: { enabled: false, autohide: false, ...(persisted?.taskbarMode || {}) },
+        taskbarMode: { enabled: false, autohide: false, hide: false, ...(persisted?.taskbarMode || {}) },
       }),
     }
   )

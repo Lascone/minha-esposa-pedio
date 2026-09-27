@@ -18,6 +18,7 @@ import { ManageGamesView } from "./projects/widgets/console/components/ManageGam
 import { OverlayApp } from "./overlay/OverlayApp";
 import { DockWindow } from "./projects/dock/views/DockWindow";
 import { DockView } from "./projects/dock/views/DockView";
+import { DockTrayWindow } from "./projects/dock/views/DockTrayWindow";
 import { startDockOnLaunch } from "./projects/dock/dockLifecycle";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
@@ -240,7 +241,8 @@ export const App: React.FC = () => {
     currentRoute === "/overlay" ||
     window.location.hash.startsWith("#/overlay");
 
-  const isDockWindow = windowLabel === "dock" || currentRoute === "/dock";
+  const isDockTrayWindow = windowLabel === "docktray" || currentRoute === "/dock-tray";
+  const isDockWindow = isDockTrayWindow || windowLabel === "dock" || currentRoute === "/dock";
 
   // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
@@ -269,6 +271,10 @@ export const App: React.FC = () => {
   // If this window is the dedicated overlay window, render only the overlay canvas
   if (isOverlayWindow) {
     return <OverlayApp />;
+  }
+
+  if (isDockTrayWindow) {
+    return <DockTrayWindow />;
   }
 
   if (isDockWindow) {

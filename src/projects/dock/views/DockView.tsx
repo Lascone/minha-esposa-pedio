@@ -6,10 +6,27 @@ import { Card } from "@/core/components/Card";
 import { Toggle } from "@/core/components/Toggle";
 import { useToast } from "@/core/components/Toast";
 import { useDockStore } from "../store/dockStore";
-import { isTauriRuntime } from "../dockService";
+import { dockService, isTauriRuntime } from "../dockService";
 import { addPathsToDock } from "../dockActions";
 import { setDockEnabled } from "../dockLifecycle";
-import { MACOS_LAYOUT, MACOS_THEME_ID } from "../themes";
+import { DEFAULT_APPEARANCE, MACOS_LAYOUT, MACOS_THEME_ID, WIN11_LAYOUT, WIN11_THEME_ID } from "../themes";
+
+type StylePreset = "macos" | "win11";
+
+const STYLE_PRESETS: { id: StylePreset; emoji: string; name: string; description: string }[] = [
+  {
+    id: "macos",
+    emoji: "🍎",
+    name: "Estilo macOS",
+    description: "Dock centralizado com ampliação, Iniciar em forma de Launchpad e um relógio no fim do dock que abre a bandeja.",
+  },
+  {
+    id: "win11",
+    emoji: "🪟",
+    name: "Windows 11 flutuante",
+    description: "Barra flutuante à esquerda com Iniciar e apps, e uma pílula separada à direita com relógio, idioma, rede e bandeja.",
+  },
+];
 import { DockPreview } from "../components/DockPreview";
 import { BehaviorSection, ItemsSection, PositionSection, SizeSection, ThemesSection, VisualSection } from "../components/DockSettingsSections";
 import { TaskbarModePanel } from "../components/TaskbarModePanel";
@@ -41,24 +58,41 @@ export const DockView: React.FC = () => {
   const [switching, setSwitching] = useState(false);
   const [suggestAutohide, setSuggestAutohide] = useState(0);
   const startButton = useDockStore((s) => s.behavior.startButton);
-  const macTheme = useDockStore((s) => s.activeThemeId === MACOS_THEME_ID);
-  const macActive = startButton && macTheme;
+  const trayStyle = useDockStore((s) => s.behavior.trayStyle);
+  const activeThemeId = useDockStore((s) => s.activeThemeId);
+  const activePreset: StylePreset | null = !startButton ? null : activeThemeId === MACOS_THEME_ID ? "macos" : activeThemeId === WIN11_THEME_ID ? "win11" : null;
 
-  const applyMacStyle = async () => {
+  const applyStyle = async (preset: StylePreset) => {
     const s = useDockStore.getState();
-    s.setBehavior({ startButton: true, autoHide: "never", showRunning: true, startWithApp: true });
-    s.setAppearance(MACOS_LAYOUT);
-    s.applyTheme(MACOS_THEME_ID);
+    // Reserving the strip keeps maximized windows above the dock, like the real taskbar did.
+    s.setBehavior({
+      startButton: true,
+      autoHide: "never",
+      showRunning: true,
+      startWithApp: true,
+      reserveSpace: true,
+      trayStyle: preset === "win11" ? "pill" : "inDock",
+    });
+    s.setAppearance(preset === "win11" ? WIN11_LAYOUT : MACOS_LAYOUT);
+    s.applyTheme(preset === "win11" ? WIN11_THEME_ID : MACOS_THEME_ID);
     if (!s.enabled && isTauriRuntime()) await toggleDock(true);
     // The Windows taskbar only changes after the user reviews the preview and clicks "Aplicar".
     setTab("taskbar");
     setSuggestAutohide(Date.now());
   };
 
-  const undoMacStyle = () => {
+  const undoStyle = async () => {
     const s = useDockStore.getState();
-    s.setBehavior({ startButton: false });
+    s.setBehavior({ startButton: false, reserveSpace: false, trayStyle: "inDock" });
     s.applyTheme("aero-glass");
+    const d = DEFAULT_APPEARANCE;
+    s.setAppearance({ align: d.align, iconSize: d.iconSize, spacing: d.spacing, padding: d.padding, offset: d.offset, magnify: d.magnify });
+    if (s.taskbarMode.enabled && s.taskbarMode.hide) {
+      await dockService
+        .taskbarApply(s.taskbarMode.autohide, false)
+        .then(() => s.setTaskbarMode({ hide: false }))
+        .catch((e) => addToast(String(e), "warning"));
+    }
     setTab("taskbar");
   };
 
@@ -124,28 +158,43 @@ export const DockView: React.FC = () => {
         </Card>
       </div>
 
-      <Card className="flex flex-wrap items-center gap-4 !p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-200 to-slate-400 text-2xl shadow-inner">
-          🍎
+      <Card className="flex flex-col gap-3 !p-4">
+        <span className="text-xs text-theme-text-muted">
+          <b className="text-theme-text">Estilos prontos:</b> o dock vira sua barra principal, com o Iniciar dentro dele junto com os apps abertos, e a barra
+          do Windows sai de cena de verdade (depois da prévia e do botão Aplicar).
+        </span>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {STYLE_PRESETS.map((p) => {
+            const active = activePreset === p.id;
+            return (
+              <div
+                key={p.id}
+                className={`flex items-center gap-3 rounded-cute border p-3 transition ${
+                  active ? "border-emerald-500/60 bg-emerald-500/5" : "border-theme-border/60 bg-theme-surface-card"
+                }`}
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-200 to-slate-400 text-xl shadow-inner">
+                  {p.emoji}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-bold text-theme-text">
+                    {p.name} {active && <span className="ml-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600">ativo</span>}
+                  </span>
+                  <span className="text-[11px] leading-snug text-theme-text-muted">{p.description}</span>
+                </div>
+                {active ? (
+                  <Button size="sm" variant="secondary" onClick={undoStyle}>
+                    Desfazer
+                  </Button>
+                ) : (
+                  <Button size="sm" icon={<Sparkles size={14} />} onClick={() => applyStyle(p.id)} disabled={switching}>
+                    Ativar
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
-          <span className="text-sm font-bold text-theme-text">
-            Estilo macOS {macActive && <span className="ml-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600">ativo</span>}
-          </span>
-          <span className="text-xs text-theme-text-muted">
-            O dock vira sua barra principal: o botão Iniciar fica dentro dele junto com os apps abertos, e a barra do Windows se esconde. Ela aparece ao
-            encostar o mouse na borda de baixo, com a bandeja e o relógio de sempre.
-          </span>
-        </div>
-        {macActive ? (
-          <Button size="sm" variant="secondary" onClick={undoMacStyle}>
-            Desfazer
-          </Button>
-        ) : (
-          <Button size="sm" icon={<Sparkles size={14} />} onClick={applyMacStyle} disabled={switching}>
-            Ativar estilo macOS
-          </Button>
-        )}
       </Card>
 
       <div className="sticky top-0 z-10 -mx-1 rounded-3xl bg-theme-bg/80 px-1 pb-1 pt-1 backdrop-blur-md">
@@ -156,6 +205,8 @@ export const DockView: React.FC = () => {
           startButton={startButton}
           compactTaskbar={taskbarMode.enabled}
           taskbarAutohide={taskbarMode.enabled && taskbarMode.autohide}
+          taskbarHidden={!!activePreset || (enabled && taskbarMode.enabled && taskbarMode.hide)}
+          trayStyle={trayStyle}
           onMove={moveEntry}
           onGroup={groupItems}
           onSelect={(id) => {

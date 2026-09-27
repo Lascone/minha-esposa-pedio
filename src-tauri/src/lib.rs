@@ -27,10 +27,11 @@ use dock_system::{
     dock_open_window, dock_close_window, dock_set_bounds, dock_set_hit_rect, dock_set_effect, dock_list_windows,
     dock_env_state, dock_window_action, dock_launch, dock_reveal, dock_resolve_item, dock_get_icon,
     dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar, dock_shell_action,
+    dock_tray_open, dock_tray_close, dock_tray_set_bounds, dock_tray_state,
 };
 
 mod taskbar_mode;
-use taskbar_mode::{taskbar_mode_status, taskbar_mode_apply, taskbar_mode_restore};
+use taskbar_mode::{taskbar_mode_status, taskbar_mode_apply, taskbar_mode_restore, taskbar_peek};
 
 mod autoclick_engine;
 mod autoclick_db;
@@ -522,6 +523,13 @@ pub fn run() {
         taskbar_mode::restore_from_backup(&taskbar_mode::default_backup_path());
         return;
     }
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--taskbar-watchdog") {
+        if let Some(pid) = args.get(i + 1).and_then(|p| p.parse().ok()) {
+            taskbar_mode::run_watchdog(pid);
+        }
+        return;
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -610,9 +618,14 @@ pub fn run() {
             dock_read_image,
             dock_set_appbar,
             dock_shell_action,
+            dock_tray_open,
+            dock_tray_close,
+            dock_tray_set_bounds,
+            dock_tray_state,
             taskbar_mode_status,
             taskbar_mode_apply,
             taskbar_mode_restore,
+            taskbar_peek,
         ])
 
         .setup(|app| {

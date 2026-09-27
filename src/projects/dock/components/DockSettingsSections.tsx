@@ -661,6 +661,18 @@ export const BehaviorSection: React.FC = () => {
             onChange={(startButton) => set({ startButton })}
           />
         </div>
+        <div className="flex flex-col gap-1.5 py-2">
+          <Field label="Bandeja e relógio (quando o dock substitui a barra do Windows)">
+            <Segmented
+              value={b.trayStyle}
+              onChange={(trayStyle) => set({ trayStyle })}
+              options={[
+                { value: "inDock", label: "Relógio no fim do dock" },
+                { value: "pill", label: "Pílula separada" },
+              ]}
+            />
+          </Field>
+        </div>
         <Toggle
           label="Reservar espaço na tela"
           description="Janelas maximizadas param antes do dock, como acontece com a barra do Windows. Só funciona com “Sempre visível”."

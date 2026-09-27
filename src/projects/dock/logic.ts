@@ -125,15 +125,25 @@ export type DockSlot =
   | { key: string; kind: "group"; group: DockGroup; windows: DockWindowInfo[] }
   | { key: string; kind: "separator"; auto: boolean }
   | { key: string; kind: "running"; exe: string; windows: DockWindowInfo[] }
-  | { key: string; kind: "start" };
+  | { key: string; kind: "start" }
+  | { key: string; kind: "tray" };
 
 /** Slots that belong to the user's saved list (can be dragged and reordered). */
 export function isPinnedSlot(slot: DockSlot): boolean {
   return slot.kind === "item" || slot.kind === "group" || (slot.kind === "separator" && !slot.auto);
 }
 
-/** What the bar shows, in order: Start button (optional), pinned entries, then (optionally) unpinned running apps. */
-export function buildSlots(entries: DockEntry[], running: RunningMatch | null | undefined, showRunning: boolean, startButton = false): DockSlot[] {
+/**
+ * What the bar shows, in order: Start button (optional), pinned entries, unpinned running apps (optional),
+ * then the tray/clock button (optional, used when the native taskbar is hidden).
+ */
+export function buildSlots(
+  entries: DockEntry[],
+  running: RunningMatch | null | undefined,
+  showRunning: boolean,
+  startButton = false,
+  trayButton = false
+): DockSlot[] {
   const slots: DockSlot[] = [];
   if (startButton) {
     slots.push({ key: "start", kind: "start" });
@@ -148,7 +158,34 @@ export function buildSlots(entries: DockEntry[], running: RunningMatch | null | 
     if (entries.length) slots.push({ key: "sep-running", kind: "separator", auto: true });
     for (const u of running.unpinned) slots.push({ key: `run-${u.exe}`, kind: "running", exe: u.exe, windows: u.windows });
   }
+  if (trayButton) {
+    if (slots.length && slots[slots.length - 1].kind !== "separator") slots.push({ key: "sep-tray", kind: "separator", auto: true });
+    slots.push({ key: "tray", kind: "tray" });
+  }
   return slots;
+}
+
+/** Physical-pixel rectangle for the tray pill: the end of the dock's edge that the dock is not aligned to. */
+export function trayWindowRect(a: DockAppearance, m: DockMonitor, size: { w: number; h: number }): Rect {
+  const scale = m.scale || 1;
+  const w = Math.ceil(size.w * scale);
+  const h = Math.ceil(size.h * scale);
+  const off = Math.round(a.offset * scale);
+  const atStart = a.align === "end";
+  if (a.edge === "bottom" || a.edge === "top") {
+    return {
+      x: atStart ? m.x + off : m.x + m.width - w - off,
+      y: a.edge === "bottom" ? m.y + m.height - h - off : m.y + off,
+      width: w,
+      height: h,
+    };
+  }
+  return {
+    x: a.edge === "left" ? m.x + off : m.x + m.width - w - off,
+    y: atStart ? m.y + off : m.y + m.height - h - off,
+    width: w,
+    height: h,
+  };
 }
 
 export function countSlots(slots: DockSlot[]): { icons: number; separators: number } {

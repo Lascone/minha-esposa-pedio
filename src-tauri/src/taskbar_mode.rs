@@ -8,11 +8,23 @@
 //! *before* any change and restored when the mode is turned off, when the app exits, on the next start
 //! after a crash, and by the uninstaller (`--restore-taskbar`).
 
+//!
+//! Optional "replace" step (macOS style): while the dock window exists, the native taskbar windows
+//! are hidden with `ShowWindow` so they no longer slide over the dock. Nothing inside the taskbar is
+//! modified: the dock's tray button shows the real bar on demand ("peek"), a watchdog process puts it
+//! back if the app dies, and every restore path above shows it again.
+
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-use windows_sys::Win32::Foundation::{ERROR_SUCCESS, HWND};
+use windows_sys::Win32::Foundation::{CloseHandle, BOOL, ERROR_SUCCESS, HWND, LPARAM, POINT, RECT};
+use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, FindWindowW, GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowRect, IsWindowVisible, ShowWindow, SW_HIDE, SW_SHOWNA,
+};
 use windows_sys::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
     HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ,
@@ -66,6 +78,8 @@ pub struct TaskbarBackup {
     pub values: Vec<SavedValue>,
     pub autohide_was: bool,
     pub autohide_applied: bool,
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,6 +100,7 @@ pub struct TaskbarStatus {
     pub windows_build: u32,
     pub is_windows11: bool,
     pub autohide: bool,
+    pub hidden: bool,
     pub changes: Vec<TaskbarChange>,
     pub backup_path: String,
 }
@@ -231,6 +246,151 @@ fn broadcast_taskbar_change() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Hiding the taskbar windows (replace mode)
+// ---------------------------------------------------------------------------------------------
+
+const TASKBAR_CLASSES: [&str; 2] = ["Shell_TrayWnd", "Shell_SecondaryTrayWnd"];
+/// Foreground windows that belong to the taskbar/tray UI: keep the bar up while one is active.
+const SHELL_POPUP_CLASSES: [&str; 7] = [
+    "Shell_TrayWnd",
+    "Shell_SecondaryTrayWnd",
+    "NotifyIconOverflowWindow",
+    "TopLevelWindowForOverflowXamlIsland",
+    "Windows.UI.Core.CoreWindow",
+    "XamlExplorerHostIslandWindow",
+    "ControlCenterWindow",
+];
+const PEEK_MIN_MS: u64 = 2500;
+const PEEK_IDLE_MS: u64 = 1200;
+
+static HIDE_WANTED: AtomicBool = AtomicBool::new(false);
+/// Millis when the current peek started; 0 = not peeking.
+static PEEK_SINCE: AtomicU64 = AtomicU64::new(0);
+static KEEPER_STARTED: AtomicBool = AtomicBool::new(false);
+static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+fn class_of(hwnd: HWND) -> String {
+    let mut buf = [0u16; 128];
+    let len = unsafe { GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
+    String::from_utf16_lossy(&buf[..len.max(0) as usize])
+}
+
+fn taskbar_windows() -> Vec<HWND> {
+    unsafe extern "system" fn collect(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let list = &mut *(lparam as *mut Vec<HWND>);
+        if TASKBAR_CLASSES.contains(&class_of(hwnd).as_str()) {
+            list.push(hwnd);
+        }
+        1
+    }
+    let mut list: Vec<HWND> = Vec::new();
+    unsafe { EnumWindows(Some(collect), &mut list as *mut Vec<HWND> as LPARAM) };
+    list
+}
+
+fn set_taskbars_visible(visible: bool) {
+    for hwnd in taskbar_windows() {
+        let is_visible = unsafe { IsWindowVisible(hwnd) } != 0;
+        if is_visible != visible {
+            unsafe { ShowWindow(hwnd, if visible { SW_SHOWNA } else { SW_HIDE }) };
+        }
+    }
+}
+
+/// The user is still using the peeked taskbar: pointer over it, a tray/taskbar flyout in front,
+/// or a context menu open.
+fn taskbar_in_use() -> bool {
+    unsafe {
+        let mut pt = POINT { x: 0, y: 0 };
+        if GetCursorPos(&mut pt) != 0 {
+            for hwnd in taskbar_windows() {
+                let mut r: RECT = std::mem::zeroed();
+                if IsWindowVisible(hwnd) != 0 && GetWindowRect(hwnd, &mut r) != 0 && pt.x >= r.left && pt.x < r.right && pt.y >= r.top && pt.y < r.bottom {
+                    return true;
+                }
+            }
+        }
+        let fg = GetForegroundWindow();
+        if fg != 0 && SHELL_POPUP_CLASSES.contains(&class_of(fg).as_str()) {
+            return true;
+        }
+        let menu = FindWindowW(wide("#32768").as_ptr(), std::ptr::null());
+        menu != 0 && IsWindowVisible(menu) != 0
+    }
+}
+
+/// Keeps the taskbar hidden while replace mode is on and the dock window exists (Explorer restarts
+/// and some notifications show it again), handles peeks, and shows it back as soon as the dock goes away.
+fn start_keeper(app: &AppHandle) {
+    if KEEPER_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut hidden_by_us = false;
+        let mut last_use = 0u64;
+        loop {
+            std::thread::sleep(Duration::from_millis(250));
+            let want = HIDE_WANTED.load(Ordering::SeqCst) && app.get_webview_window("dock").is_some();
+            if !want {
+                PEEK_SINCE.store(0, Ordering::SeqCst);
+                if hidden_by_us {
+                    set_taskbars_visible(true);
+                    hidden_by_us = false;
+                }
+                continue;
+            }
+            let peek = PEEK_SINCE.load(Ordering::SeqCst);
+            let now = now_ms();
+            if peek != 0 {
+                if taskbar_in_use() {
+                    last_use = now;
+                }
+                if now.saturating_sub(peek) < PEEK_MIN_MS || now.saturating_sub(last_use) < PEEK_IDLE_MS {
+                    continue;
+                }
+                PEEK_SINCE.store(0, Ordering::SeqCst);
+            }
+            set_taskbars_visible(false);
+            hidden_by_us = true;
+        }
+    });
+}
+
+/// Separate copy of the app that waits for this process to end. If it ended without restoring
+/// (crash, killed from Task Manager) while the taskbar was hidden, it restores everything right away.
+fn start_watchdog() {
+    if WATCHDOG_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).arg("--taskbar-watchdog").arg(std::process::id().to_string()).spawn();
+    }
+}
+
+/// Entry point for `--taskbar-watchdog <pid>`.
+pub fn run_watchdog(pid: u32) {
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    unsafe {
+        let handle = OpenProcess(SYNCHRONIZE, 0, pid);
+        if handle == 0 {
+            return;
+        }
+        WaitForSingleObject(handle, INFINITE);
+        CloseHandle(handle);
+    }
+    std::thread::sleep(Duration::from_millis(400));
+    let path = default_backup_path();
+    if read_backup(&path).map(|b| b.hidden).unwrap_or(false) {
+        restore_from_backup(&path);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Backup file
 // ---------------------------------------------------------------------------------------------
 
@@ -279,6 +439,7 @@ fn capture_backup(win11: bool, autohide_applied: bool) -> TaskbarBackup {
         values,
         autohide_was: taskbar_autohide(),
         autohide_applied,
+        hidden: false,
     }
 }
 
@@ -294,6 +455,10 @@ pub fn restore_from_backup(path: &Path) -> Vec<String> {
         if res.is_err() {
             failed.push(v.name.clone());
         }
+    }
+    HIDE_WANTED.store(false, Ordering::SeqCst);
+    if backup.hidden {
+        set_taskbars_visible(true);
     }
     if backup.autohide_applied {
         set_taskbar_autohide(backup.autohide_was);
@@ -333,6 +498,7 @@ fn status(app: &AppHandle, results: Option<&[(String, Result<(), String>)]>) -> 
         windows_build: build,
         is_windows11: win11,
         autohide: taskbar_autohide(),
+        hidden: HIDE_WANTED.load(Ordering::SeqCst),
         changes,
         backup_path: path.to_string_lossy().to_string(),
     }
@@ -349,7 +515,10 @@ pub fn taskbar_mode_status(app: AppHandle) -> TaskbarStatus {
 }
 
 #[tauri::command]
-pub fn taskbar_mode_apply(app: AppHandle, autohide: bool) -> Result<TaskbarStatus, String> {
+pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) -> Result<TaskbarStatus, String> {
+    let hide = hide.unwrap_or(false);
+    // A hidden bar that does not auto-hide would still reserve its strip of the screen.
+    let autohide = autohide || hide;
     let win11 = windows_build() >= 22000;
     let path = backup_path(&app);
     // Keep the very first backup: re-applying must never overwrite the user's original values.
@@ -361,6 +530,7 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool) -> Result<TaskbarStatu
         backup.autohide_was = taskbar_autohide();
         backup.autohide_applied = true;
     }
+    backup.hidden = hide;
     write_backup(&path, &backup).map_err(|e| format!("Não foi possível salvar o backup da barra: {}", e))?;
 
     let mut results = Vec::new();
@@ -389,7 +559,27 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool) -> Result<TaskbarStatu
         let _ = write_backup(&path, &backup);
     }
     broadcast_taskbar_change();
+    PEEK_SINCE.store(0, Ordering::SeqCst);
+    HIDE_WANTED.store(hide, Ordering::SeqCst);
+    if hide {
+        start_watchdog();
+        start_keeper(&app);
+    } else {
+        set_taskbars_visible(true);
+    }
     Ok(status(&app, Some(&results)))
+}
+
+/// Shows the real taskbar for a moment (tray, clock, notifications) and moves keyboard focus to the
+/// notification area. In replace mode it hides again once the user stops using it.
+#[tauri::command]
+pub fn taskbar_peek() -> Result<(), String> {
+    if HIDE_WANTED.load(Ordering::SeqCst) {
+        PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
+        set_taskbars_visible(true);
+        std::thread::sleep(Duration::from_millis(80));
+    }
+    crate::dock_system::dock_shell_action("tray".into())
 }
 
 #[tauri::command]
@@ -424,12 +614,20 @@ mod tests {
             ],
             autohide_was: false,
             autohide_applied: true,
+            hidden: true,
         };
         let dir = std::env::temp_dir().join(format!("pmm-taskbar-test-{}", std::process::id()));
         let path = dir.join(BACKUP_FILE);
         write_backup(&path, &b).unwrap();
         assert_eq!(read_backup(&path), Some(b));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn old_backups_without_hidden_flag_still_load() {
+        let json = r#"{"version":1,"createdMs":1,"values":[],"autohideWas":false,"autohideApplied":false}"#;
+        let b: TaskbarBackup = serde_json::from_str(json).unwrap();
+        assert!(!b.hidden);
     }
 
     #[test]

@@ -70,6 +70,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 pub const DOCK_LABEL: &str = "dock";
+/// Floating tray/clock pill shown next to the dock when it replaces the taskbar.
+pub const TRAY_LABEL: &str = "docktray";
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -504,6 +506,7 @@ fn start_loops(app: AppHandle) {
                 };
                 if fs_changed {
                     let _ = app.emit_to(DOCK_LABEL, "dock://fullscreen", fs);
+                    let _ = app.emit_to(TRAY_LABEL, "dock://fullscreen", fs);
                 }
                 if overlap_changed {
                     let _ = app.emit_to(DOCK_LABEL, "dock://overlap", overlap);
@@ -523,6 +526,9 @@ fn start_loops(app: AppHandle) {
                 // Other topmost windows may have been raised above the dock.
                 if !shared().fullscreen {
                     unsafe { SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                    if let Some(tray) = app.get_webview_window(TRAY_LABEL).as_ref().and_then(window_hwnd) {
+                        unsafe { SetWindowPos(tray, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+                    }
                 }
             }
         }
@@ -801,11 +807,153 @@ pub async fn dock_open_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn dock_close_window(app: AppHandle) -> Result<(), String> {
     release_appbar();
+    if let Some(win) = app.get_webview_window(TRAY_LABEL) {
+        let _ = win.close();
+    }
     if let Some(win) = app.get_webview_window(DOCK_LABEL) {
         let _ = win.close();
     }
     shared().hit = None;
     Ok(())
+}
+
+/// Opens the tray pill window. It is exactly as big as the pill, never takes focus and is shown by
+/// the first `dock_tray_set_bounds`.
+#[tauri::command]
+pub async fn dock_tray_open(app: AppHandle) -> Result<(), String> {
+    if app.get_webview_window(TRAY_LABEL).is_some() {
+        return Ok(());
+    }
+    let init = "window.__TAURI_WINDOW_LABEL__ = 'docktray'; window.location.hash = '/dock-tray'; if (document.documentElement) { document.documentElement.classList.add('is-transparent-window'); }";
+    let win = WebviewWindowBuilder::new(&app, TRAY_LABEL, WebviewUrl::default())
+        .initialization_script(init)
+        .title("Bandeja do dock")
+        .inner_size(220.0, 48.0)
+        .position(0.0, 0.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .resizable(false)
+        .focused(false)
+        .visible(false)
+        .build()
+        .map_err(|e| format!("Não foi possível criar a bandeja do dock: {}", e))?;
+    if let Some(hwnd) = window_hwnd(&win) {
+        unsafe {
+            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) as isize);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn dock_tray_close(app: AppHandle) {
+    if let Some(win) = app.get_webview_window(TRAY_LABEL) {
+        let _ = win.close();
+    }
+}
+
+#[tauri::command]
+pub fn dock_tray_set_bounds(app: AppHandle, x: i32, y: i32, width: i32, height: i32, visible: bool) -> Result<(), String> {
+    let win = app.get_webview_window(TRAY_LABEL).ok_or("A bandeja do dock não está aberta")?;
+    let hwnd = window_hwnd(&win).ok_or("Janela da bandeja sem identificador")?;
+    unsafe {
+        if visible {
+            SetWindowPos(hwnd, HWND_TOPMOST, x, y, width.max(1), height.max(1), SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        } else {
+            ShowWindow(hwnd, 0 /* SW_HIDE */);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayBattery {
+    pub percent: u8,
+    pub charging: bool,
+}
+
+/// Real system indicators for the tray pill. Any value Windows does not report is `None`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayState {
+    /// Input language of the foreground app, e.g. "POR".
+    pub language: Option<String>,
+    /// "internet" | "local" | "none"
+    pub network: Option<String>,
+    pub battery: Option<TrayBattery>,
+}
+
+fn foreground_language() -> Option<String> {
+    use windows_sys::Win32::Globalization::{GetLocaleInfoW, LOCALE_SISO639LANGNAME2};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayout;
+    unsafe {
+        let fg = GetForegroundWindow();
+        let tid = if fg != 0 { GetWindowThreadProcessId(fg, std::ptr::null_mut()) } else { 0 };
+        let hkl = GetKeyboardLayout(tid) as usize;
+        let langid = (hkl & 0xFFFF) as u32;
+        if langid == 0 {
+            return None;
+        }
+        let mut buf = [0u16; 16];
+        let len = GetLocaleInfoW(langid, LOCALE_SISO639LANGNAME2, buf.as_mut_ptr(), buf.len() as i32);
+        if len <= 1 {
+            return None;
+        }
+        Some(String::from_utf16_lossy(&buf[..(len - 1) as usize]).to_uppercase())
+    }
+}
+
+/// `GetNetworkConnectivityHint` only exists on Windows 10 2004+, so it is looked up at runtime.
+fn network_level() -> Option<String> {
+    use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    #[repr(C)]
+    struct Hint {
+        level: i32,
+        cost: i32,
+        approaching: u8,
+        over: u8,
+        roaming: u8,
+    }
+    type HintFn = unsafe extern "system" fn(*mut Hint) -> u32;
+    unsafe {
+        let lib = LoadLibraryW(wide("iphlpapi.dll").as_ptr());
+        if lib == 0 {
+            return None;
+        }
+        let f = GetProcAddress(lib, b"GetNetworkConnectivityHint\0".as_ptr())?;
+        let f: HintFn = std::mem::transmute(f);
+        let mut hint: Hint = std::mem::zeroed();
+        if f(&mut hint) != 0 {
+            return None;
+        }
+        match hint.level {
+            3 | 4 => Some("internet".into()),
+            2 => Some("local".into()),
+            1 => Some("none".into()),
+            _ => None,
+        }
+    }
+}
+
+fn battery() -> Option<TrayBattery> {
+    use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+    unsafe {
+        let mut s: SYSTEM_POWER_STATUS = std::mem::zeroed();
+        if GetSystemPowerStatus(&mut s) == 0 || s.BatteryFlag == 128 || s.BatteryFlag == 255 || s.BatteryLifePercent > 100 {
+            return None;
+        }
+        Some(TrayBattery { percent: s.BatteryLifePercent, charging: s.ACLineStatus == 1 })
+    }
+}
+
+#[tauri::command]
+pub fn dock_tray_state() -> TrayState {
+    TrayState { language: foreground_language(), network: network_level(), battery: battery() }
 }
 
 /// Places the dock window (physical pixels) without activating it.
@@ -1033,6 +1181,10 @@ pub fn dock_shell_action(action: String) -> Result<(), String> {
         "start" => &[VK_LWIN],
         "quicklinks" => &[VK_LWIN, 0x58],
         "desktop" => &[VK_LWIN, 0x44],
+        "tray" => &[VK_LWIN, 0x42],
+        "quicksettings" => &[VK_LWIN, 0x41],
+        "notifications" => &[VK_LWIN, 0x4E],
+        "language" => &[VK_LWIN, 0x20],
         other => return Err(format!("Ação desconhecida: {}", other)),
     };
     let key = |vk: u16, up: bool| INPUT {

@@ -44,6 +44,14 @@ export const DockWindow: React.FC = () => {
   const entries = useDockStore((s) => s.entries);
   const appearance = useDockStore((s) => s.appearance);
   const behavior = useDockStore((s) => s.behavior);
+  const taskbarReplaced = useDockStore((s) => s.taskbarMode.enabled && s.taskbarMode.hide);
+  const trayButton = taskbarReplaced && behavior.trayStyle !== "pill";
+  const trayPill = taskbarReplaced && behavior.trayStyle === "pill";
+
+  useEffect(() => {
+    if (trayPill) dockService.trayOpen().catch(() => {});
+    else dockService.trayClose().catch(() => {});
+  }, [trayPill]);
 
   const [monitors, setMonitors] = useState<DockMonitor[]>([]);
   const [windows, setWindows] = useState<DockWindowInfo[]>([]);
@@ -98,8 +106,8 @@ export const DockWindow: React.FC = () => {
   const nativeGlass = appearance.background === "acrylic";
   const running = useMemo(() => matchWindows(entries, windows), [entries, windows]);
   const slots = useMemo(
-    () => buildSlots(entries, running, behavior.showRunning, behavior.startButton),
-    [entries, running, behavior.showRunning, behavior.startButton]
+    () => buildSlots(entries, running, behavior.showRunning, behavior.startButton, trayButton),
+    [entries, running, behavior.showRunning, behavior.startButton, trayButton]
   );
   const counts = countSlots(slots);
   const monitor = pickMonitor(monitors, appearance.monitor);
@@ -283,6 +291,11 @@ export const DockWindow: React.FC = () => {
       dockService.shellAction("start").catch((e) => showNotice(String(e)));
       return;
     }
+    if (slot.kind === "tray") {
+      setOpenGroup(null);
+      dockService.taskbarPeek().catch((e) => showNotice(String(e)));
+      return;
+    }
     if (slot.kind === "item") {
       setOpenGroup(null);
       if (!newInstance && (await actOnWindows(slot.windows))) return;
@@ -407,24 +420,34 @@ export const DockWindow: React.FC = () => {
         { text: "Renomear no painel…", action: openSettings },
       ]);
     }
-    if (target.kind === "start") {
+    if (target.kind === "start" || target.kind === "tray") {
       const shell = (action: "start" | "quicklinks" | "desktop") => () => void dockService.shellAction(action).catch((e) => showNotice(String(e)));
+      const restoreTaskbar = {
+        text: "Restaurar barra do Windows",
+        action: () =>
+          void dockService
+            .taskbarRestore()
+            .then(() => {
+              store.setTaskbarMode({ enabled: false });
+              emit("taskbar-mode-restored").catch(() => {});
+            })
+            .catch((e) => showNotice(String(e))),
+      };
+      if (target.kind === "tray") {
+        return void popupMenu([
+          { text: "Mostrar bandeja e relógio", action: () => void dockService.taskbarPeek().catch((e) => showNotice(String(e))) },
+          { text: "Mostrar a área de trabalho", action: shell("desktop") },
+          "separator",
+          restoreTaskbar,
+          { text: "Configurar dock…", action: openSettings },
+        ]);
+      }
       return void popupMenu([
         { text: "Abrir o Iniciar", action: shell("start") },
         { text: "Menu de links rápidos (Win + X)", action: shell("quicklinks") },
         { text: "Mostrar a área de trabalho", action: shell("desktop") },
         "separator",
-        {
-          text: "Restaurar barra do Windows",
-          action: () =>
-            void dockService
-              .taskbarRestore()
-              .then(() => {
-                store.setTaskbarMode({ enabled: false });
-                emit("taskbar-mode-restored").catch(() => {});
-              })
-              .catch((e) => showNotice(String(e))),
-        },
+        restoreTaskbar,
         { text: "Tirar o Iniciar do dock", action: () => store.setBehavior({ startButton: false }) },
         { text: "Configurar dock…", action: openSettings },
       ]);
