@@ -10,7 +10,7 @@ import { useToast } from "@/core/components/Toast";
 import { useDockStore } from "../store/dockStore";
 import { dockService, isTauriRuntime } from "../dockService";
 import { addPathsToDock } from "../dockActions";
-import { setDockEnabled } from "../dockLifecycle";
+import { setDockEnabled, startCentered } from "../dockLifecycle";
 import { BUILTIN_THEMES, DEFAULT_APPEARANCE, MACOS_LAYOUT, MACOS_THEME_ID, WIN11_LAYOUT, WIN11_THEME_ID } from "../themes";
 
 type StylePreset = "macos" | "win11";
@@ -99,7 +99,7 @@ export const DockView: React.FC = () => {
     }
     setSwitching(true);
     try {
-      const status = await dockService.taskbarApply(true, true);
+      const status = await dockService.taskbarApply(true, true, startCentered());
       s.setTaskbarMode({ enabled: true, autohide: true, hide: true });
       addToast(
         status.hidden

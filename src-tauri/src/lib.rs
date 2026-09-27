@@ -29,7 +29,11 @@ use dock_system::{
     dock_list_monitors, dock_pick_items, dock_read_image, dock_set_appbar, dock_shell_action,
     dock_tray_open, dock_tray_close, dock_tray_set_bounds, dock_tray_state,
     dock_menu_toggle, dock_menu_hide, dock_menu_set_bounds, dock_list_start_apps, dock_user_name, dock_power_action,
+    dock_change_volume,
 };
+
+mod diag_log;
+use diag_log::dock_open_logs;
 
 mod taskbar_mode;
 use taskbar_mode::{taskbar_mode_status, taskbar_mode_apply, taskbar_mode_restore, taskbar_peek};
@@ -629,6 +633,8 @@ pub fn run() {
             dock_list_start_apps,
             dock_user_name,
             dock_power_action,
+            dock_change_volume,
+            dock_open_logs,
             taskbar_mode_status,
             taskbar_mode_apply,
             taskbar_mode_restore,

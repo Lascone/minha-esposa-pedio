@@ -265,8 +265,9 @@ const OVERFLOW_CLASSES: [&str; 2] = ["TopLevelWindowForOverflowXamlIsland", "Not
 const PEEK_MIN_MS: u64 = 2500;
 const PEEK_IDLE_MS: u64 = 1200;
 
-/// Set when this Windows closes the hidden-icons list as soon as the bar hides.
-static OVERFLOW_NEEDS_BAR: AtomicBool = AtomicBool::new(false);
+/// The bar should be hidden right now (replace mode on, dock open, not peeking). Read by the show hook.
+static HIDE_NOW: AtomicBool = AtomicBool::new(false);
+static RESHOWN: AtomicU64 = AtomicU64::new(0);
 /// The tray pill hidden during a classic peek (0 = none), shown again when the peek ends.
 static PILL_HIDDEN_BY_PEEK: AtomicIsize = AtomicIsize::new(0);
 
@@ -330,21 +331,56 @@ fn taskbar_in_use() -> bool {
     }
 }
 
+/// Hides a taskbar window the moment Explorer shows it (Start, flyouts and the screen edge make
+/// it pop up), instead of waiting for the next keeper tick, so the old bar does not flash.
+fn start_show_hook() {
+    use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, ShowWindowAsync, TranslateMessage, MSG};
+    const EVENT_OBJECT_SHOW: u32 = 0x8002;
+    const WINEVENT_OUTOFCONTEXT: u32 = 0;
+
+    unsafe extern "system" fn on_show(_hook: HWINEVENTHOOK, _event: u32, hwnd: HWND, id_object: i32, id_child: i32, _thread: u32, _time: u32) {
+        if id_object != 0 || id_child != 0 || hwnd == 0 || !HIDE_NOW.load(Ordering::SeqCst) {
+            return;
+        }
+        if TASKBAR_CLASSES.contains(&class_of(hwnd).as_str()) {
+            ShowWindowAsync(hwnd, SW_HIDE);
+            let n = RESHOWN.fetch_add(1, Ordering::SeqCst) + 1;
+            if n == 1 || n % 50 == 0 {
+                crate::diag_log::log("barra", &format!("o Explorer mostrou a barra e ela foi escondida na hora ({}x)", n));
+            }
+        }
+    }
+
+    std::thread::spawn(|| unsafe {
+        let hook = SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW, 0, Some(on_show), 0, 0, WINEVENT_OUTOFCONTEXT);
+        if hook == 0 {
+            crate::diag_log::log("barra", "não foi possível registrar o gancho de exibição; usando só a verificação periódica");
+            return;
+        }
+        let mut msg: MSG = std::mem::zeroed();
+        while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    });
+}
+
 /// Keeps the taskbar hidden while replace mode is on and the dock window exists (Explorer restarts
 /// and some notifications show it again), handles peeks, and shows it back as soon as the dock goes away.
 fn start_keeper(app: &AppHandle) {
     if KEEPER_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
+    start_show_hook();
     let app = app.clone();
     std::thread::spawn(move || {
         let mut hidden_by_us = false;
         let mut last_use = 0u64;
         loop {
-            // Explorer re-shows the auto-hidden bar when the pointer touches the screen edge; hide it
-            // again quickly so it never covers the dock.
             std::thread::sleep(Duration::from_millis(if hidden_by_us { 60 } else { 250 }));
             let want = HIDE_WANTED.load(Ordering::SeqCst) && app.get_webview_window("dock").is_some();
+            HIDE_NOW.store(want && PEEK_SINCE.load(Ordering::SeqCst) == 0, Ordering::SeqCst);
             if !want {
                 PEEK_SINCE.store(0, Ordering::SeqCst);
                 restore_pill();
@@ -475,6 +511,8 @@ pub fn restore_from_backup(path: &Path) -> Vec<String> {
         }
     }
     HIDE_WANTED.store(false, Ordering::SeqCst);
+    HIDE_NOW.store(false, Ordering::SeqCst);
+    crate::diag_log::log("barra", "barra do Windows restaurada a partir do backup");
     if backup.hidden {
         set_taskbars_visible(true);
     }
@@ -533,8 +571,10 @@ pub fn taskbar_mode_status(app: AppHandle) -> TaskbarStatus {
 }
 
 #[tauri::command]
-pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) -> Result<TaskbarStatus, String> {
+pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>, keep_center: Option<bool>) -> Result<TaskbarStatus, String> {
     let hide = hide.unwrap_or(false);
+    // A centered dock keeps the Windows Start menu centered too (it follows the taskbar alignment).
+    let keep_center = keep_center.unwrap_or(false);
     // A hidden bar that does not auto-hide would still reserve its strip of the screen.
     let autohide = autohide || hide;
     let win11 = windows_build() >= 22000;
@@ -553,6 +593,15 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) ->
 
     let mut results = Vec::new();
     for t in TWEAKS.iter().filter(|t| applies(t, win11)) {
+        if keep_center && t.name == "TaskbarAl" {
+            let original = backup.values.iter().find(|v| v.name == t.name);
+            let res = match original {
+                Some(v) if v.existed => write_dword(t.key, t.name, v.value),
+                _ => delete_value(t.key, t.name),
+            };
+            results.push((t.name.to_string(), res.map_err(|code| format!("Não foi possível alterar (erro {}).", code))));
+            continue;
+        }
         let res = write_dword(t.key, t.name, t.value).map_err(|code| {
             if code == 5 {
                 "O Windows bloqueou essa alteração nesta versão.".to_string()
@@ -579,6 +628,14 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) ->
     broadcast_taskbar_change();
     PEEK_SINCE.store(0, Ordering::SeqCst);
     HIDE_WANTED.store(hide, Ordering::SeqCst);
+    if !hide {
+        HIDE_NOW.store(false, Ordering::SeqCst);
+    }
+    let failed: Vec<&str> = results.iter().filter(|(_, r)| r.is_err()).map(|(n, _)| n.as_str()).collect();
+    crate::diag_log::log(
+        "barra",
+        &format!("modo dock aplicado: substituir={} ocultar_auto={} iniciar_centralizado={} falhas={:?}", hide, autohide, keep_center, failed),
+    );
     if hide {
         start_watchdog();
         start_keeper(&app);
@@ -591,7 +648,13 @@ pub fn taskbar_mode_apply(app: AppHandle, autohide: bool, hide: Option<bool>) ->
     Ok(status(&app, Some(&results)))
 }
 
+/// `FindWindowW` does not see the Windows 11 list (it lives in another window band), but it takes
+/// the foreground when it opens.
 fn overflow_visible() -> bool {
+    let fg = unsafe { GetForegroundWindow() };
+    if fg != 0 && OVERFLOW_CLASSES.contains(&class_of(fg).as_str()) {
+        return true;
+    }
     OVERFLOW_CLASSES.iter().any(|c| unsafe {
         let hwnd = FindWindowW(wide(c).as_ptr(), std::ptr::null());
         hwnd != 0 && IsWindowVisible(hwnd) != 0
@@ -612,8 +675,9 @@ fn open_overflow() -> Result<(), String> {
 
 /// Classic peek: the real bar stays up while it is used; the pill steps aside so it does not cover
 /// the real tray, and comes back when the bar hides again (see the keeper).
-fn peek_with_bar(app: &AppHandle) -> Result<(), String> {
+fn peek_with_bar(app: &AppHandle) {
     PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
+    HIDE_NOW.store(false, Ordering::SeqCst);
     if let Some(pill) = tray_pill_hwnd(app) {
         if unsafe { IsWindowVisible(pill) } != 0 {
             unsafe { ShowWindow(pill, SW_HIDE) };
@@ -626,42 +690,29 @@ fn peek_with_bar(app: &AppHandle) -> Result<(), String> {
         use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
         unsafe { SetWindowPos(dock.0 as isize, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
     }
-    std::thread::sleep(Duration::from_millis(80));
-    open_overflow()
 }
 
-/// Opens the real list of hidden tray icons (the "^" of the Windows tray). In replace mode the bar
-/// is shown just long enough for Windows to open the list and hidden again, so only the list appears
-/// next to the pill. If this Windows closes the list together with the bar, peeks keep the bar up.
+/// Opens the real list of hidden tray icons (the "^" of the Windows tray). Windows opens it even
+/// while the bar is hidden, right above the pill, so in replace mode the old bar never shows up.
+/// Only if the list does not open that way is the bar peeked instead.
 #[tauri::command]
 pub fn taskbar_peek(app: AppHandle) -> Result<(), String> {
     if !HIDE_WANTED.load(Ordering::SeqCst) {
         return open_overflow();
     }
-    if OVERFLOW_NEEDS_BAR.load(Ordering::SeqCst) {
-        return peek_with_bar(&app);
-    }
-    PEEK_SINCE.store(now_ms(), Ordering::SeqCst);
-    set_taskbars_visible(true);
-    std::thread::sleep(Duration::from_millis(80));
     open_overflow()?;
     std::thread::spawn(move || {
         let start = now_ms();
-        while now_ms().saturating_sub(start) < 1500 && !overflow_visible() {
-            std::thread::sleep(Duration::from_millis(40));
+        while now_ms().saturating_sub(start) < 900 {
+            if overflow_visible() {
+                crate::diag_log::log("peek", &format!("lista de ocultos aberta sem a barra em {} ms", now_ms() - start));
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
         }
-        if !overflow_visible() {
-            // No list (e.g. every icon is already shown): leave it to the normal peek timeout.
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(150));
-        PEEK_SINCE.store(0, Ordering::SeqCst);
-        set_taskbars_visible(false);
-        std::thread::sleep(Duration::from_millis(350));
-        if !overflow_visible() {
-            OVERFLOW_NEEDS_BAR.store(true, Ordering::SeqCst);
-            let _ = peek_with_bar(&app);
-        }
+        // Also happens when there is no hidden icon at all: then the real tray is shown for a moment.
+        crate::diag_log::log("peek", "a lista de ocultos não abriu com a barra escondida; mostrando a barra");
+        peek_with_bar(&app);
     });
     Ok(())
 }

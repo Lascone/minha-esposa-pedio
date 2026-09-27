@@ -50,7 +50,16 @@ export type PowerAction = "lock" | "signout" | "restart" | "shutdown";
 export interface TrayState {
   language: string | null;
   network: "internet" | "local" | "none" | null;
+  connection?: "wifi" | "ethernet" | "cellular" | "other" | null;
+  /** 0-100, only over Wi-Fi. */
+  wifiSignal?: number | null;
+  volume?: TrayVolume | null;
   battery: { percent: number; charging: boolean } | null;
+}
+
+export interface TrayVolume {
+  percent: number;
+  muted: boolean;
 }
 
 async function call<T>(cmd: string, args?: Record<string, unknown>, fallback?: T): Promise<T> {
@@ -95,7 +104,11 @@ export const dockService = {
     call<Rect | null>("dock_set_appbar", { reserve, edge, thickness: Math.round(thickness), monitor }, null),
 
   taskbarStatus: () => call<TaskbarStatus>("taskbar_mode_status"),
-  taskbarApply: (autohide: boolean, hide = false) => call<TaskbarStatus>("taskbar_mode_apply", { autohide, hide }),
+  changeVolume: (delta: number) => call<TrayVolume | null>("dock_change_volume", { delta: Math.round(delta) }),
+  openLogs: () => call<void>("dock_open_logs"),
+  /** `keepCenter`: the dock is centered, so the Windows Start menu stays centered too. */
+  taskbarApply: (autohide: boolean, hide = false, keepCenter = false) =>
+    call<TaskbarStatus>("taskbar_mode_apply", { autohide, hide, keepCenter }),
   taskbarRestore: () => call<TaskbarStatus>("taskbar_mode_restore"),
   taskbarPeek: () => call<void>("taskbar_peek"),
 };

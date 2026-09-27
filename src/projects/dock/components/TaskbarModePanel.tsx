@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { AlertTriangle, CheckCircle2, Eye, Info, RotateCcw, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FileText, Info, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/core/components/Button";
 import { Toggle } from "@/core/components/Toggle";
 import { useToast } from "@/core/components/Toast";
 import { dockService, isTauriRuntime, TaskbarStatus } from "../dockService";
 import { useDockStore } from "../store/dockStore";
+import { startCentered } from "../dockLifecycle";
 import { TaskbarMock } from "./DockPreview";
 
 interface TaskbarModePanelProps {
@@ -64,7 +65,7 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
   const apply = async () => {
     setWorking(true);
     try {
-      const s = await dockService.taskbarApply(autohide || hide, hide);
+      const s = await dockService.taskbarApply(autohide || hide, hide, startCentered());
       setStatus(s);
       setTaskbarMode({ enabled: true, autohide: autohide || hide, hide });
       setPreviewing(false);
@@ -168,6 +169,15 @@ export const TaskbarModePanel: React.FC<TaskbarModePanelProps> = ({ suggestAutoh
             <div className="flex flex-wrap gap-2">
               <Button size="sm" icon={<Eye size={14} />} onClick={() => setPreviewing(true)} disabled={working}>
                 {active ? "Ver prévia e reaplicar" : "Ver prévia antes de ligar"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<FileText size={14} />}
+                onClick={() => dockService.openLogs().catch((e) => addToast(String(e), "warning"))}
+                title="Registro do que o dock fez com a barra do Windows (útil para achar problemas)"
+              >
+                Abrir logs
               </Button>
             </div>
           ) : (

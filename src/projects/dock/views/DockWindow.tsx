@@ -5,6 +5,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Menu } from "@tauri-apps/api/menu";
 import { useDockStore } from "../store/dockStore";
 import { dockService } from "../dockService";
+import { startCentered } from "../dockLifecycle";
 import { addPathsToDock, pickAndAddToDock, pickCustomIcon } from "../dockActions";
 import {
   DockSlot,
@@ -54,6 +55,18 @@ export const DockWindow: React.FC = () => {
     if (trayPill) dockService.trayOpen().catch(() => {});
     else dockService.trayClose().catch(() => {});
   }, [trayPill]);
+
+  // The Windows Start menu follows the taskbar alignment: keep it centered while the dock is centered.
+  const taskbarModeOn = useDockStore((s) => s.taskbarMode.enabled);
+  const centered = startCentered();
+  const lastCentered = useRef<boolean | null>(null);
+  useEffect(() => {
+    const prev = lastCentered.current;
+    lastCentered.current = centered;
+    if (prev === null || prev === centered || !taskbarModeOn) return;
+    const t = useDockStore.getState().taskbarMode;
+    dockService.taskbarApply(t.autohide, t.hide, centered).catch(() => {});
+  }, [centered, taskbarModeOn]);
 
   const [monitors, setMonitors] = useState<DockMonitor[]>([]);
   const [windows, setWindows] = useState<DockWindowInfo[]>([]);

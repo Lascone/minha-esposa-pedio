@@ -72,11 +72,18 @@ export const DockTrayWindow: React.FC = () => {
     run.catch(() => {});
   };
 
+  const onVolumeWheel = (delta: number) => {
+    dockService
+      .changeVolume(delta)
+      .then((volume) => setState((s) => (s ? { ...s, volume } : s)))
+      .catch(() => {});
+  };
+
   const look: DockAppearance = appearance.background === "acrylic" ? { ...appearance, background: "glass", bgOpacity: Math.max(0.5, appearance.bgOpacity) } : appearance;
 
   return (
     <div className="fixed left-0 top-0" style={{ width: "max-content" }} ref={pillRef}>
-      <TrayPill appearance={look} state={state} onAction={onAction} items={trayItems} />
+      <TrayPill appearance={look} state={state} onAction={onAction} onVolumeWheel={onVolumeWheel} items={trayItems} />
     </div>
   );
 };

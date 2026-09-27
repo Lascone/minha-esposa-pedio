@@ -1,7 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { BatteryCharging, BatteryFull, BatteryLow, BatteryMedium, ChevronUp, Globe, Network, SlidersHorizontal, WifiOff } from "lucide-react";
+import {
+  BatteryCharging,
+  BatteryFull,
+  BatteryLow,
+  BatteryMedium,
+  ChevronUp,
+  Globe,
+  SignalHigh,
+  SlidersHorizontal,
+  Volume,
+  Volume1,
+  Volume2,
+  VolumeX,
+  Wifi,
+  WifiHigh,
+  WifiLow,
+  WifiOff,
+  WifiZero,
+} from "lucide-react";
 import { DockAppearance, DockTrayItems } from "../types";
 import { DockShellAction, TrayState } from "../dockService";
+import { networkIcon, NetworkIcon, volumeIcon } from "../logic";
 import { dockBarBackground } from "./DockBar";
 import { contrastText, hexToRgba } from "../themes";
 
@@ -10,6 +29,8 @@ interface TrayPillProps {
   /** null while loading or outside the installed app: only the clock is shown. */
   state: TrayState | null;
   onAction?: (action: DockShellAction | "peek") => void;
+  /** Mouse wheel over the network/volume button (+ up, - down), in volume points. */
+  onVolumeWheel?: (delta: number) => void;
   nativeGlass?: boolean;
   items?: DockTrayItems;
 }
@@ -29,19 +50,54 @@ function useSeconds(): Date {
   return now;
 }
 
+/** Monitor with a cable, the icon Windows 11 uses for a wired connection. */
+const EthernetIcon: React.FC<{ size: number }> = ({ size }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="12" rx="2" />
+    <path d="M12 16v3" />
+    <path d="M8 20h8" />
+  </svg>
+);
+
+const NetworkGlyph: React.FC<{ kind: NetworkIcon; size: number; limited: boolean }> = ({ kind, size, limited }) => {
+  const style = limited ? { opacity: 0.55 } : undefined;
+  switch (kind) {
+    case "ethernet":
+      return <span style={style} className="flex"><EthernetIcon size={size} /></span>;
+    case "wifi-4":
+      return <Wifi size={size} style={style} />;
+    case "wifi-3":
+      return <WifiHigh size={size} style={style} />;
+    case "wifi-2":
+      return <WifiLow size={size} style={style} />;
+    case "wifi-1":
+      return <WifiZero size={size} style={style} />;
+    case "cellular":
+      return <SignalHigh size={size} style={style} />;
+    case "offline":
+      return <WifiOff size={size} />;
+    case "generic":
+      return <Globe size={size} style={style} />;
+    default:
+      return null;
+  }
+};
+
 const TrayButton: React.FC<{
   title: string;
   onClick: () => void;
+  onWheel?: (e: React.WheelEvent) => void;
   text: string;
   vertical: boolean;
   size: number;
   font: number;
   children: React.ReactNode;
-}> = ({ title, onClick, text, vertical, size, font, children }) => (
+}> = ({ title, onClick, onWheel, text, vertical, size, font, children }) => (
   <button
     type="button"
     title={title}
     onClick={onClick}
+    onWheel={onWheel}
     className="flex items-center justify-center gap-1.5 rounded-md transition-colors hover:[background:var(--tray-hover)]"
     style={{
       color: text,
@@ -58,7 +114,7 @@ const TrayButton: React.FC<{
 );
 
 /** Floating pill with the real clock and system indicators; each button opens the native Windows flyout. */
-export const TrayPill: React.FC<TrayPillProps> = ({ appearance: a, state, onAction, nativeGlass = false, items = ALL_ITEMS }) => {
+export const TrayPill: React.FC<TrayPillProps> = ({ appearance: a, state, onAction, onVolumeWheel, nativeGlass = false, items = ALL_ITEMS }) => {
   const now = useSeconds();
   const vertical = a.edge === "left" || a.edge === "right";
   const text = contrastText(a.bgColor, a.bgOpacity);
@@ -78,10 +134,25 @@ export const TrayPill: React.FC<TrayPillProps> = ({ appearance: a, state, onActi
     font,
   });
 
-  const network = state?.network;
+  const network = state?.network ?? null;
+  const net = state ? networkIcon(state) : null;
+  const volume = state?.volume ?? null;
+  const vol = volume ? volumeIcon(volume) : null;
+  const VolumeGlyph = vol === "muted" ? VolumeX : vol === "low" ? Volume : vol === "mid" ? Volume1 : Volume2;
   const battery = state?.battery;
   const BatteryIcon = battery ? (battery.charging ? BatteryCharging : battery.percent <= 20 ? BatteryLow : battery.percent <= 60 ? BatteryMedium : BatteryFull) : null;
-  const networkTitle = network === "internet" ? "Conectado à internet" : network === "local" ? "Rede sem acesso à internet" : network === "none" ? "Sem conexão" : "";
+
+  const connectionName =
+    state?.connection === "wifi"
+      ? `Wi-Fi${state.wifiSignal != null ? ` (sinal ${state.wifiSignal}%)` : ""}`
+      : state?.connection === "ethernet"
+        ? "Cabo de rede"
+        : state?.connection === "cellular"
+          ? "Rede celular"
+          : "Rede";
+  const networkTitle =
+    network === "internet" ? `${connectionName}: conectado à internet` : network === "local" ? `${connectionName}: sem acesso à internet` : network === "none" ? "Sem conexão" : "";
+  const volumeTitle = volume ? (volume.muted ? "Som mudo" : `Volume ${volume.percent}%`) : "";
 
   return (
     <div
@@ -111,17 +182,27 @@ export const TrayPill: React.FC<TrayPillProps> = ({ appearance: a, state, onActi
       )}
       {items.quick && (
         <TrayButton
-          title={[networkTitle, battery ? `Bateria ${battery.percent}%${battery.charging ? " (carregando)" : ""}` : "", "Configurações rápidas (Win + A)"].filter(Boolean).join(" · ")}
+          title={[
+            networkTitle,
+            volumeTitle,
+            battery ? `Bateria ${battery.percent}%${battery.charging ? " (carregando)" : ""}` : "",
+            volume ? "Role o mouse aqui para mudar o volume" : "",
+            "Clique para as configurações rápidas (Win + A)",
+          ]
+            .filter(Boolean)
+            .join("\n")}
+          onWheel={volume && onVolumeWheel ? (e) => onVolumeWheel(e.deltaY < 0 ? 2 : -2) : undefined}
           {...btn("quicksettings")}
         >
-          {network === "internet" ? <Globe size={icon} /> : network === "local" ? <Network size={icon} /> : network === "none" ? <WifiOff size={icon} /> : null}
+          <NetworkGlyph kind={net} size={icon} limited={network === "local"} />
+          {vol && <VolumeGlyph size={icon} />}
           {BatteryIcon && (
             <span className="flex items-center gap-0.5">
               <BatteryIcon size={icon} />
               <span style={{ fontSize: font - 1 }}>{battery!.percent}%</span>
             </span>
           )}
-          {!network && !BatteryIcon && <SlidersHorizontal size={icon} />}
+          {!net && !vol && !BatteryIcon && <SlidersHorizontal size={icon} />}
         </TrayButton>
       )}
       <TrayButton title={`${date} · Notificações e calendário (Win + N)`} {...btn("notifications")}>

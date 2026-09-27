@@ -19,13 +19,13 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use windows_sys::core::{GUID, HRESULT, PCWSTR, PWSTR};
-use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HWND, LPARAM, POINT, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, POINT, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DwmSetWindowAttribute};
 use windows_sys::Win32::Graphics::Gdi::{
     DeleteObject, EnumDisplayMonitors, GetDC, GetDIBits, GetMonitorInfoW, GetObjectW, MonitorFromWindow, ReleaseDC, BITMAP,
     BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HDC, HMONITOR, MONITORINFO, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
 };
-use windows_sys::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
+use windows_sys::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
 use windows_sys::Win32::System::Threading::{
     AttachThreadInput, GetCurrentProcessId, GetCurrentThreadId, OpenProcess, QueryFullProcessImageNameW,
     PROCESS_QUERY_LIMITED_INFORMATION,
@@ -557,6 +557,7 @@ fn start_loops(app: AppHandle) {
                 unsafe {
                     if IsWindowVisible(hwnd) == 0 {
                         ShowWindow(hwnd, SW_SHOWNA);
+                        crate::diag_log::log("dock", "o dock estava oculto sem motivo e foi mostrado de novo");
                     }
                     let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
                     if ex & (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) != (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) || ex & WS_EX_APPWINDOW != 0 {
@@ -1100,7 +1101,169 @@ pub struct TrayState {
     pub language: Option<String>,
     /// "internet" | "local" | "none"
     pub network: Option<String>,
+    /// Adapter carrying the default route: "wifi" | "ethernet" | "cellular" | "other".
+    pub connection: Option<String>,
+    /// Wi-Fi signal quality 0-100, only when connected over Wi-Fi.
+    pub wifi_signal: Option<u8>,
+    pub volume: Option<TrayVolume>,
     pub battery: Option<TrayBattery>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayVolume {
+    pub percent: u8,
+    pub muted: bool,
+}
+
+#[link(name = "iphlpapi")]
+extern "system" {
+    fn GetBestInterface(dest_addr: u32, best_if_index: *mut u32) -> u32;
+    fn ConvertInterfaceIndexToLuid(if_index: u32, luid: *mut u64) -> u32;
+}
+
+/// IANA interface type of the adapter used to reach the internet (bits 48-63 of its NET_LUID).
+fn default_route_if_type() -> Option<u32> {
+    unsafe {
+        let mut index = 0u32;
+        if GetBestInterface(u32::from_ne_bytes([8, 8, 8, 8]), &mut index) != 0 {
+            return None;
+        }
+        let mut luid = 0u64;
+        if ConvertInterfaceIndexToLuid(index, &mut luid) != 0 {
+            return None;
+        }
+        Some(((luid >> 48) & 0xFFFF) as u32)
+    }
+}
+
+pub fn connection_kind(if_type: u32) -> &'static str {
+    match if_type {
+        71 => "wifi",
+        6 | 62 | 117 => "ethernet",
+        243 | 244 => "cellular",
+        _ => "other",
+    }
+}
+
+fn wifi_signal() -> Option<u8> {
+    use windows_sys::Win32::NetworkManagement::WiFi::{
+        wlan_interface_state_connected, wlan_intf_opcode_current_connection, WlanCloseHandle, WlanEnumInterfaces, WlanFreeMemory,
+        WlanOpenHandle, WlanQueryInterface, WLAN_CONNECTION_ATTRIBUTES, WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST,
+    };
+    unsafe {
+        let mut version = 0u32;
+        let mut handle: HANDLE = 0;
+        if WlanOpenHandle(2, std::ptr::null(), &mut version, &mut handle) != 0 {
+            return None;
+        }
+        let mut list: *mut WLAN_INTERFACE_INFO_LIST = std::ptr::null_mut();
+        let mut best: Option<u8> = None;
+        if WlanEnumInterfaces(handle, std::ptr::null(), &mut list) == 0 && !list.is_null() {
+            let count = (*list).dwNumberOfItems as usize;
+            let items = std::slice::from_raw_parts((*list).InterfaceInfo.as_ptr() as *const WLAN_INTERFACE_INFO, count);
+            for item in items {
+                if item.isState != wlan_interface_state_connected {
+                    continue;
+                }
+                let mut size = 0u32;
+                let mut data: *mut c_void = std::ptr::null_mut();
+                if WlanQueryInterface(handle, &item.InterfaceGuid, wlan_intf_opcode_current_connection, std::ptr::null(), &mut size, &mut data, std::ptr::null_mut()) == 0
+                    && !data.is_null()
+                {
+                    let attrs = &*(data as *const WLAN_CONNECTION_ATTRIBUTES);
+                    let q = attrs.wlanAssociationAttributes.wlanSignalQuality.min(100) as u8;
+                    best = Some(best.map_or(q, |b| b.max(q)));
+                    WlanFreeMemory(data);
+                }
+            }
+            WlanFreeMemory(list as *const c_void);
+        }
+        WlanCloseHandle(handle, std::ptr::null());
+        best
+    }
+}
+
+const CLSID_MM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xBCDE0395_E52F_467C_8E3D_C4579291692E);
+const IID_IMM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xA95664D2_9614_4F35_A746_DE8DB63617E6);
+const IID_IAUDIO_ENDPOINT_VOLUME: GUID = GUID::from_u128(0x5CDF2C82_841E_4546_9722_0CF74078229A);
+
+/// Runs `f` with the default output device's IAudioEndpointVolume (vtable pointer), if there is one.
+unsafe fn with_endpoint_volume<T>(f: impl FnOnce(*mut c_void, *const usize) -> Option<T>) -> Option<T> {
+    CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
+    let mut enumerator: *mut c_void = std::ptr::null_mut();
+    if CoCreateInstance(&CLSID_MM_DEVICE_ENUMERATOR, std::ptr::null_mut(), CLSCTX_ALL, &IID_IMM_DEVICE_ENUMERATOR, &mut enumerator) < 0 || enumerator.is_null() {
+        return None;
+    }
+    let evt = *(enumerator as *const *const usize);
+    type GetDefault = unsafe extern "system" fn(*mut c_void, i32, i32, *mut *mut c_void) -> i32;
+    let get_default: GetDefault = std::mem::transmute(*evt.add(4));
+    let mut device: *mut c_void = std::ptr::null_mut();
+    // eRender, eMultimedia
+    let hr = get_default(enumerator, 0, 1, &mut device);
+    com_release(enumerator);
+    if hr < 0 || device.is_null() {
+        return None;
+    }
+    let dvt = *(device as *const *const usize);
+    type Activate = unsafe extern "system" fn(*mut c_void, *const GUID, u32, *const c_void, *mut *mut c_void) -> i32;
+    let activate: Activate = std::mem::transmute(*dvt.add(3));
+    let mut volume: *mut c_void = std::ptr::null_mut();
+    let hr = activate(device, &IID_IAUDIO_ENDPOINT_VOLUME, CLSCTX_ALL, std::ptr::null(), &mut volume);
+    com_release(device);
+    if hr < 0 || volume.is_null() {
+        return None;
+    }
+    let vvt = *(volume as *const *const usize);
+    let result = f(volume, vvt);
+    com_release(volume);
+    result
+}
+
+fn master_volume() -> Option<TrayVolume> {
+    unsafe {
+        with_endpoint_volume(|obj, vt| {
+            type GetScalar = unsafe extern "system" fn(*mut c_void, *mut f32) -> i32;
+            type GetMute = unsafe extern "system" fn(*mut c_void, *mut BOOL) -> i32;
+            let get_scalar: GetScalar = std::mem::transmute(*vt.add(9));
+            let get_mute: GetMute = std::mem::transmute(*vt.add(15));
+            let mut level = 0f32;
+            let mut muted: BOOL = 0;
+            if get_scalar(obj, &mut level) < 0 {
+                return None;
+            }
+            let _ = get_mute(obj, &mut muted);
+            Some(TrayVolume { percent: (level.clamp(0.0, 1.0) * 100.0).round() as u8, muted: muted != 0 })
+        })
+    }
+}
+
+/// Mouse wheel over the volume icon: changes the real master volume by `delta` points (-100..100).
+#[tauri::command]
+pub async fn dock_change_volume(delta: i32) -> Result<Option<TrayVolume>, String> {
+    let changed = unsafe {
+        with_endpoint_volume(|obj, vt| {
+            type GetScalar = unsafe extern "system" fn(*mut c_void, *mut f32) -> i32;
+            type SetScalar = unsafe extern "system" fn(*mut c_void, f32, *const GUID) -> i32;
+            type SetMute = unsafe extern "system" fn(*mut c_void, BOOL, *const GUID) -> i32;
+            let get_scalar: GetScalar = std::mem::transmute(*vt.add(9));
+            let set_scalar: SetScalar = std::mem::transmute(*vt.add(7));
+            let set_mute: SetMute = std::mem::transmute(*vt.add(14));
+            let mut level = 0f32;
+            if get_scalar(obj, &mut level) < 0 {
+                return None;
+            }
+            let next = (level + delta.clamp(-100, 100) as f32 / 100.0).clamp(0.0, 1.0);
+            if delta > 0 {
+                let _ = set_mute(obj, 0, std::ptr::null());
+            }
+            (set_scalar(obj, next, std::ptr::null()) >= 0).then_some(())
+        })
+    };
+    if changed.is_none() {
+        return Err("Não encontrei um dispositivo de som para ajustar.".into());
+    }
+    Ok(master_volume())
 }
 
 fn foreground_language() -> Option<String> {
@@ -1167,8 +1330,11 @@ fn battery() -> Option<TrayBattery> {
 }
 
 #[tauri::command]
-pub fn dock_tray_state() -> TrayState {
-    TrayState { language: foreground_language(), network: network_level(), battery: battery() }
+pub async fn dock_tray_state() -> TrayState {
+    let network = network_level();
+    let connection = if network.as_deref() == Some("none") { None } else { default_route_if_type().map(|t| connection_kind(t).to_string()) };
+    let wifi_signal = if connection.as_deref() == Some("wifi") { wifi_signal() } else { None };
+    TrayState { language: foreground_language(), network, connection, wifi_signal, volume: master_volume(), battery: battery() }
 }
 
 /// Places the dock window (physical pixels) without activating it.
@@ -1407,6 +1573,7 @@ pub fn dock_shell_action(action: String) -> Result<(), String> {
         if r > 32 {
             return Ok(());
         }
+        crate::diag_log::log("bandeja", &format!("{} não abriu (código {}); usando o atalho de teclado", uri, r));
     }
     let keys: &[u16] = match action.as_str() {
         "start" => &[VK_LWIN],
@@ -1438,6 +1605,7 @@ pub fn send_keys(keys: &[u16]) -> Result<(), String> {
     inputs.extend(keys.iter().rev().map(|&k| key(k, true)));
     let sent = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
     if sent as usize != inputs.len() {
+        crate::diag_log::log("teclas", &format!("SendInput enviou {} de {} eventos (teclas {:?})", sent, inputs.len(), keys));
         return Err("O Windows não deixou abrir o menu agora.".into());
     }
     Ok(())
@@ -1548,6 +1716,14 @@ pub fn release_appbar() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn classifies_connection_types() {
+        assert_eq!(connection_kind(71), "wifi");
+        assert_eq!(connection_kind(6), "ethernet");
+        assert_eq!(connection_kind(243), "cellular");
+        assert_eq!(connection_kind(131), "other");
+    }
 
     #[test]
     fn recognises_start_and_search_hosts() {

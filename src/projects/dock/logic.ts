@@ -220,6 +220,32 @@ export function appLetter(name: string): string {
 /** Logical size of the dock's Start menu window. */
 export const START_MENU_SIZE = { w: 580, h: 640 };
 
+export type NetworkIcon = "ethernet" | "wifi-4" | "wifi-3" | "wifi-2" | "wifi-1" | "cellular" | "offline" | "generic" | null;
+
+/** Which icon the tray pill shows for the connection, like the Windows 11 tray. */
+export function networkIcon(s: {
+  network: "internet" | "local" | "none" | null;
+  connection?: string | null;
+  wifiSignal?: number | null;
+}): NetworkIcon {
+  if (!s.network) return null;
+  if (s.network === "none") return "offline";
+  if (s.connection === "ethernet") return "ethernet";
+  if (s.connection === "cellular") return "cellular";
+  if (s.connection === "wifi") {
+    const q = s.wifiSignal ?? 100;
+    return q >= 75 ? "wifi-4" : q >= 50 ? "wifi-3" : q >= 25 ? "wifi-2" : "wifi-1";
+  }
+  return "generic";
+}
+
+export type VolumeIcon = "muted" | "low" | "mid" | "high";
+
+export function volumeIcon(v: { percent: number; muted: boolean }): VolumeIcon {
+  if (v.muted || v.percent <= 0) return "muted";
+  return v.percent < 34 ? "low" : v.percent < 67 ? "mid" : "high";
+}
+
 /**
  * Physical-pixel rectangle for the dock's Start menu: next to the bar, on its inner side, lined up
  * with the Start button (`anchor`, physical screen coordinates of the button) and kept on screen.

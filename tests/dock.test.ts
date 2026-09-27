@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildSlots,
+  networkIcon,
+  volumeIcon,
   computeDockLayout,
   contentLength,
   groupEntries,
@@ -391,5 +393,27 @@ describe("dock store", () => {
     s.applyTheme("aero-glass");
     s.setAppearance({ iconSize: 40 });
     expect(useDockStore.getState().activeThemeId).toBe("aero-glass");
+  });
+});
+
+describe("tray pill icons", () => {
+  it("shows the kind of connection like the Windows tray", () => {
+    expect(networkIcon({ network: null })).toBeNull();
+    expect(networkIcon({ network: "none", connection: "wifi" })).toBe("offline");
+    expect(networkIcon({ network: "internet", connection: "ethernet" })).toBe("ethernet");
+    expect(networkIcon({ network: "internet", connection: "wifi", wifiSignal: 90 })).toBe("wifi-4");
+    expect(networkIcon({ network: "internet", connection: "wifi", wifiSignal: 55 })).toBe("wifi-3");
+    expect(networkIcon({ network: "local", connection: "wifi", wifiSignal: 30 })).toBe("wifi-2");
+    expect(networkIcon({ network: "internet", connection: "wifi", wifiSignal: 5 })).toBe("wifi-1");
+    expect(networkIcon({ network: "internet", connection: "cellular" })).toBe("cellular");
+    expect(networkIcon({ network: "internet", connection: null })).toBe("generic");
+  });
+
+  it("maps the real volume to the speaker icon", () => {
+    expect(volumeIcon({ percent: 50, muted: true })).toBe("muted");
+    expect(volumeIcon({ percent: 0, muted: false })).toBe("muted");
+    expect(volumeIcon({ percent: 20, muted: false })).toBe("low");
+    expect(volumeIcon({ percent: 50, muted: false })).toBe("mid");
+    expect(volumeIcon({ percent: 100, muted: false })).toBe("high");
   });
 });
