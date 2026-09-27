@@ -111,3 +111,6 @@ A interface nunca chama a API do Windows diretamente: tudo passa pelos comandos 
   Copiar código AGPL obrigaria o app inteiro a ser AGPL.
 - **Cairo Desktop**: Apache-2.0 (C#/WPF). Referência conceitual de AppBar e de convivência com a barra do Windows. Nenhum código copiado.
 - Ambos são creditados em **Sobre → Licenças & Atribuições**.
+
+### Instância única
+- `single_instance.rs`: um mutex nomeado impede uma segunda cópia do app. Uma segunda cópia restauraria a barra ao iniciar, abriria outro dock e dividiria o perfil do WebView2 com a primeira (o dock da primeira sumia). Abrir o app de novo só traz a janela existente para a frente; logo depois de uma atualização, espera até 3 s a cópia antiga fechar.

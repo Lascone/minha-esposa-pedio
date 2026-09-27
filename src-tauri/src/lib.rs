@@ -32,6 +32,7 @@ use dock_system::{
     dock_change_volume,
 };
 
+mod single_instance;
 mod diag_log;
 use diag_log::dock_open_logs;
 
@@ -533,6 +534,9 @@ pub fn run() {
         if let Some(pid) = args.get(i + 1).and_then(|p| p.parse().ok()) {
             taskbar_mode::run_watchdog(pid);
         }
+        return;
+    }
+    if !single_instance::acquire() {
         return;
     }
 
