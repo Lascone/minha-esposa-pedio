@@ -168,18 +168,6 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-slate-950/85 to-black/95 pointer-events-none" />
 
-      {/* Hidden/Offscreen YouTube Embed for Audio Playback */}
-      <div className="absolute -top-[9999px] -left-[9999px] w-1 h-1 overflow-hidden pointer-events-none opacity-0">
-        {isPlaying && (
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${currentTrackId}?autoplay=1&enablejsapi=1&origin=${window.location.origin}`}
-            title="Audio Stream"
-            allow="autoplay; encrypted-media"
-            className="w-1 h-1"
-          />
-        )}
-      </div>
-
       {/* Header Bar */}
       <div className="relative z-10 flex items-center justify-between pb-1.5 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-1.5">
@@ -288,26 +276,20 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
         </div>
       )}
 
-      {/* Middle Track Info Section */}
-      <div className="relative z-10 flex items-center gap-3 my-auto py-1">
-        {/* Vinyl / Album Art with Spin Animation when playing */}
-        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-black/60 border border-white/20 shrink-0 shadow-lg group">
-          <img
-            src={currentThumbnail}
-            alt={currentTitle}
-            className={`w-full h-full object-cover transition-transform duration-700 ${
-              isPlaying ? "scale-105" : "scale-100 grayscale-30"
-            }`}
-          />
-          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-            {isPlaying ? (
-              <Disc3 size={18} className="text-white/80 animate-spin" style={{ animationDuration: "6s" }} />
-            ) : (
-              <Play size={16} className="text-white/80 fill-white" />
-            )}
-          </div>
-        </div>
+      {/* Real Visible YouTube Music / Audio Stream Player */}
+      <div className="relative z-10 flex-1 w-full min-h-[115px] my-1 rounded-xl overflow-hidden bg-black/80 border border-white/10 shadow-inner group">
+        <iframe
+          key={currentTrackId}
+          src={`https://www.youtube-nocookie.com/embed/${currentTrackId}?autoplay=${isPlaying ? "1" : "0"}&controls=1&modestbranding=1&rel=0`}
+          title={currentTitle}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full border-none rounded-xl"
+        />
+      </div>
 
+      {/* Track Info Badge Bar */}
+      <div className="relative z-10 flex items-center justify-between gap-2 px-1 py-0.5 shrink-0">
         <div className="flex flex-col min-w-0 flex-1">
           <h4 className="text-xs font-bold truncate text-white" title={currentTitle}>
             {currentTitle}
@@ -315,13 +297,11 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
           <span className="text-[10px] text-white/60 truncate" title={currentArtist}>
             {currentArtist}
           </span>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="px-1.5 py-0.2 rounded text-[8px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-0.5">
-              <Flame size={9} />
-              {isPlaying ? "TOCANDO AGORA" : "PAUSADO"}
-            </span>
-          </div>
         </div>
+        <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-0.5 shrink-0">
+          <Flame size={9} />
+          {isPlaying ? "AO VIVO / TOCANDO" : "PAUSADO"}
+        </span>
       </div>
 
       {/* Quick Presets Carousel */}

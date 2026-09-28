@@ -195,7 +195,7 @@ export const SpotifyWidget: React.FC<{ widget: WidgetInstance }> = ({ widget }) 
       )}
 
       {/* Real Spotify Official Embed Player */}
-      <div className="relative flex-1 w-full min-h-[140px] my-1 rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner">
+      <div className="relative flex-1 w-full min-h-[152px] my-1 rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner">
         <iframe
           src={embedUrl}
           title="Spotify Web Player"
@@ -205,6 +205,21 @@ export const SpotifyWidget: React.FC<{ widget: WidgetInstance }> = ({ widget }) 
           loading="lazy"
           className="w-full h-full border-none rounded-xl"
         />
+      </div>
+
+      {/* Preset Pills Bar */}
+      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pt-1 shrink-0">
+        <span className="text-[9px] text-white/50 font-medium shrink-0">Gêneros:</span>
+        {SPOTIFY_PRESETS.map((p) => (
+          <button
+            key={p.name}
+            type="button"
+            onClick={() => handleSelectPreset(p.url, p.name)}
+            className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-white/10 hover:bg-[#1DB954]/25 hover:text-[#1DB954] text-white/80 whitespace-nowrap transition-colors border border-white/10"
+          >
+            {p.name}
+          </button>
+        ))}
       </div>
     </div>
   );

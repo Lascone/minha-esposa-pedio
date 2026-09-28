@@ -19,10 +19,13 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
+  Play,
+  Monitor,
 } from "lucide-react";
 import { useIntegrationsStore } from "../stores/integrationsStore";
 import { ServiceProvider } from "../services/mediaIntegrationsService";
 import { useToast } from "../components/Toast";
+import { useWidgetsStore } from "@/projects/widgets/store/widgetsStore";
 
 export const IntegrationsManagerCard: React.FC = () => {
   const {
@@ -39,6 +42,7 @@ export const IntegrationsManagerCard: React.FC = () => {
     disconnectSpotify,
   } = useIntegrationsStore();
 
+  const { addWidget } = useWidgetsStore();
   const { addToast } = useToast();
 
   const [editingProvider, setEditingProvider] = useState<ServiceProvider | null>(null);
@@ -47,6 +51,16 @@ export const IntegrationsManagerCard: React.FC = () => {
   const [spotifyClientIdInput, setSpotifyClientIdInput] = useState(spotifyAccount.clientId || "");
   const [googleEmailInput, setGoogleEmailInput] = useState(googleAccount.email || "magraoofficial@gmail.com");
   const [isEditingGoogle, setIsEditingGoogle] = useState(false);
+
+  const handleLaunchWidget = (widgetType: "spotify" | "youtube-music" | "youtube") => {
+    addWidget(widgetType);
+    const labels = {
+      spotify: "Spotify Player Desktop",
+      "youtube-music": "YouTube Music Desktop",
+      youtube: "YouTube Vídeos & Player",
+    };
+    addToast(`${labels[widgetType]} aberto na sua Área de Trabalho! 🚀`, "sparkle");
+  };
 
   const handleSaveCustom = async (provider: ServiceProvider) => {
     if (!customInput.trim()) {
@@ -72,7 +86,7 @@ export const IntegrationsManagerCard: React.FC = () => {
   const handleSpotifyGoogleLogin = async () => {
     addToast("Abrindo autenticação do Spotify integrada ao Google... 🟢", "info");
     await connectSpotifyViaGoogle();
-    addToast("Spotify vinculado à sua conta Google com sucesso! 🎵", "sparkle");
+    addToast("Spotify vinculado à sua conta Google! Cole sua playlist no widget se desejar. 🎵", "sparkle");
   };
 
   const handleSaveSpotifyClientId = () => {
@@ -177,20 +191,41 @@ export const IntegrationsManagerCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Linked Services Badges */}
-        <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 flex-wrap text-[11px]">
-          <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
-            Serviços Vinculados:
-          </span>
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 font-medium">
-            <Radio size={11} /> YouTube Music
-          </span>
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 font-medium">
-            <Youtube size={11} /> YouTube Geral
-          </span>
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 font-medium">
-            <Mail size={11} /> Gmail Oficial
-          </span>
+        {/* Linked Services Badges & Desktop Launchers */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
+              Serviços Vinculados:
+            </span>
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 font-medium">
+              <Radio size={11} /> YouTube Music
+            </span>
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 font-medium">
+              <Youtube size={11} /> YouTube Geral
+            </span>
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 font-medium">
+              <Mail size={11} /> Gmail Oficial
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleLaunchWidget("youtube-music")}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold shadow-md transition-all active:scale-95"
+              title="Abrir o widget do YouTube Music na Área de Trabalho"
+            >
+              <Radio size={12} />
+              <span>Abrir YouTube Music no Desktop 🚀</span>
+            </button>
+            <button
+              onClick={() => handleLaunchWidget("youtube")}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold shadow-md transition-all active:scale-95"
+              title="Abrir o widget do YouTube Vídeos na Área de Trabalho"
+            >
+              <Youtube size={12} />
+              <span>Abrir Vídeos no Desktop 📺</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -207,9 +242,9 @@ export const IntegrationsManagerCard: React.FC = () => {
                   <Music size={18} className="text-black font-bold" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-white">Spotify</h4>
+                  <h4 className="font-bold text-xs text-white">Spotify Player</h4>
                   <span className="text-[10px] text-[#1DB954] font-semibold">
-                    Música & Streaming (Login Google)
+                    Músicas & Playlists (Desktop)
                   </span>
                 </div>
               </div>
@@ -220,13 +255,13 @@ export const IntegrationsManagerCard: React.FC = () => {
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-[10px] font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-                  <XCircle size={11} /> Não Conectado
+                  <XCircle size={11} /> Pronto para usar
                 </span>
               )}
             </div>
 
             <p className="text-[11px] text-white/70 mt-2.5 leading-relaxed">
-              Como seu Spotify usa login via <strong>Google</strong>, você pode autenticar com 1 clique. O player embutido e os widgets tocarão suas músicas e playlists pessoais diretamente!
+              Toque playlists e gêneros com 1 clique. O widget desktop traz reprodutor embutido com Top Brasil, Lofi Beats e suporte à sua playlist pessoal.
             </p>
 
             {/* Saved Playlist or Profile info */}
@@ -243,22 +278,32 @@ export const IntegrationsManagerCard: React.FC = () => {
           <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
-                onClick={handleSpotifyGoogleLogin}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1DB954] hover:bg-[#1ed760] text-black text-[11px] font-bold shadow-md transition-all"
-                title="Abrir login do Spotify com Google"
+                onClick={() => handleLaunchWidget("spotify")}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-bold shadow-md transition-all active:scale-95"
+                title="Lançar widget do Spotify na Área de Trabalho"
               >
-                <LogIn size={12} />
-                <span>Entrar no Spotify via Google</span>
+                <Play size={12} className="fill-black" />
+                <span>Abrir Player no Desktop 🚀</span>
               </button>
 
-              <button
-                onClick={() => handleOpenBrowser("https://open.spotify.com")}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
-                title="Abrir Spotify no navegador"
-              >
-                <ExternalLink size={12} />
-                <span>Web Player</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleSpotifyGoogleLogin}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+                  title="Abrir página de login do Spotify via Google no navegador"
+                >
+                  <LogIn size={11} />
+                  <span>Login Google</span>
+                </button>
+
+                <button
+                  onClick={() => handleOpenBrowser("https://open.spotify.com")}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[11px] font-semibold transition-colors"
+                  title="Abrir Spotify no navegador"
+                >
+                  <ExternalLink size={11} />
+                </button>
+              </div>
             </div>
 
             {/* Collapsible Developer Client ID section */}
@@ -333,25 +378,37 @@ export const IntegrationsManagerCard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2">
+          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2 flex-wrap">
             <button
-              onClick={() => handleOpenBrowser("https://music.youtube.com")}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+              onClick={() => handleLaunchWidget("youtube-music")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold shadow-md transition-all active:scale-95"
+              title="Lançar widget do YouTube Music na Área de Trabalho"
             >
-              <ExternalLink size={12} />
-              <span>Abrir Web Music</span>
+              <Radio size={12} />
+              <span>Abrir no Desktop 🚀</span>
             </button>
 
-            <button
-              onClick={() => {
-                setEditingProvider("youtube-music");
-                setCustomInput(accounts["youtube-music"]?.username || "");
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold transition-colors"
-            >
-              <Sparkles size={11} />
-              <span>Configurar Playlist</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleOpenBrowser("https://music.youtube.com")}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+                title="Abrir no navegador"
+              >
+                <ExternalLink size={12} />
+                <span>Web Music</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setEditingProvider("youtube-music");
+                  setCustomInput(accounts["youtube-music"]?.username || "");
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold transition-colors"
+              >
+                <Sparkles size={11} />
+                <span>Configurar</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -383,25 +440,37 @@ export const IntegrationsManagerCard: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2">
+          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2 flex-wrap">
             <button
-              onClick={() => handleOpenBrowser("https://youtube.com")}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+              onClick={() => handleLaunchWidget("youtube")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold shadow-md transition-all active:scale-95"
+              title="Lançar player de vídeos na Área de Trabalho"
             >
-              <ExternalLink size={12} />
-              <span>Abrir no YouTube</span>
+              <Youtube size={12} />
+              <span>Abrir no Desktop 📺</span>
             </button>
 
-            <button
-              onClick={() => {
-                setEditingProvider("youtube");
-                setCustomInput(accounts.youtube?.username || "");
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] font-bold transition-colors"
-            >
-              <Sparkles size={11} />
-              <span>Vincular Canal/Vídeo</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleOpenBrowser("https://youtube.com")}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition-colors"
+                title="Abrir no navegador"
+              >
+                <ExternalLink size={12} />
+                <span>Web</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setEditingProvider("youtube");
+                  setCustomInput(accounts.youtube?.username || "");
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] font-bold transition-colors"
+              >
+                <Sparkles size={11} />
+                <span>Vincular</span>
+              </button>
+            </div>
           </div>
         </div>
 
