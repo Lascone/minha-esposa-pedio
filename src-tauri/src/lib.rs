@@ -34,6 +34,9 @@ use windhawk_system::{
 mod media_system;
 use media_system::{media_send_command, media_open_firefox, media_get_status};
 
+mod image_search;
+use image_search::search_web_images;
+
 mod single_instance;
 
 mod autoclick_engine;
@@ -614,6 +617,7 @@ pub fn run() {
             media_send_command,
             media_open_firefox,
             media_get_status,
+            search_web_images,
         ])
 
         .setup(|app| {

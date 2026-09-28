@@ -416,21 +416,23 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         {/* Header */}
         <div className="px-6 py-4 border-b border-theme-border/80 flex items-center justify-between bg-theme-surface/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl overflow-hidden border border-pink-500/30 shadow-soft flex-shrink-0 bg-pink-500/10">
+            <div className="w-10 h-10 rounded-2xl overflow-hidden border border-pink-500/40 shadow-soft flex-shrink-0 bg-slate-900 ring-2 ring-pink-500/30">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold text-theme-text flex items-center gap-1.5">
-                  <span>🤵‍♂️</span>
-                  <span>{currentPackage ? `Maridão Modificando: ${currentPackage.manifest.name}` : "Maridão Programador (Modo Reclamão Ativo 💕)"}</span>
+                <h2 className="text-base font-extrabold text-theme-text flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 text-pink-300 text-xs font-bold flex items-center gap-1">
+                    💻💕 Maridão Dev
+                  </span>
+                  <span>{currentPackage ? `Modificando: ${currentPackage.manifest.name}` : "Programador da Esposa"}</span>
                 </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-bold border border-pink-500/30">
-                  {currentPackage ? "Modo Refinamento" : "Novo Gadget"}
+                  {currentPackage ? "Modo Refinamento" : "Modo Reclamão Ativo"}
                 </span>
               </div>
               <p className="text-xs text-theme-text-muted mt-0.5">
-                Pede aí, amor... vou reclamar mas vou programar tudo do jeitinho que a patroa mandar!
+                Pede aí, amor... vou reclamar mas vou programar tudo com perfeição do jeitinho que a patroa mandar!
               </p>
             </div>
           </div>
@@ -466,16 +468,21 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                   }}
                   className="bg-slate-900 text-xs text-white font-semibold focus:outline-none cursor-pointer border-none"
                 >
-                  {(availableGeminiModels.length > 0
-                    ? availableGeminiModels
-                    : [
-                        { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash 🚀 (Recomendado)" },
-                        { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
-                        { id: "gemini-1.5-pro", displayName: "Gemini 1.5 Pro 👑 (Pro)" },
-                      ]
+                  {Array.from(
+                    new Map(
+                      [
+                        { id: "gemini-pro-latest", displayName: "Gemini Pro Latest 👑 (Padrão Pro)" },
+                        ...(availableGeminiModels.length > 0
+                          ? availableGeminiModels
+                          : [
+                              { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash ⚡" },
+                              { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
+                            ]),
+                      ].map((item) => [item.id, item])
+                    ).values()
                   ).map((m) => (
                     <option key={m.id} value={m.id} className="bg-slate-900 text-white py-1">
-                      {m.displayName || m.id} {m.id.includes("flash") ? "⚡" : "👑"}
+                      {m.displayName || m.id} {m.id.includes("pro") ? "👑" : "⚡"}
                     </option>
                   ))}
                 </select>
@@ -638,31 +645,47 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
             )}
 
             {/* Mensagens do Chat */}
-            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3.5 scroll-smooth">
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-2.5 max-w-[92%] ${
+                  className={`flex gap-3 max-w-[92%] ${
                     msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                   }`}
                 >
-                  <div
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
-                      msg.role === "user"
-                        ? "bg-gradient-to-tr from-pink-500 to-rose-400 text-white"
-                        : "bg-theme-surface-card border border-theme-border text-pink-400"
-                    }`}
-                  >
-                    {msg.role === "user" ? <User size={13} /> : <span className="text-sm">🤵‍♂️</span>}
+                  {/* Avatar Estilizado */}
+                  <div className="shrink-0 pt-0.5">
+                    {msg.role === "user" ? (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 via-rose-400 to-amber-300 p-[1.5px] shadow-soft">
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-xs" title="Você (A Patroa 👑)">
+                          <span className="text-sm">👑</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[1.5px] shadow-soft">
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden" title="Seu Maridão Dev 💻">
+                          <img src="/logo.png" alt="Marido Dev" className="w-full h-full object-cover" />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div
-                    className={`p-3 rounded-2xl text-xs leading-relaxed ${
+                    className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-theme-primary text-white rounded-tr-none shadow-soft"
-                        : "bg-theme-surface-card border border-theme-border text-theme-text rounded-tl-none shadow-soft"
+                        ? "bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-tr-none shadow-soft"
+                        : "bg-slate-900/90 border border-slate-800 text-slate-200 rounded-tl-none shadow-soft"
                     }`}
                   >
+                    <div className="flex items-center justify-between gap-2 mb-1 opacity-80 text-[10px]">
+                      <span className="font-bold flex items-center gap-1">
+                        {msg.role === "user" ? "Patroa ✨" : "Maridão Programador 💕"}
+                      </span>
+                      <span>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
                     {msg.imageUrl && (
                       <div className="mb-2">
                         <img
@@ -673,23 +696,22 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                       </div>
                     )}
                     <p className="whitespace-pre-wrap">{msg.content}</p>
-                    <span className="text-[10px] opacity-60 mt-1 block text-right">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
                   </div>
                 </div>
               ))}
 
               {isGenerating && (
-                <div className="flex gap-2.5 max-w-[85%] mr-auto animate-pulse">
-                  <div className="w-7 h-7 rounded-xl bg-theme-surface-card border border-theme-border text-pink-400 flex items-center justify-center text-xs">
-                    <span className="text-sm animate-bounce">🤵‍♂️</span>
+                <div className="flex gap-3 max-w-[85%] mr-auto animate-pulse">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 p-[1.5px] shadow-soft shrink-0">
+                    <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                      <img src="/logo.png" alt="Marido Dev" className="w-full h-full object-cover animate-spin-slow" />
+                    </div>
                   </div>
-                  <div className="p-3 rounded-2xl rounded-tl-none bg-theme-surface-card border border-pink-500/30 text-xs text-theme-text flex items-center gap-2">
+                  <div className="p-3 rounded-2xl rounded-tl-none bg-slate-900/90 border border-pink-500/30 text-xs text-slate-200 flex items-center gap-2">
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce" />
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce delay-150" />
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce delay-300" />
-                    <span className="text-theme-text-muted ml-1">Seu marido tá reclamando mas tá codando seu gadget com amor... 💻💕</span>
+                    <span className="text-pink-300 ml-1">Seu marido tá reclamando mas tá codando seu gadget com amor... 💻💕</span>
                   </div>
                 </div>
               )}

@@ -75,9 +75,9 @@ export interface GeminiModelInfo {
 }
 
 export const GEMINI_AVAILABLE_MODELS: GeminiModelInfo[] = [
-  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash 🚀", desc: "Recomendado oficial Google AI, modelo mais atualizado e veloz" },
-  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Endpoint estável e atualizado do Google AI Studio" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro 👑 (Conta Pro)", desc: "Raciocínio avançado, visão rica e cotas mais altas", isPro: true },
+  { id: "gemini-pro-latest", name: "Gemini Pro Latest 👑 (Recomendado)", desc: "Modelo Pro topo de linha oficial Google AI, raciocínio avançado para código completo", isPro: true },
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash ⚡", desc: "Modelo rápido e inteligente oficial Google AI" },
+  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Endpoint estável do Google AI Studio" },
 ];
 
 const STORAGE_KEY_DETECTED_GEMINI = "pmm_ai_detected_gemini_models";
@@ -94,9 +94,9 @@ function getInitialDetectedGemini(): { id: string; displayName: string }[] {
     }
   } catch {}
   return [
-    { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash 🚀 (Recomendado)" },
+    { id: "gemini-pro-latest", displayName: "Gemini Pro Latest 👑 (Recomendado)" },
+    { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash ⚡" },
     { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
-    { id: "gemini-1.5-pro", displayName: "Gemini 1.5 Pro 👑" },
   ];
 }
 
@@ -114,41 +114,25 @@ function getInitialDetectedGroq(): string[] {
 }
 
 /**
- * Seleciona automaticamente o melhor modelo Flash disponível para Gemini
+ * Seleciona automaticamente o melhor modelo para Gemini (padrão Pro Latest)
  */
 export function selectBestGeminiModel(models: { id: string; displayName?: string }[]): string {
-  if (!models || models.length === 0) return "gemini-3.8-flash";
+  if (!models || models.length === 0) return "gemini-pro-latest";
 
-  // Filtra modelos Flash ativos que suportam texto e exclui obsoletos
-  const flashCandidates = models.filter((m) => {
-    const id = m.id.toLowerCase();
-    return (
-      id.includes("flash") &&
-      !id.includes("1.5-flash") &&
-      !id.includes("2.0-flash") &&
-      !id.includes("embedding") &&
-      !id.includes("imagen") &&
-      !id.includes("aqa")
-    );
-  });
+  // Se gemini-pro-latest estiver na lista, é o padrão absoluto
+  const proLatest = models.find((m) => m.id.toLowerCase() === "gemini-pro-latest");
+  if (proLatest) return proLatest.id;
 
-  if (flashCandidates.length > 0) {
-    // Prioriza modelos na ordem: 3.x Flash > flash-latest > 2.5 Flash > qualquer Flash
-    const preferredOrder = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash-exp"];
-    for (const pref of preferredOrder) {
-      const found = flashCandidates.find((c) => c.id === pref);
-      if (found) return found.id;
-    }
-    return flashCandidates[0].id;
-  }
+  const pro31 = models.find((m) => m.id.toLowerCase().includes("3.1-pro"));
+  if (pro31) return pro31.id;
 
-  // Se não houver Flash disponível, procura pelo melhor Pro
-  const proCandidates = models.filter((m) => m.id.toLowerCase().includes("pro") && !m.id.includes("embedding"));
-  if (proCandidates.length > 0) {
-    return proCandidates[0].id;
-  }
+  const flash38 = models.find((m) => m.id.toLowerCase().includes("3.8-flash"));
+  if (flash38) return flash38.id;
 
-  return models[0].id;
+  const flashLatest = models.find((m) => m.id.toLowerCase() === "gemini-flash-latest");
+  if (flashLatest) return flashLatest.id;
+
+  return models[0]?.id || "gemini-pro-latest";
 }
 
 /**
@@ -171,9 +155,12 @@ export function selectBestGroqModel(models: string[]): string {
 function getInitialGeminiModel(): string {
   try {
     const val = localStorage.getItem(STORAGE_KEY_GEMINI_MODEL);
-    if (val && val !== "gemini-2.0-flash" && val !== "gemini-1.5-flash") return val;
+    // Se o usuário já escolheu algo válido (que não seja os obsoletos 1.5 ou 2.0 flash), RESPEITA a escolha dele!
+    if (val && val !== "gemini-2.0-flash" && val !== "gemini-1.5-flash") {
+      return val;
+    }
   } catch {}
-  return "gemini-3.8-flash";
+  return "gemini-pro-latest";
 }
 
 function getInitialGeminiUsage(): number {

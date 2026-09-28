@@ -18,6 +18,8 @@ import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
 import { ManageGamesView } from "./projects/widgets/console/components/ManageGamesView";
 import { OverlayApp } from "./overlay/OverlayApp";
 import { ModsView } from "./projects/mods/views/ModsView";
+import { PetMainView } from "./projects/pet/views/PetMainView";
+import { usePetStore } from "./projects/pet/store/petStore";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -239,12 +241,15 @@ export const App: React.FC = () => {
     currentRoute === "/overlay" ||
     window.location.hash.startsWith("#/overlay");
 
-  // Auto-launch active desktop widgets and companions ONLY in the real main window
+  // Auto-launch active desktop widgets, companions, and virtual pet ONLY in the real main window
   useEffect(() => {
     if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow) {
       const timer = setTimeout(() => {
         useWidgetsStore.getState().launchAllActiveWidgets();
         useCompanionsStore.getState().launchAllActiveCompanions();
+        if (usePetStore.getState().isDesktopActive) {
+          usePetStore.getState().spawnPetOnDesktop();
+        }
       }, 700);
       return () => clearTimeout(timer);
     }
@@ -288,6 +293,13 @@ export const App: React.FC = () => {
       return (
         <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Gadgets da Área de Trabalho... 🪟</div>}>
           <WidgetsApp />
+        </Suspense>
+      );
+    }
+    if (currentRoute === "/pet" || currentRoute.startsWith("/pet/")) {
+      return (
+        <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Bichinho Virtual... 🐾</div>}>
+          <PetMainView />
         </Suspense>
       );
     }

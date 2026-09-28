@@ -16,6 +16,7 @@ import {
   Keyboard,
   SlidersHorizontal,
   Bot,
+  Cat,
 } from "lucide-react";
 import { useThemeStore } from "../theme/themeManager";
 import { useProfileStore } from "../providers/dicebearProvider";
@@ -61,6 +62,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: "Widgets",
       icon: <LayoutGrid size={18} />,
       route: "/widgets",
+    },
+    {
+      id: "pet",
+      label: "Bichinho Virtual",
+      icon: <Cat size={18} />,
+      route: "/pet",
+      badge: "VPET",
     },
     {
       id: "mods",

@@ -5,17 +5,17 @@ import {
   Sparkles,
   Copy,
   Check,
-  ArrowRight,
   Filter,
-  Layers,
   Image as ImageIcon,
-  Flame,
   Camera,
-  PlaySquare,
-  Sparkle,
   RefreshCw,
+  SlidersHorizontal,
+  ExternalLink,
+  ChevronRight,
+  Maximize2,
 } from "lucide-react";
 import { useToast } from "@/core/components/Toast";
+import { invoke } from "@tauri-apps/api/core";
 
 interface CuteImagePickerModalProps {
   isOpen: boolean;
@@ -24,62 +24,93 @@ interface CuteImagePickerModalProps {
   onSelectImageAsReference: (url: string) => void;
 }
 
-interface ImageItem {
+export interface WebImageItem {
+  id: string;
+  title: string;
   url: string;
-  label: string;
-  source: string;
+  thumbnail: string;
+  domain: string;
   isTransparent?: boolean;
   isGif?: boolean;
   aspect?: "square" | "landscape" | "portrait";
+  width?: number;
+  height?: number;
 }
 
-const PRESET_CATEGORIES = [
-  { id: "anime", name: "Anime & Manhwa", icon: "🌸" },
-  { id: "cats", name: "Gatinhos & Pets", icon: "🐱" },
-  { id: "stickers", name: "PNGs & Stickers", icon: "✂️" },
-  { id: "gifs", name: "GIFs Animados", icon: "🎬" },
-  { id: "pastel", name: "Kawaii & Pastel", icon: "🎀" },
-  { id: "lofi", name: "Lo-Fi & Cores", icon: "☕" },
+const PRESET_SUGGESTIONS = [
+  { term: "gato anime fofo", label: "🐱 Gato Anime", icon: "🐾" },
+  { term: "anime girl chibi", label: "🌸 Chibi Kawaii", icon: "🎀" },
+  { term: "lofi room aesthetic", label: "☕ Lo-Fi Relax", icon: "🎧" },
+  { term: "pixel art sticker", label: "👾 Pixel Art", icon: "🕹️" },
+  { term: "dragon ball z", label: "🔥 Dragon Ball", icon: "⚡" },
+  { term: "pastel sky clouds", label: "☁️ Nuvens Pastel", icon: "✨" },
+  { term: "cute kitten gif", label: "🎬 Gatinho GIF", icon: "🐱" },
 ];
 
-const DEFAULT_SAMPLES: Record<string, ImageItem[]> = {
-  anime: [
-    { url: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop", label: "Céu Estrelado Anime", source: "Unsplash", aspect: "landscape" },
-    { url: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop", label: "Sakura em Flor", source: "Unsplash", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/anime-waifu-pastel/600/400", label: "Cena Pastel Manhwa", source: "Picsum", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/anime-clouds-sky/600/400", label: "Nuvens de Manhwa", source: "Picsum", aspect: "landscape" },
-  ],
-  cats: [
-    { url: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop", label: "Gatinho Fofinho", source: "Unsplash", aspect: "square" },
-    { url: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=600&auto=format&fit=crop", label: "Gatinho Dormindo", source: "Unsplash", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/cute-kitten-pastel/600/400", label: "Pet Kawaii", source: "Picsum", aspect: "square" },
-    { url: "https://picsum.photos/seed/shiba-doge/600/400", label: "Shiba Inu Alegre", source: "Picsum", aspect: "landscape" },
-  ],
-  stickers: [
-    { url: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Icecat_anime_girl.svg", label: "Garota Anime Vetor (Transparente)", source: "Wikimedia", isTransparent: true, aspect: "square" },
-    { url: "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png", label: "Dado Translúcido PNG", source: "Wikimedia", isTransparent: true, aspect: "square" },
-    { url: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Pink_heart_icon.svg", label: "Coração Rosa PNG", source: "Wikimedia", isTransparent: true, aspect: "square" },
-    { url: "https://picsum.photos/seed/sticker-kawaii/400/400", label: "Sticker Fofo Quadrado", source: "Picsum", aspect: "square" },
-  ],
-  gifs: [
-    { url: "https://cataas.com/cat/gif", label: "Gatinho Animado GIF", source: "Cataas", isGif: true, aspect: "square" },
-    { url: "https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif", label: "Animação Rotativa GIF", source: "Wikimedia", isGif: true, aspect: "square" },
-    { url: "https://cataas.com/cat/cute/gif", label: "Gato Fofo GIF", source: "Cataas", isGif: true, aspect: "square" },
-    { url: "https://picsum.photos/seed/animated-lofi/600/400", label: "Cena Lo-Fi", source: "Picsum", aspect: "landscape" },
-  ],
-  pastel: [
-    { url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=600&auto=format&fit=crop", label: "Degradê Rosa & Lilás", source: "Unsplash", aspect: "landscape" },
-    { url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop", label: "Aura Pastel Suave", source: "Unsplash", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/kawaii-cotton-candy/600/400", label: "Algodão Doce", source: "Picsum", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/pastel-glitter/600/400", label: "Brilho & Estrelas", source: "Picsum", aspect: "landscape" },
-  ],
-  lofi: [
-    { url: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600&auto=format&fit=crop", label: "Café & Caderno", source: "Unsplash", aspect: "landscape" },
-    { url: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=600&auto=format&fit=crop", label: "Janela Chuvosa", source: "Unsplash", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/lofi-study-room/600/400", label: "Mesa de Estudos", source: "Picsum", aspect: "landscape" },
-    { url: "https://picsum.photos/seed/cozy-tea/600/400", label: "Chá & Conforto", source: "Picsum", aspect: "landscape" },
-  ],
-};
+const INITIAL_SHOWCASE: WebImageItem[] = [
+  {
+    id: "init-1",
+    title: "Gatinho Anime Estiloso com Fone",
+    url: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&auto=format&fit=crop",
+    thumbnail: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&auto=format&fit=crop",
+    domain: "unsplash.com",
+    aspect: "landscape",
+    width: 1920,
+    height: 1080,
+  },
+  {
+    id: "init-2",
+    title: "Garota Anime e Sakura em Flor",
+    url: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop",
+    thumbnail: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop",
+    domain: "unsplash.com",
+    aspect: "landscape",
+    width: 1920,
+    height: 1200,
+  },
+  {
+    id: "init-3",
+    title: "Gatinho Fofo Animado",
+    url: "https://cataas.com/cat/cute/gif",
+    thumbnail: "https://cataas.com/cat/cute/gif",
+    domain: "cataas.com",
+    isGif: true,
+    aspect: "square",
+    width: 500,
+    height: 500,
+  },
+  {
+    id: "init-4",
+    title: "Coração Rosa Kawaii Transparente",
+    url: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Pink_heart_icon.svg",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Pink_heart_icon.svg",
+    domain: "wikimedia.org",
+    isTransparent: true,
+    aspect: "square",
+    width: 512,
+    height: 512,
+  },
+  {
+    id: "init-5",
+    title: "Aura Pastel Suave e Degradê",
+    url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&auto=format&fit=crop",
+    thumbnail: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400&auto=format&fit=crop",
+    domain: "unsplash.com",
+    aspect: "landscape",
+    width: 1920,
+    height: 1080,
+  },
+  {
+    id: "init-6",
+    title: "Café e Mesa de Estudos Lo-Fi",
+    url: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop",
+    thumbnail: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&auto=format&fit=crop",
+    domain: "unsplash.com",
+    aspect: "landscape",
+    width: 1920,
+    height: 1080,
+  },
+];
 
 export const CuteImagePickerModal: React.FC<CuteImagePickerModalProps> = ({
   isOpen,
@@ -89,385 +120,618 @@ export const CuteImagePickerModal: React.FC<CuteImagePickerModalProps> = ({
 }) => {
   const { addToast } = useToast();
 
-  const [activeCategory, setActiveCategory] = useState<string>("anime");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<ImageItem[]>([]);
+  const [images, setImages] = useState<WebImageItem[]>(INITIAL_SHOWCASE);
+  const [selectedImage, setSelectedImage] = useState<WebImageItem | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
-  // Filtros rápidos estilo Google Imagens
-  const [filterType, setFilterType] = useState<"all" | "png" | "gif" | "photo" | "anime">("all");
+  // Abas estilo Google
+  const [activeTab, setActiveTab] = useState<"all" | "images" | "gifs" | "png" | "wallpapers" | "anime">("images");
+
+  // Barra de ferramentas clássica do Google
+  const [showTools, setShowTools] = useState(false);
+  const [filterSize, setFilterSize] = useState<"all" | "large" | "medium">("all");
+  const [filterColor, setFilterColor] = useState<"all" | "transparent" | "blackAndWhite">("all");
   const [filterAspect, setFilterAspect] = useState<"all" | "square" | "landscape" | "portrait">("all");
-  const [filterColor, setFilterColor] = useState<"all" | "pink" | "dark" | "clean">("all");
 
   useEffect(() => {
     if (isOpen) {
-      setSearchResults([]);
-      setSearchQuery("");
-      setIsSearching(false);
+      if (!searchQuery && images.length === 0) {
+        setImages(INITIAL_SHOWCASE);
+      }
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Busca em tempo real integrando APIs públicas
-  const handlePerformSearch = async (overrideTerm?: string) => {
-    const term = (overrideTerm !== undefined ? overrideTerm : searchQuery).trim();
+  // Realiza a busca no motor de imagens web real sem CORS
+  const handlePerformSearch = async (overrideTerm?: string, overrideTab?: string) => {
+    const rawTerm = overrideTerm !== undefined ? overrideTerm : searchQuery;
+    const term = rawTerm.trim();
     if (!term) return;
 
     setIsSearching(true);
-    const results: ImageItem[] = [];
+    const tabToUse = overrideTab || activeTab;
+
+    // Determinar filtros para o backend nativo
+    let filterTypeParam: string | undefined = undefined;
+    if (tabToUse === "png" || filterColor === "transparent") {
+      filterTypeParam = "transparent";
+    } else if (tabToUse === "gifs") {
+      filterTypeParam = "animated";
+    } else if (tabToUse === "wallpapers" || filterSize === "large") {
+      filterTypeParam = "wallpaper";
+    }
+
+    let filterAspectParam: string | undefined = undefined;
+    if (filterAspect !== "all") {
+      filterAspectParam = filterAspect;
+    }
 
     try {
-      // 1. Wikimedia Commons API (CORS aberto, milhares de imagens reais e stickers)
-      const wikiQuery = `${term} ${filterType === "png" ? "transparent png" : ""} ${filterType === "gif" ? "gif" : ""}`.trim();
-      const wikiRes = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(wikiQuery)}&gsrnamespace=6&prop=imageinfo&iiprop=url|mime|dimensions&format=json&origin=*`
-      );
-
-      if (wikiRes.ok) {
-        const wikiData = await wikiRes.json();
-        const pages = wikiData.query?.pages ? Object.values(wikiData.query.pages) : [];
-        for (const p of pages as any[]) {
-          const info = p.imageinfo?.[0];
-          if (info && info.url) {
-            const isGif = info.mime === "image/gif" || info.url.endsWith(".gif");
-            const isPng = info.mime === "image/png" || info.url.endsWith(".png") || info.mime === "image/svg+xml";
-            results.push({
-              url: info.url,
-              label: p.title ? p.title.replace(/^File:/, "").replace(/\.[^/.]+$/, "") : term,
-              source: "Wikimedia",
-              isGif,
-              isTransparent: isPng,
-              aspect: info.width && info.height ? (info.width > info.height ? "landscape" : "portrait") : "square",
-            });
-          }
-        }
-      }
-    } catch {}
-
-    // 2. Waifu.pics para Anime/Waifu
-    if (filterType === "anime" || filterType === "all" || term.toLowerCase().includes("anime") || term.toLowerCase().includes("manhwa")) {
+      // 1. Tentar busca nativa via Tauri (sem bloqueio de CORS, imagens reais de alta resolução)
+      let results: any[] = [];
       try {
-        const waifuRes = await fetch("https://api.waifu.pics/sfw/waifu");
-        if (waifuRes.ok) {
-          const waifuData = await waifuRes.json();
-          if (waifuData.url) {
-            results.unshift({
-              url: waifuData.url,
-              label: `${term} Anime Fofo`,
-              source: "Waifu.pics",
+        results = await invoke<any[]>("search_web_images", {
+          query: term,
+          filterType: filterTypeParam || null,
+          filterAspect: filterAspectParam || null,
+          first: 0,
+          count: 36,
+        });
+      } catch (nativeErr) {
+        console.warn("Tauri search_web_images não disponível ou em dev web:", nativeErr);
+      }
+
+      if (results && results.length > 0) {
+        const mapped: WebImageItem[] = results.map((r, i) => ({
+          id: `img-${i}-${Date.now()}`,
+          title: r.title || term,
+          url: r.url,
+          thumbnail: r.thumbnail || r.url,
+          domain: r.domain || "web",
+          isTransparent: r.is_transparent,
+          isGif: r.is_gif,
+          aspect: r.aspect as any,
+          width: r.width,
+          height: r.height,
+        }));
+        setImages(mapped);
+        setSelectedImage(mapped[0] || null);
+        setIsSearching(false);
+        return;
+      }
+
+      // 2. Fallback inteligente com Safebooru / Nekos / Unsplash se o Tauri nativo não retornar
+      const fallbackList: WebImageItem[] = [];
+
+      // Safebooru para anime/desenho
+      if (tabToUse === "anime" || term.toLowerCase().includes("anime") || term.toLowerCase().includes("dragon") || term.toLowerCase().includes("gato")) {
+        try {
+          const safeTag = term.toLowerCase().includes("dragon") ? "dragon_ball" : (term.toLowerCase().includes("gato") ? "cat_ears" : "safe");
+          const safeRes = await fetch(`https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&tags=rating:safe+${encodeURIComponent(safeTag)}&limit=15`);
+          if (safeRes.ok) {
+            const safeData = await safeRes.json();
+            for (const s of safeData) {
+              if (s.image && s.directory) {
+                fallbackList.push({
+                  id: `safe-${s.id}`,
+                  title: `${term} Anime Art`,
+                  url: `https://safebooru.org/images/${s.directory}/${s.image}`,
+                  thumbnail: `https://safebooru.org/thumbnails/${s.directory}/thumbnail_${s.image.replace(/\.[^/.]+$/, ".jpg")}`,
+                  domain: "safebooru.org",
+                  aspect: s.width && s.height && s.width > s.height ? "landscape" : "portrait",
+                  width: s.width,
+                  height: s.height,
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // Nekos.best para Waifus e Nekos
+      try {
+        const nekoRes = await fetch("https://nekos.best/api/v2/neko?amount=10");
+        if (nekoRes.ok) {
+          const nekoData = await nekoRes.json();
+          for (const n of nekoData.results || []) {
+            fallbackList.push({
+              id: `neko-${n.url}`,
+              title: `${term} Anime Fofo - ${n.artist_name || "Artista"}`,
+              url: n.url,
+              thumbnail: n.url,
+              domain: "nekos.best",
               aspect: "portrait",
+              isTransparent: true,
             });
           }
         }
       } catch {}
-    }
 
-    // 3. Fallbacks de Alta Qualidade via Picsum Seeds (Sempre funcionam!)
-    const cleanTerm = encodeURIComponent(term.toLowerCase().replace(/\s+/g, "-"));
-    results.push(
-      {
-        url: `https://picsum.photos/seed/${cleanTerm}-1/600/400`,
-        label: `${term} Wallpaper HD 1`,
-        source: "HD Web",
-        aspect: "landscape",
-      },
-      {
-        url: `https://picsum.photos/seed/${cleanTerm}-2/500/500`,
-        label: `${term} Estético Quadrado`,
-        source: "HD Web",
-        aspect: "square",
-      },
-      {
-        url: `https://picsum.photos/seed/${cleanTerm}-3/600/400`,
-        label: `${term} Wallpaper HD 2`,
-        source: "HD Web",
-        aspect: "landscape",
+      if (fallbackList.length > 0) {
+        setImages(fallbackList);
+        setSelectedImage(fallbackList[0] || null);
+      } else {
+        // Fallback garantido Unsplash
+        const unsplashList: WebImageItem[] = Array.from({ length: 12 }).map((_, i) => ({
+          id: `unsp-${i}`,
+          title: `${term} Wallpaper HD ${i + 1}`,
+          url: `https://picsum.photos/seed/${encodeURIComponent(term)}-${i}/800/600`,
+          thumbnail: `https://picsum.photos/seed/${encodeURIComponent(term)}-${i}/400/300`,
+          domain: "unsplash.com",
+          aspect: "landscape",
+        }));
+        setImages(unsplashList);
+        setSelectedImage(unsplashList[0] || null);
       }
-    );
-
-    setSearchResults(results);
-    setIsSearching(false);
+    } catch (e: any) {
+      addToast("Erro ao buscar imagens na rede.", "warning");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleCopy = (url: string) => {
     navigator.clipboard.writeText(url);
     setCopiedUrl(url);
-    addToast("Link da imagem copiado com sucesso! ✨", "success");
+    addToast("Link da imagem copiado! ✨", "success");
     setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  // Imagens a exibir (busca ou categoria selecionada)
-  const currentImages: ImageItem[] = searchResults.length > 0
-    ? searchResults
-    : (DEFAULT_SAMPLES[activeCategory] || DEFAULT_SAMPLES.anime);
-
-  // Aplicar filtros visuais
-  const filteredImages = currentImages.filter((img) => {
-    if (filterType === "png" && !img.isTransparent) return false;
-    if (filterType === "gif" && !img.isGif) return false;
-    if (filterAspect !== "all" && img.aspect && img.aspect !== filterAspect) return false;
-    return true;
-  });
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-4xl bg-slate-900 border border-pink-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header estilo Google Imagens */}
-        <div className="p-4 bg-slate-950 border-b border-pink-500/20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 text-white flex items-center justify-center shadow-soft">
-              <Sparkles size={18} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-6xl bg-[#202124] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[92vh] text-slate-100">
+        
+        {/* CABEÇALHO AUTÊNTICO GOOGLE IMAGENS */}
+        <div className="px-5 py-3.5 bg-[#202124] border-b border-slate-700/80 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-2">
+            {/* Logo do Google com cores fiéis */}
+            <div className="flex items-baseline text-2xl font-extrabold tracking-tight select-none">
+              <span className="text-[#4285F4]">G</span>
+              <span className="text-[#EA4335]">o</span>
+              <span className="text-[#FBBC05]">o</span>
+              <span className="text-[#4285F4]">g</span>
+              <span className="text-[#34A853]">l</span>
+              <span className="text-[#EA4335]">e</span>
+              <span className="text-xs font-semibold text-slate-400 ml-1.5 self-end pb-0.5">
+                Imagens
+              </span>
             </div>
-            <div>
-              <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                Busca de Imagens para Gadgets 🖼️
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-bold border border-pink-500/30">
-                  Google Style
-                </span>
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Puxe imagens, stickers, gifs e fotos diretamente para o seu gadget
-              </p>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 ml-2">
+              Pro Gadgets
+            </span>
+          </div>
+
+          {/* Barra de Pesquisa Clássica do Google (Arredondada com Ícones) */}
+          <div className="flex-1 max-w-2xl relative">
+            <div className="relative flex items-center bg-[#303134] hover:bg-[#3c4043] focus-within:bg-[#303134] border border-transparent focus-within:border-[#8ab4f8] focus-within:shadow-[0_1px_6px_rgba(32,33,36,0.28)] rounded-full px-4 py-2 transition-all">
+              <Search size={16} className="text-slate-400 mr-3 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handlePerformSearch()}
+                placeholder="Pesquise imagens... (ex: dragon ball z, gato anime, lofi, waifu, wallpaper)"
+                className="w-full bg-transparent text-sm text-white placeholder:text-slate-400 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="p-1 hover:text-white text-slate-400 mr-2"
+                >
+                  <X size={15} />
+                </button>
+              )}
+              <button
+                onClick={() => handlePerformSearch()}
+                disabled={isSearching}
+                className="p-1.5 rounded-full hover:bg-slate-700/60 text-[#8ab4f8] transition-colors"
+                title="Buscar no Google"
+              >
+                {isSearching ? <RefreshCw size={16} className="animate-spin text-pink-400" /> : <Search size={16} />}
+              </button>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-full hover:bg-slate-700/60 text-slate-400 hover:text-white transition-colors shrink-0"
+            title="Fechar busca"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Barra de Busca Principal */}
-        <div className="p-3.5 bg-slate-900 border-b border-slate-800 flex gap-2">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handlePerformSearch()}
-              placeholder="Digite o que deseja buscar (ex: gatinho manhwa, anime girl, lofi café, flor sakura)..."
-              className="w-full bg-slate-950 border border-slate-700 focus:border-pink-500 rounded-xl pl-10 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner"
-            />
+        {/* ABAS CLÁSSICAS DO GOOGLE & FERRAMENTAS */}
+        <div className="px-6 bg-[#202124] border-b border-slate-700/80 flex items-center justify-between text-xs font-medium text-slate-400 shrink-0 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => {
+                setActiveTab("images");
+                handlePerformSearch(undefined, "images");
+              }}
+              className={`py-3 flex items-center gap-1.5 border-b-2 font-bold transition-all ${
+                activeTab === "images"
+                  ? "border-[#8ab4f8] text-[#8ab4f8]"
+                  : "border-transparent hover:text-slate-200"
+              }`}
+            >
+              <ImageIcon size={14} />
+              <span>Imagens</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("png");
+                handlePerformSearch(undefined, "png");
+              }}
+              className={`py-3 flex items-center gap-1.5 border-b-2 transition-all ${
+                activeTab === "png"
+                  ? "border-[#8ab4f8] text-[#8ab4f8] font-bold"
+                  : "border-transparent hover:text-slate-200"
+              }`}
+            >
+              <span>✂️ PNG Transparente</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("gifs");
+                handlePerformSearch(undefined, "gifs");
+              }}
+              className={`py-3 flex items-center gap-1.5 border-b-2 transition-all ${
+                activeTab === "gifs"
+                  ? "border-[#8ab4f8] text-[#8ab4f8] font-bold"
+                  : "border-transparent hover:text-slate-200"
+              }`}
+            >
+              <span>🎬 GIFs Animados</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("wallpapers");
+                handlePerformSearch(undefined, "wallpapers");
+              }}
+              className={`py-3 flex items-center gap-1.5 border-b-2 transition-all ${
+                activeTab === "wallpapers"
+                  ? "border-[#8ab4f8] text-[#8ab4f8] font-bold"
+                  : "border-transparent hover:text-slate-200"
+              }`}
+            >
+              <span>🖼️ Wallpapers HD</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("anime");
+                handlePerformSearch(undefined, "anime");
+              }}
+              className={`py-3 flex items-center gap-1.5 border-b-2 transition-all ${
+                activeTab === "anime"
+                  ? "border-[#8ab4f8] text-[#8ab4f8] font-bold"
+                  : "border-transparent hover:text-slate-200"
+              }`}
+            >
+              <span>🌸 Anime & Manhwa</span>
+            </button>
           </div>
+
+          {/* Botão Ferramentas do Google */}
           <button
-            onClick={() => handlePerformSearch()}
-            disabled={!searchQuery.trim() || isSearching}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-soft"
+            onClick={() => setShowTools(!showTools)}
+            className={`px-3 py-1.5 rounded-full border text-xs flex items-center gap-1.5 transition-all ${
+              showTools
+                ? "bg-[#303134] border-[#8ab4f8] text-[#8ab4f8]"
+                : "border-slate-700 hover:bg-slate-800 text-slate-300"
+            }`}
           >
-            {isSearching ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
-            <span>Buscar</span>
+            <SlidersHorizontal size={13} />
+            <span>Ferramentas</span>
           </button>
         </div>
 
-        {/* Barra de Filtros Estilo Google Imagens */}
-        <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto scrollbar-none text-[11px]">
-          <div className="flex items-center gap-1 text-slate-400 font-bold shrink-0">
-            <Filter size={12} className="text-pink-400" />
-            <span>Filtros:</span>
-          </div>
-
-          {/* Filtro: Tipo */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setFilterType("all")}
-              className={`px-2.5 py-1 rounded-lg border transition-all ${
-                filterType === "all" ? "bg-pink-500/20 border-pink-500/50 text-pink-300 font-bold" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-              }`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilterType("png")}
-              className={`px-2.5 py-1 rounded-lg border transition-all ${
-                filterType === "png" ? "bg-pink-500/20 border-pink-500/50 text-pink-300 font-bold" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-              }`}
-            >
-              ✂️ PNG Transparente
-            </button>
-            <button
-              onClick={() => setFilterType("gif")}
-              className={`px-2.5 py-1 rounded-lg border transition-all ${
-                filterType === "gif" ? "bg-pink-500/20 border-pink-500/50 text-pink-300 font-bold" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-              }`}
-            >
-              🎬 GIFs Animados
-            </button>
-            <button
-              onClick={() => setFilterType("anime")}
-              className={`px-2.5 py-1 rounded-lg border transition-all ${
-                filterType === "anime" ? "bg-pink-500/20 border-pink-500/50 text-pink-300 font-bold" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-              }`}
-            >
-              🌸 Anime & Desenho
-            </button>
-          </div>
-
-          <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
-
-          {/* Filtro: Formato */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setFilterAspect("all")}
-              className={`px-2 py-0.5 rounded border ${
-                filterAspect === "all" ? "bg-slate-800 border-slate-700 text-white" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              Qualquer formato
-            </button>
-            <button
-              onClick={() => setFilterAspect("square")}
-              className={`px-2 py-0.5 rounded border ${
-                filterAspect === "square" ? "bg-slate-800 border-slate-700 text-white" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              🔲 Quadrado
-            </button>
-            <button
-              onClick={() => setFilterAspect("landscape")}
-              className={`px-2 py-0.5 rounded border ${
-                filterAspect === "landscape" ? "bg-slate-800 border-slate-700 text-white" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              🖼️ Paisagem / Wallpaper
-            </button>
-          </div>
-        </div>
-
-        {/* Categorias Rápidas em Abas */}
-        {searchResults.length === 0 && (
-          <div className="flex items-center gap-1.5 px-4 py-2 bg-slate-950/40 border-b border-slate-800 overflow-x-auto scrollbar-none">
-            {PRESET_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 ${
-                  activeCategory === cat.id
-                    ? "bg-pink-500/20 border border-pink-500/40 text-pink-300 font-bold"
-                    : "bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-                }`}
+        {/* BARRA DE FERRAMENTAS EXPANSÍVEL (FILTROS DO GOOGLE) */}
+        {showTools && (
+          <div className="px-6 py-2.5 bg-[#303134]/90 border-b border-slate-700 flex items-center gap-4 text-xs text-slate-300 animate-in slide-in-from-top duration-150 shrink-0 flex-wrap">
+            {/* Tamanho */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Tamanho:</span>
+              <select
+                value={filterSize}
+                onChange={(e) => {
+                  setFilterSize(e.target.value as any);
+                  handlePerformSearch();
+                }}
+                className="bg-[#202124] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
               >
-                <span>{cat.icon}</span>
-                <span>{cat.name}</span>
-              </button>
-            ))}
+                <option value="all">Qualquer tamanho</option>
+                <option value="large">Grande (HD / Wallpaper)</option>
+                <option value="medium">Médio</option>
+              </select>
+            </div>
+
+            {/* Cor */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Cor:</span>
+              <select
+                value={filterColor}
+                onChange={(e) => {
+                  setFilterColor(e.target.value as any);
+                  handlePerformSearch();
+                }}
+                className="bg-[#202124] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+              >
+                <option value="all">Qualquer cor</option>
+                <option value="transparent">Transparente (PNG)</option>
+                <option value="blackAndWhite">Preto e branco</option>
+              </select>
+            </div>
+
+            {/* Proporção */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Proporção:</span>
+              <select
+                value={filterAspect}
+                onChange={(e) => {
+                  setFilterAspect(e.target.value as any);
+                  handlePerformSearch();
+                }}
+                className="bg-[#202124] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+              >
+                <option value="all">Qualquer proporção</option>
+                <option value="square">🔲 Quadrado (1:1)</option>
+                <option value="landscape">🖼️ Paisagem / Panorâmico</option>
+                <option value="portrait">📱 Retrato / Alto</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => {
+                setFilterSize("all");
+                setFilterColor("all");
+                setFilterAspect("all");
+                handlePerformSearch();
+              }}
+              className="text-xs text-rose-400 hover:text-rose-300 underline ml-auto"
+            >
+              Limpar filtros
+            </button>
           </div>
         )}
 
-        {/* Grade de Resultados das Imagens */}
-        <div className="p-4 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-          {filteredImages.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-slate-400 text-xs">
-              Nenhuma imagem encontrada com esses filtros. Tente buscar outro termo ou limpar os filtros! 🌸
-            </div>
-          ) : (
-            filteredImages.map((item, idx) => (
-              <div
-                key={idx}
-                className="group relative bg-slate-950 border border-slate-800 hover:border-pink-500/50 rounded-2xl overflow-hidden transition-all shadow-md flex flex-col justify-between"
-              >
-                {/* Imagem com visualização */}
-                <div className="relative h-36 w-full overflow-hidden bg-slate-900/80 flex items-center justify-center p-1">
-                  <img
-                    src={item.url}
-                    alt={item.label}
-                    loading="lazy"
-                    className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 rounded-lg"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/img-${idx}/400/300`;
-                    }}
-                  />
+        {/* CHIPS DE SUGESTÕES VISUAIS DO GOOGLE */}
+        <div className="px-6 py-2 bg-[#202124] border-b border-slate-700/60 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
+          {PRESET_SUGGESTIONS.map((item) => (
+            <button
+              key={item.term}
+              onClick={() => {
+                setSearchQuery(item.term);
+                handlePerformSearch(item.term);
+              }}
+              className="px-3 py-1 rounded-full bg-[#303134] hover:bg-[#3c4043] border border-slate-700 hover:border-slate-600 text-xs text-slate-300 hover:text-white transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
 
-                  {/* Badges do item (GIF, Transparente, Fonte) */}
-                  <div className="absolute top-2 left-2 flex gap-1">
-                    {item.isGif && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-purple-500/90 text-white font-extrabold text-[9px] shadow">
-                        GIF
-                      </span>
-                    )}
-                    {item.isTransparent && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/90 text-white font-extrabold text-[9px] shadow">
-                        PNG
-                      </span>
-                    )}
+        {/* ÁREA PRINCIPAL: GRADE GOOGLE IMAGENS + PAINEL DE DETALHES LATERAL */}
+        <div className="flex-1 flex overflow-hidden min-h-0 bg-[#171717]">
+          {/* GRADE DE IMAGENS LIMPA (SEM BOTÕES POLUINDO A FOTO) */}
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 content-start">
+            {images.length === 0 ? (
+              <div className="col-span-full py-16 text-center text-slate-400 text-sm">
+                Nenhuma imagem encontrada. Tente buscar outro termo ou clique nas sugestões acima! 🌸
+              </div>
+            ) : (
+              images.map((img) => (
+                <div
+                  key={img.id}
+                  onClick={() => setSelectedImage(img)}
+                  className={`group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-200 flex flex-col bg-[#202124] border ${
+                    selectedImage?.id === img.id
+                      ? "border-[#8ab4f8] ring-2 ring-[#8ab4f8]/50 shadow-xl"
+                      : "border-slate-800 hover:border-slate-600 hover:shadow-lg"
+                  }`}
+                >
+                  {/* Container da Imagem Grande e Fácil de Enxergar */}
+                  <div className="relative w-full h-44 sm:h-52 bg-slate-900/60 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={img.thumbnail || img.url}
+                      alt={img.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${img.id}/400/300`;
+                      }}
+                    />
+
+                    {/* Badges sutis */}
+                    <div className="absolute top-2 left-2 flex gap-1 pointer-events-none">
+                      {img.isGif && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-600/90 text-white font-extrabold text-[9px] shadow">
+                          GIF
+                        </span>
+                      )}
+                      {img.isTransparent && (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-600/90 text-white font-extrabold text-[9px] shadow">
+                          PNG
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Ações Rápidas no Hover */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectImageAsPrompt(img.url, img.title, "background");
+                          onClose();
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-[11px] font-bold transition-all shadow flex items-center gap-1"
+                        title="Usar como fundo do gadget"
+                      >
+                        <Sparkles size={11} />
+                        <span>Fundo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectImageAsPrompt(img.url, img.title, "sticker");
+                          onClose();
+                        }}
+                        className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-pink-300 text-[11px] font-bold transition-all shadow"
+                        title="Usar como sticker"
+                      >
+                        <span>Sticker</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <span className="absolute bottom-1.5 left-2 text-[10px] font-semibold text-white drop-shadow bg-black/60 px-1.5 py-0.5 rounded">
-                    {item.label}
-                  </span>
+                  {/* Informações de Título e Domínio (Estilo Google) */}
+                  <div className="p-2.5 bg-[#202124]">
+                    <p className="text-xs text-slate-200 font-medium truncate" title={img.title}>
+                      {img.title}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block" />
+                      {img.domain}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* PAINEL LATERAL DE DETALHES DO GOOGLE IMAGENS */}
+          {selectedImage && (
+            <div className="w-80 md:w-96 bg-[#202124] border-l border-slate-700 flex flex-col h-full shrink-0 shadow-2xl animate-in slide-in-from-right duration-200">
+              <div className="p-3.5 border-b border-slate-700 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <ImageIcon size={14} className="text-[#8ab4f8]" />
+                  Visualização da Imagem
+                </span>
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Prévia Grande e Nítida */}
+              <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+                <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shadow-md flex items-center justify-center min-h-[220px] max-h-[340px]">
+                  <img
+                    src={selectedImage.url}
+                    alt={selectedImage.title}
+                    className="max-h-[320px] max-w-full object-contain"
+                  />
+                  {selectedImage.isGif && (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-purple-600 text-white font-bold text-[10px]">
+                      GIF Animado
+                    </span>
+                  )}
+                  {selectedImage.isTransparent && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">
+                      Transparente PNG
+                    </span>
+                  )}
                 </div>
 
-                {/* Ações Inteligentes para o Gadget */}
-                <div className="p-2.5 bg-slate-950 flex flex-col gap-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectImageAsPrompt(item.url, item.label, "background");
-                        onClose();
-                      }}
-                      className="flex-1 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1 shadow-soft"
-                      title="Define esta imagem como fundo no gadget"
-                    >
-                      <Sparkles size={12} />
-                      <span>Fundo do Gadget</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectImageAsPrompt(item.url, item.label, "sticker");
-                        onClose();
-                      }}
-                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-pink-300 text-[11px] font-bold transition-all flex items-center gap-1"
-                      title="Adiciona como sticker ou elemento decorativo no gadget"
-                    >
-                      <span>Sticker</span>
-                    </button>
+                {/* Metadados */}
+                <div className="mt-3.5 space-y-1">
+                  <h3 className="text-sm font-bold text-white leading-snug">
+                    {selectedImage.title}
+                  </h3>
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <span className="flex items-center gap-1 text-[#8ab4f8]">
+                      <ExternalLink size={12} />
+                      {selectedImage.domain}
+                    </span>
+                    {selectedImage.width && selectedImage.height && (
+                      <span className="text-[11px] text-slate-400">
+                        {selectedImage.width} × {selectedImage.height}
+                      </span>
+                    )}
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-900">
-                    <button
-                      type="button"
-                      onClick={() => onSelectImageAsReference(item.url)}
-                      className="hover:text-pink-300 transition-colors flex items-center gap-1"
-                      title="Anexa para a IA analisar visualmente no chat"
-                    >
-                      <Camera size={11} />
-                      <span>Ver no Chat</span>
-                    </button>
+                {/* BOTÕES DE AÇÃO PRINCIPAIS PARA O GADGET */}
+                <div className="mt-5 space-y-2 pt-4 border-t border-slate-700/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectImageAsPrompt(selectedImage.url, selectedImage.title, "background");
+                      onClose();
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
+                  >
+                    <Sparkles size={14} />
+                    <span>Usar como Fundo do Gadget</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(item.url)}
-                      className="hover:text-white transition-colors flex items-center gap-1"
-                      title="Copiar URL"
-                    >
-                      {copiedUrl === item.url ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
-                      <span>Copiar Link</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectImageAsPrompt(selectedImage.url, selectedImage.title, "sticker");
+                      onClose();
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-pink-300 font-bold text-xs flex items-center justify-center gap-2 shadow transition-all active:scale-95"
+                  >
+                    <span>✨ Inserir como Sticker no Gadget</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectImageAsReference(selectedImage.url);
+                      onClose();
+                    }}
+                    className="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Camera size={13} />
+                    <span>Puxar para o Chat do Maridão</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(selectedImage.url)}
+                    className="w-full py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs flex items-center justify-center gap-2 transition-all"
+                  >
+                    {copiedUrl === selectedImage.url ? (
+                      <Check size={13} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={13} />
+                    )}
+                    <span>{copiedUrl === selectedImage.url ? "Link Copiado!" : "Copiar Link da Imagem"}</span>
+                  </button>
                 </div>
               </div>
-            ))
+            </div>
           )}
         </div>
 
-        {/* Rodapé com Dica carinhosa */}
-        <div className="p-3 bg-slate-950 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-pink-300">
-            💕 <em>Dica: Ao clicar em "Fundo do Gadget", seu marido programa a imagem no CSS com ajuste perfeito cover e transparência!</em>
+        {/* RODAPÉ CARINHOSO */}
+        <div className="px-5 py-2.5 bg-[#202124] border-t border-slate-700 text-xs text-slate-400 flex items-center justify-between shrink-0">
+          <span className="text-pink-300 flex items-center gap-1.5 text-[11px]">
+            💕 <em>Dica do Maridão: Clique em qualquer imagem para abrir a visualização em alta definição e aplicar no gadget!</em>
           </span>
           <button
             onClick={onClose}
-            className="px-3.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+            className="px-4 py-1.5 rounded-xl bg-[#303134] hover:bg-[#3c4043] text-white text-xs font-semibold"
           >
             Fechar
           </button>
         </div>
+
       </div>
     </div>
   );

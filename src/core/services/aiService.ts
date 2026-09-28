@@ -22,9 +22,11 @@ export interface WidgetAiGenerationResult {
 const WIDGET_SYSTEM_PROMPT = WIDGET_ECOSYSTEM_BRAIN;
 
 const GEMINI_CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
+  "gemini-2.5-flash",
   "gemini-flash-latest",
+  "gemini-2.5-pro",
   "gemini-1.5-pro",
+  "gemini-3.8-flash",
 ];
 
 export interface GenerateWidgetOptions {
@@ -103,9 +105,9 @@ export async function fetchGeminiModels(apiKey?: string): Promise<{ id: string; 
 
     if (filtered.length > 0) {
       store.setAvailableGeminiModels(filtered);
+      const bestFlash = selectBestGeminiModel(filtered);
       const current = store.geminiModel;
-      if (!current || current === "gemini-1.5-flash" || current === "gemini-2.0-flash" || !filtered.some((f) => f.id === current)) {
-        const bestFlash = selectBestGeminiModel(filtered);
+      if (!current || current.includes("lite") || current === "gemini-1.5-flash" || current === "gemini-2.0-flash" || !filtered.some((f) => f.id === current)) {
         store.setGeminiModel(bestFlash);
       }
     }
@@ -419,17 +421,20 @@ export async function generateOrModifyCustomWidget({
       }
     }
 
-    let requestedModel = store.geminiModel || "gemini-3.8-flash";
+    let requestedModel = store.geminiModel || "gemini-pro-latest";
     if (requestedModel === "gemini-1.5-flash" || requestedModel === "gemini-2.0-flash") {
-      requestedModel = "gemini-3.8-flash";
-      store.setGeminiModel("gemini-3.8-flash");
+      requestedModel = "gemini-pro-latest";
+      store.setGeminiModel("gemini-pro-latest");
     }
+
+    // O primeiro modelo a tentar é SEMPRE a escolha do usuário
     const modelsToTry = Array.from(new Set([
       requestedModel,
+      "gemini-pro-latest",
       ...availableGemini,
       "gemini-3.8-flash",
       "gemini-flash-latest",
-      "gemini-1.5-pro",
+      "gemini-2.5-pro",
     ])).filter((m) => m && m !== "gemini-2.0-flash" && m !== "gemini-1.5-flash");
 
     // Montar turnos estritamente alternados user -> model para o Gemini
@@ -487,13 +492,13 @@ export async function generateOrModifyCustomWidget({
             generationConfig: {
               responseMimeType: "application/json",
               temperature: 0.5,
+              maxOutputTokens: 8192,
             },
           }),
         });
 
         if (res.ok) {
           store.incrementGeminiUsage();
-          store.setGeminiModel(targetModel);
           const data = await res.json();
           rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
           if (rawJsonText.trim()) break;
