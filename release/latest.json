@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.10",
-    "notes":  "Correção do mod Start Menu Size, suporte expandido a mods do catálogo e carrossel de fotos reais dos mods",
-    "pub_date":  "2026-09-27T06:49:24.2260314Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.10/Pedi.para.meu.marido_1.3.10_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.10_x64-setup.exe",
-    "size":  3666803
+    "version":  "1.3.11",
+    "notes":  "💕 Updatezinho v1.3.11: Suporte a selecao de temas nos mods (Dock Flutuante, Transparencia Total, Acrilico Fosco), YouTube com API oficial e fechamento imediato sem travamento, eliminacao total de pop-ups de PowerShell/CMD e atualizador automatico sincronizado.",
+    "pub_date":  "2026-09-28T00:13:05.7167977Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.11/Pedi.para.meu.marido_1.3.11_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.11_x64-setup.exe",
+    "size":  3670466
 }
