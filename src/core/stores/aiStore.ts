@@ -64,12 +64,26 @@ function getInitialGeminiKey(): string {
   }
 }
 
+export interface GeminiModelInfo {
+  id: string;
+  name: string;
+  desc: string;
+  isPro?: boolean;
+}
+
+export const GEMINI_AVAILABLE_MODELS: GeminiModelInfo[] = [
+  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Recomendado oficial Google AI Studio, rápido e estável" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro 👑 (Conta Pro)", desc: "Raciocínio avançado, visão multimodal rica e limites altos", isPro: true },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash 🚀", desc: "Super rápido, ideal para ajustes rápidos no chat" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash 🌟", desc: "Nova geração inteligente da Google" },
+];
+
 function getInitialGeminiModel(): string {
   try {
     const val = localStorage.getItem(STORAGE_KEY_GEMINI_MODEL);
-    if (val) return val;
+    if (val && val !== "gemini-3.8-flash") return val;
   } catch {}
-  return "gemini-3.8-flash";
+  return "gemini-flash-latest";
 }
 
 function getInitialGeminiUsage(): number {

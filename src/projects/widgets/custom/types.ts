@@ -33,6 +33,7 @@ export interface AiChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string; // Base64 data URL de imagem enviada como referência visual
   timestamp: number;
 }
 

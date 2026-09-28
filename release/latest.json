@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.12",
-    "notes":  "Widgets de áudio funcionais na Área de Trabalho (YouTube Music e Spotify), reprodutor visível sem bloqueios de autoplay, presets rápidos integrados e atalhos na central de integrações.",
-    "pub_date":  "2026-09-28T01:48:46.4526013Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.12/Pedi.para.meu.marido_1.3.12_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.12_x64-setup.exe",
-    "size":  3672837
+    "version":  "1.3.14",
+    "notes":  "Suporte oficial ao Google Gemini Flash Latest e Gemini 1.5 Pro (Conta Pro), visão multimodal com envio e colar de imagem (Ctrl+V) no chat de gadgets, auto-diagnóstico do live preview e console de erros, brain defensivo para IA e Galeria de Ideias Fofas.",
+    "pub_date":  "2026-09-28T02:59:13.9307047Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.14/Pedi.para.meu.marido_1.3.14_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.14_x64-setup.exe",
+    "size":  3685933
 }

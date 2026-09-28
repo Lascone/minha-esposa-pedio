@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { CustomWidgetPackage, SandboxMessageToParent } from "./types";
 import { WidgetTheme } from "../types";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 import { DRAG_EXEMPT_SELECTOR, DRAG_THRESHOLD_PX } from "../dragLogic";
 import { useIntegrationsStore } from "@/core/stores/integrationsStore";
 import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
@@ -12,6 +12,7 @@ interface WidgetSandboxProps {
   initialConfig?: Record<string, any>;
   onConfigChange?: (key: string, value: any) => void;
   onRequestResize?: (width: number, height: number) => void;
+  onFixWithAi?: (errorMsg: string) => void;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   initialConfig = {},
   onConfigChange,
   onRequestResize,
+  onFixWithAi,
   className = "w-full h-full",
 }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -362,13 +364,24 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           <p className="text-[11px] text-rose-200/80 mt-1 max-w-xs break-words font-mono">
             {sandboxError}
           </p>
-          <button
-            onClick={handleReload}
-            className="mt-3 px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow"
-          >
-            <RefreshCw size={12} />
-            <span>Tentar Novamente</span>
-          </button>
+          <div className="flex items-center gap-2 mt-3 flex-wrap justify-center">
+            <button
+              onClick={handleReload}
+              className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow transition-all"
+            >
+              <RefreshCw size={12} />
+              <span>Tentar Novamente</span>
+            </button>
+            {onFixWithAi && (
+              <button
+                onClick={() => onFixWithAi(sandboxError)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-soft transition-all active:scale-95"
+              >
+                <Sparkles size={13} className="text-yellow-200" />
+                <span>Consertar com IA ✨</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
