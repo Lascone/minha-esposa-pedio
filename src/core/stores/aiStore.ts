@@ -72,18 +72,18 @@ export interface GeminiModelInfo {
 }
 
 export const GEMINI_AVAILABLE_MODELS: GeminiModelInfo[] = [
-  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Recomendado oficial Google AI Studio, rápido e estável" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro 👑 (Conta Pro)", desc: "Raciocínio avançado, visão multimodal rica e limites altos", isPro: true },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash 🚀", desc: "Super rápido, ideal para ajustes rápidos no chat" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash 🌟", desc: "Nova geração inteligente da Google" },
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash 🚀", desc: "Recomendado oficial Google AI, modelo mais atualizado e veloz" },
+  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Endpoint estável e atualizado do Google AI Studio" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro 👑 (Conta Pro)", desc: "Raciocínio avançado, visão rica e cotas mais altas", isPro: true },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash 🌸", desc: "Super rápido para respostas instantâneas" },
 ];
 
 function getInitialGeminiModel(): string {
   try {
     const val = localStorage.getItem(STORAGE_KEY_GEMINI_MODEL);
-    if (val && val !== "gemini-3.8-flash") return val;
+    if (val && val !== "gemini-2.0-flash") return val;
   } catch {}
-  return "gemini-flash-latest";
+  return "gemini-3.8-flash";
 }
 
 function getInitialGeminiUsage(): number {

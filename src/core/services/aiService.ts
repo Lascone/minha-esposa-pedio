@@ -17,10 +17,10 @@ export interface WidgetAiGenerationResult {
 const WIDGET_SYSTEM_PROMPT = WIDGET_ECOSYSTEM_BRAIN;
 
 const GEMINI_CANDIDATE_MODELS = [
+  "gemini-3.8-flash",
   "gemini-flash-latest",
-  "gemini-1.5-pro",
   "gemini-1.5-flash",
-  "gemini-2.0-flash",
+  "gemini-1.5-pro",
 ];
 
 export interface GenerateWidgetOptions {
@@ -61,6 +61,34 @@ export async function fetchGroqModels(apiKey?: string): Promise<string[]> {
 
     store.setAvailableGroqModels(modelIds);
     return modelIds;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Consulta a lista oficial de modelos diretamente na API do Google AI Studio
+ */
+export async function fetchGeminiModels(apiKey?: string): Promise<{ id: string; displayName: string }[]> {
+  const store = useAiStore.getState();
+  const key = apiKey || store.geminiApiKey;
+  if (!key) return [];
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const list: any[] = data.models || [];
+
+    return list
+      .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m) => ({
+        id: (m.name as string).replace(/^models\//, ""),
+        displayName: m.displayName || (m.name as string).replace(/^models\//, ""),
+      }))
+      .filter((m) => m.id.includes("gemini") && !m.id.includes("embedding") && !m.id.includes("imagen") && !m.id.includes("aqa"))
+      .sort((a, b) => a.id.localeCompare(b.id));
   } catch {
     return [];
   }
@@ -370,14 +398,14 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
       }
     }
 
-    const requestedModel = store.geminiModel || "gemini-flash-latest";
+    const requestedModel = store.geminiModel || "gemini-3.8-flash";
     const modelsToTry = [
       requestedModel,
+      "gemini-3.8-flash",
       "gemini-flash-latest",
       "gemini-1.5-pro",
       "gemini-1.5-flash",
-      "gemini-2.0-flash",
-    ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+    ].filter((m, idx, arr) => arr.indexOf(m) === idx && m !== "gemini-2.0-flash");
 
     let lastGeminiError = "";
 

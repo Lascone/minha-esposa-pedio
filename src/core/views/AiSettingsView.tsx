@@ -19,7 +19,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useAiStore, GEMINI_AVAILABLE_MODELS } from "../stores/aiStore";
-import { testAiConnection, fetchGroqModels } from "../services/aiService";
+import { testAiConnection, fetchGroqModels, fetchGeminiModels } from "../services/aiService";
 import { useToast } from "../components/Toast";
 import { Button } from "../components/Button";
 
@@ -52,6 +52,8 @@ export const AiSettingsView: React.FC = () => {
   const [isTestingGroq, setIsTestingGroq] = useState(false);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [isFetchingGeminiModels, setIsFetchingGeminiModels] = useState(false);
+  const [detectedGeminiModels, setDetectedGeminiModels] = useState<{ id: string; displayName: string }[]>([]);
   const [showGeminiTutorial, setShowGeminiTutorial] = useState(false);
 
   const handleFetchModels = async () => {
@@ -69,6 +71,23 @@ export const AiSettingsView: React.FC = () => {
     }
   };
 
+  const handleFetchGeminiModels = async (keyToUse?: string) => {
+    const k = keyToUse || geminiApiKey || inputGeminiKey;
+    if (!k) {
+      addToast("Salve sua chave do Gemini primeiro para consultar os modelos disponíveis.", "warning");
+      return;
+    }
+    setIsFetchingGeminiModels(true);
+    const models = await fetchGeminiModels(k);
+    setIsFetchingGeminiModels(false);
+    if (models.length > 0) {
+      setDetectedGeminiModels(models);
+      addToast(`${models.length} modelos oficiais detectados na sua conta Google AI Studio! 🌟`, "sparkle");
+    } else {
+      addToast("Nenhum modelo retornado. Verifique se sua chave Google está correta.", "warning");
+    }
+  };
+
   const handleSaveGroqKey = async () => {
     setGroqApiKey(inputGroqKey);
     addToast(inputGroqKey.trim() ? "Chave da Groq salva com sucesso! ⚡" : "Chave da Groq removida.", "sparkle");
@@ -80,6 +99,9 @@ export const AiSettingsView: React.FC = () => {
   const handleSaveGeminiKey = () => {
     setGeminiApiKey(inputGeminiKey);
     addToast(inputGeminiKey.trim() ? "Chave do Gemini salva com sucesso! 🚀" : "Chave do Gemini removida.", "sparkle");
+    if (inputGeminiKey.trim()) {
+      handleFetchGeminiModels(inputGeminiKey.trim());
+    }
   };
 
   const handleTestGroq = async () => {
@@ -463,12 +485,25 @@ export const AiSettingsView: React.FC = () => {
 
             {/* Seleção de Modelo Gemini */}
             <div className="space-y-2 mb-4">
-              <label className="text-xs font-semibold text-theme-text flex items-center justify-between">
-                <span>Modelo Gemini Selecionado:</span>
-                <span className="text-[10px] text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
-                  {geminiModel}
+              <div className="flex items-center justify-between text-xs font-semibold text-theme-text">
+                <span className="flex items-center gap-1.5">
+                  Modelo Gemini Selecionado:
+                  <span className="text-[10px] text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+                    {geminiModel}
+                  </span>
                 </span>
-              </label>
+                <button
+                  type="button"
+                  onClick={() => handleFetchGeminiModels()}
+                  disabled={isFetchingGeminiModels || (!geminiApiKey && !inputGeminiKey)}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 hover:underline disabled:opacity-40"
+                  title="Consultar modelos compatíveis disponíveis na sua chave Google AI Studio"
+                >
+                  <RefreshCw size={11} className={isFetchingGeminiModels ? "animate-spin" : ""} />
+                  {isFetchingGeminiModels ? "Consultando..." : "Detectar Modelos Google"}
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {GEMINI_AVAILABLE_MODELS.map((m) => {
                   const isSelected = geminiModel === m.id;
@@ -499,6 +534,34 @@ export const AiSettingsView: React.FC = () => {
                   );
                 })}
               </div>
+
+              {/* Se modelos foram detectados da API Google, exibe lista dinâmica */}
+              {detectedGeminiModels.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-theme-border/40">
+                  <span className="text-[10px] text-theme-text-muted font-bold block mb-1.5">
+                    Modelos ativos detectados na sua conta Google ({detectedGeminiModels.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                    {detectedGeminiModels.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setGeminiModel(m.id);
+                          addToast(`Modelo Gemini definido para ${m.id}! 🌟`, "sparkle");
+                        }}
+                        className={`text-[10px] px-2 py-0.5 rounded-md border font-mono transition-all ${
+                          geminiModel === m.id
+                            ? "bg-blue-500 text-white border-blue-600 font-bold"
+                            : "bg-theme-surface border-theme-border text-theme-text hover:border-blue-400"
+                        }`}
+                      >
+                        {m.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quota Diária Gemini */}

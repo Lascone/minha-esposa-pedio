@@ -384,10 +384,10 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                   }}
                   className="bg-transparent text-xs text-theme-text font-semibold focus:outline-none cursor-pointer"
                 >
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash 🚀 (Oficial 2026)</option>
                   <option value="gemini-flash-latest">Gemini Flash Latest ⚡</option>
                   <option value="gemini-1.5-pro">Gemini 1.5 Pro 👑 (Pro)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash 🚀</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash 🌟</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash 🌸</option>
                 </select>
               </div>
             )}
