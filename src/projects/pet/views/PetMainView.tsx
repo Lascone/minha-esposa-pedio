@@ -75,9 +75,12 @@ export const PetMainView: React.FC = () => {
     return () => clearInterval(interval);
   }, [activeAnim]);
 
-  const currentFrame = activeAnim?.frames?.[animFrameIndex] || "";
-  const isSvg =
-    currentFrame.trim().startsWith("<svg") || currentFrame.includes("</svg>");
+  const currentFrame =
+    activeAnim?.frames?.[animFrameIndex] ||
+    character.previewImage ||
+    "/vpet/vup/idle/idle_0.png";
+  const isDirectSvg =
+    currentFrame.trim().startsWith("<svg") && !currentFrame.startsWith("data:");
 
   if (viewMode === "maker") {
     return (
@@ -197,7 +200,7 @@ export const PetMainView: React.FC = () => {
             {/* Sprite Interativo */}
             <div className="w-44 h-44 flex items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-pink-500/5 to-purple-500/5 border border-pink-500/20 shadow-inner group-hover:scale-105 transition-transform duration-300">
               {currentFrame ? (
-                isSvg ? (
+                isDirectSvg ? (
                   <div
                     className="w-36 h-36 flex items-center justify-center"
                     dangerouslySetInnerHTML={{ __html: currentFrame }}
@@ -206,7 +209,8 @@ export const PetMainView: React.FC = () => {
                   <img
                     src={currentFrame}
                     alt={character.name}
-                    className="w-36 h-36 object-contain"
+                    className="w-36 h-36 object-contain drop-shadow-md select-none"
+                    draggable={false}
                   />
                 )
               ) : (
@@ -347,8 +351,8 @@ export const PetMainView: React.FC = () => {
                   char.animations.idle?.frames?.[0] || char.previewImage;
                 const isCharSvg =
                   previewFrame &&
-                  (previewFrame.trim().startsWith("<svg") ||
-                    previewFrame.includes("</svg>"));
+                  previewFrame.trim().startsWith("<svg") &&
+                  !previewFrame.startsWith("data:");
 
                 return (
                   <div

@@ -98,6 +98,10 @@ export const usePetStore = create<PetStateStore>()(
       // Obtém o manifesto do bichinho ativo
       getActiveCharacter: () => {
         const { activeCharacterId, customCharacters } = get();
+        // Migração do localStorage antigo para o mascote oficial VUP
+        if (activeCharacterId === "mimi-sakura") {
+          return VUP_CHARACTER;
+        }
         const found =
           customCharacters.find((c) => c.id === activeCharacterId) ||
           DEFAULT_PRESET_CHARACTERS.find((c) => c.id === activeCharacterId);
@@ -339,14 +343,21 @@ export const usePetStore = create<PetStateStore>()(
 
       // Controle da Janela do Companion no Desktop
       spawnPetOnDesktop: async () => {
-        const { config, activeCharacterId } = get();
+        const { config, activeCharacterId, customName } = get();
+        const width = 360;
+        const height = 380;
+        const posX = Math.max(50, Math.round(config.x || 300));
+        const posY = Math.max(50, Math.round(config.y || 300));
         try {
+          console.log(`[Pet] Lançando janela do mascote '${customName}' no desktop (${width}x${height})`);
           await invoke("companion_open_window", {
             companionId: activeCharacterId,
-            width: Math.round(140 * (config.scale || 1)),
-            height: Math.round(140 * (config.scale || 1)),
-            x: config.x || 200,
-            y: config.y || 350,
+            title: customName || "Bichinho Virtual (VPet)",
+            x: posX,
+            y: posY,
+            width: width,
+            height: height,
+            alwaysOnTop: config.alwaysOnTop ?? true,
           });
           set({ isDesktopActive: true });
         } catch (e) {

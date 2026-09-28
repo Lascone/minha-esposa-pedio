@@ -51,9 +51,12 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
     const cleanId = (targetInstanceId || windowLabel || "").replace("companion-", "");
     return (
       allPets.some((p) => p.id === cleanId || targetInstanceId?.includes(p.id)) ||
+      targetInstanceId?.includes("vpet-vup") ||
+      targetInstanceId?.includes("vup") ||
       targetInstanceId?.includes("mimi-sakura") ||
       cleanId.startsWith("custom-pet") ||
-      targetInstanceId?.startsWith("pet-")
+      targetInstanceId?.startsWith("pet-") ||
+      usePetStore.getState().isDesktopActive
     );
   }, [targetInstanceId, windowLabel]);
 
