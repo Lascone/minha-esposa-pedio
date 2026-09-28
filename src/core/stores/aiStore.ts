@@ -9,6 +9,7 @@ export interface AiSettingsState {
   availableGroqModels: string[];
   geminiApiKey: string;
   geminiModel: string;
+  availableGeminiModels: { id: string; displayName: string }[];
   geminiRequestsToday: number;
   lastTestLatencyMs: number | null;
   lastTestStatus: "idle" | "testing" | "success" | "error";
@@ -20,6 +21,7 @@ export interface AiSettingsState {
   setAvailableGroqModels: (models: string[]) => void;
   setGeminiApiKey: (key: string) => void;
   setGeminiModel: (model: string) => void;
+  setAvailableGeminiModels: (models: { id: string; displayName: string }[]) => void;
   incrementGeminiUsage: () => void;
   setTestResult: (status: "idle" | "testing" | "success" | "error", latencyMs?: number | null, msg?: string | null) => void;
 }
@@ -108,6 +110,7 @@ export const useAiStore = create<AiSettingsState>((set, get) => ({
   availableGroqModels: [],
   geminiApiKey: getInitialGeminiKey(),
   geminiModel: getInitialGeminiModel(),
+  availableGeminiModels: [],
   geminiRequestsToday: getInitialGeminiUsage(),
   lastTestLatencyMs: null,
   lastTestStatus: "idle",
@@ -152,6 +155,10 @@ export const useAiStore = create<AiSettingsState>((set, get) => ({
       localStorage.setItem(STORAGE_KEY_GEMINI_MODEL, model);
     } catch {}
     set({ geminiModel: model });
+  },
+
+  setAvailableGeminiModels: (models) => {
+    set({ availableGeminiModels: models });
   },
 
   incrementGeminiUsage: () => {

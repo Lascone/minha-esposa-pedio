@@ -241,7 +241,7 @@ export async function generateOrModifyCustomWidget({
   // Montar o histórico no formato adequado
   const conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
-  // Se já existe um widget sendo editado ou enviado via options, adicionar contexto do código atual
+  // Se já existe um widget sendo editado ou enviado via options, preparar contexto completo
   const activePkg = currentPackage || (options?.currentWidgetPreview ? {
     manifest: { name: options.currentWidgetPreview.name || "Widget", defaultWidth: 300, defaultHeight: 200 } as any,
     html: options.currentWidgetPreview.html,
@@ -249,68 +249,74 @@ export async function generateOrModifyCustomWidget({
     js: options.currentWidgetPreview.js,
   } : undefined);
 
+  // Instrução de Sistema completa com o widget atual para modificação
+  let fullSystemInstruction = WIDGET_SYSTEM_PROMPT;
   if (activePkg) {
-    conversationMessages.push({
-      role: "system",
-      content: `O usuário está atualmente MODIFICANDO o seguinte widget existente:
-Manifesto atual: ${JSON.stringify(activePkg.manifest)}
-HTML atual:
-${activePkg.html}
-
-CSS atual:
-${activePkg.css}
-
-JS atual:
-${activePkg.js}
-
-Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e preservando a estabilidade defensiva do código. Lembre-se de manter sempre o WidgetAPI.emitReady() no final do JS.`,
-    });
+    fullSystemInstruction += `\n\n[WIDGET ATUAL EM MODIFICAÇÃO]:\n` +
+      `Manifesto: ${JSON.stringify(activePkg.manifest)}\n` +
+      `HTML Atual:\n${activePkg.html}\n\n` +
+      `CSS Atual:\n${activePkg.css}\n\n` +
+      `JS Atual:\n${activePkg.js}\n\n` +
+      `INSTRUÇÃO DE MODIFICAÇÃO: A usuária está pedindo melhorias no gadget existente acima. Modifique com amor e perfeição mantendo o que já está funcionando. Mantenha código JavaScript 100% defensivo (aguardar DOMContentLoaded, checar se elementos e canvas existem antes de usar .style ou .getContext, e manter WidgetAPI.emitReady() no final).`;
   }
 
-  // Compactar histórico recente (máximo 4 mensagens para não estourar limite de tokens/minuto)
-  const recentHistory = chatHistory.slice(-4);
-  for (const msg of recentHistory) {
-    conversationMessages.push({
-      role: msg.role === "assistant" ? "assistant" : "user",
-      content: msg.content,
-    });
-  }
-
-  // Enriquecer a mensagem do usuário com contexto diagnóstico e visual
+  // Enriquecer a mensagem do usuário com contexto diagnóstico de erro se houver
   let enrichedUserMessage = userMessage;
 
   if (options?.currentError) {
-    enrichedUserMessage += `\n\n⚠️ [ERRO DETECTADO NO NAVEGADOR/CONSOLE DO WIDGET]:\n"${options.currentError}"\nPor favor, analise a causa do erro acima (ex: elemento nulo, canvas sem getContext, etc.) e reescreva o código de forma 100% defensiva com verificação de existência antes de usar .style ou propriedades.`;
+    enrichedUserMessage += `\n\n⚠️ [ERRO DETECTADO NO CONSOLE DO WIDGET]:\n"${options.currentError}"\nPor favor, analise a causa do erro acima e corrija o código JavaScript/HTML com programação defensiva.`;
   }
 
   if (options?.attachedImageBase64) {
-    enrichedUserMessage += `\n\n🖼️ [IMAGEM ANEXADA]: A usuária enviou uma imagem/print em anexo! Analise com carinho todos os detalhes visuais (cores, formatos, ícones, fontes e layout) e crie o gadget correspondente com muita perfeição e fofura.`;
+    enrichedUserMessage += `\n\n🖼️ [IMAGEM ANEXADA]: A usuária enviou uma imagem/print em anexo! Observe com carinho todas as cores, elementos, formato e estilo visual da foto e crie o gadget correspondente.`;
   }
 
-  // Adicionar mensagem atual enriquecida
-  conversationMessages.push({
-    role: "user",
-    content: enrichedUserMessage,
-  });
+  // Pegar até 4 mensagens reais do histórico para não estourar tokens
+  const historySlice = chatHistory
+    .filter((m) => m.content && m.content.trim())
+    .slice(-4);
 
   let rawJsonText = "";
 
   if (provider === "groq") {
     const apiKey = store.groqApiKey;
     if (!apiKey) {
-      throw new Error("Chave da API Groq não configurada. Acesse a aba 'IAs' para configurar sua chave gratuita do Groq.");
+      throw new Error("Chave da API Groq não configurada. Acesse a aba 'IAs' para configurar sua chave da Groq.");
     }
 
-    const requestedModel = store.groqModel || "llama-3.1-8b-instant";
-    const modelsToTry = [requestedModel, "llama-3.3-70b-versatile", "llama-3.1-8b-instant"].filter(
-      (m, idx, arr) => arr.indexOf(m) === idx
-    );
+    // Buscar lista dinâmica de modelos suportados pela chave do usuário
+    let availableGroq = store.availableGroqModels;
+    if (!availableGroq || availableGroq.length === 0) {
+      availableGroq = await fetchGroqModels(apiKey);
+    }
+
+    const requestedModel = store.groqModel || availableGroq[0] || "openai/gpt-oss-120b";
+    const modelsToTry = Array.from(new Set([
+      requestedModel,
+      ...availableGroq,
+      "openai/gpt-oss-120b",
+    ])).filter((m) => m && m !== "llama-3.1-8b-instant" && m !== "llama-3.3-70b-versatile");
+
+    const groqMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: fullSystemInstruction },
+    ];
+
+    for (const m of historySlice) {
+      groqMessages.push({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      });
+    }
+
+    groqMessages.push({
+      role: "user",
+      content: enrichedUserMessage,
+    });
 
     let lastGroqError = "";
 
     for (const modelToUse of modelsToTry) {
       try {
-        // Tentativa 1: com json_object
         let res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -319,16 +325,12 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
           },
           body: JSON.stringify({
             model: modelToUse,
-            messages: [
-              { role: "system", content: WIDGET_SYSTEM_PROMPT },
-              ...conversationMessages,
-            ],
+            messages: groqMessages,
             temperature: 0.5,
             response_format: { type: "json_object" },
           }),
         });
 
-        // Se falhou por JSON mode ou rate limit, tenta sem json_object
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           lastGroqError = errData?.error?.message || `HTTP ${res.status}`;
@@ -342,8 +344,8 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
             body: JSON.stringify({
               model: modelToUse,
               messages: [
-                { role: "system", content: WIDGET_SYSTEM_PROMPT + "\n\nResponda estritamente com o JSON iniciando em { e terminando em }." },
-                ...conversationMessages,
+                { role: "system", content: fullSystemInstruction + "\n\nResponda estritamente com o JSON iniciando em { e terminando em }." },
+                ...groqMessages.filter((msg) => msg.role !== "system"),
               ],
               temperature: 0.5,
             }),
@@ -368,7 +370,7 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
     }
 
     if (!rawJsonText.trim()) {
-      throw new Error(`Erro Groq: ${lastGroqError || "Limite de taxa atingido. Tente novamente em alguns segundos ou selecione Llama 3.1 8B."}`);
+      throw new Error(`Erro Groq: ${lastGroqError || "Falha ao gerar com os modelos Groq disponíveis."}`);
     }
   } else {
     // Provedor Gemini
@@ -377,35 +379,63 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
       throw new Error("Chave da API Gemini não configurada. Acesse a aba 'IAs' para configurar sua chave do Gemini.");
     }
 
-    // Montar contents para o Gemini
-    const geminiContents: { role: string; parts: any[] }[] = conversationMessages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-    // Se houver imagem anexada, injeta inlineData na última mensagem do usuário
-    if (options?.attachedImageBase64) {
-      const mimeType = options.attachedImageMimeType || "image/png";
-      const cleanBase64 = options.attachedImageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, "");
-      const lastUserContent = geminiContents[geminiContents.length - 1];
-      if (lastUserContent) {
-        lastUserContent.parts.push({
-          inlineData: {
-            mimeType: mimeType,
-            data: cleanBase64,
-          },
-        });
+    // Buscar lista de modelos do Google
+    let availableGemini: string[] = store.availableGeminiModels?.map((m: { id: string }) => m.id) || [];
+    if (!availableGemini || availableGemini.length === 0) {
+      const fetched = await fetchGeminiModels(apiKey);
+      if (fetched.length > 0) {
+        availableGemini = fetched.map((m) => m.id);
       }
     }
 
     const requestedModel = store.geminiModel || "gemini-3.8-flash";
-    const modelsToTry = [
+    const modelsToTry = Array.from(new Set([
       requestedModel,
+      ...availableGemini,
       "gemini-3.8-flash",
       "gemini-flash-latest",
       "gemini-1.5-pro",
-      "gemini-1.5-flash",
-    ].filter((m, idx, arr) => arr.indexOf(m) === idx && m !== "gemini-2.0-flash");
+    ])).filter((m) => m && m !== "gemini-2.0-flash" && m !== "gemini-1.5-flash");
+
+    // Montar turnos estritamente alternados user -> model para o Gemini
+    const geminiContents: { role: "user" | "model"; parts: any[] }[] = [];
+
+    for (const m of historySlice) {
+      const role: "user" | "model" = m.role === "assistant" ? "model" : "user";
+      if (!m.content?.trim()) continue;
+
+      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
+        geminiContents[geminiContents.length - 1].parts[0].text += `\n\n${m.content}`;
+      } else {
+        geminiContents.push({
+          role,
+          parts: [{ text: m.content }],
+        });
+      }
+    }
+
+    // Se o último turno do histórico for user, removemos para colocar a mensagem atual com anexo
+    if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === "user") {
+      geminiContents.pop();
+    }
+
+    // Turno final do usuário atual
+    const userParts: any[] = [{ text: enrichedUserMessage }];
+    if (options?.attachedImageBase64) {
+      const mimeType = options.attachedImageMimeType || "image/png";
+      const cleanBase64 = options.attachedImageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, "");
+      userParts.push({
+        inlineData: {
+          mimeType,
+          data: cleanBase64,
+        },
+      });
+    }
+
+    geminiContents.push({
+      role: "user",
+      parts: userParts,
+    });
 
     let lastGeminiError = "";
 
@@ -416,7 +446,7 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: WIDGET_SYSTEM_PROMPT }],
+              parts: [{ text: fullSystemInstruction }],
             },
             contents: geminiContents,
             generationConfig: {
@@ -442,7 +472,7 @@ Aplique com carinho as melhorias pedidas mantendo o que já está funcionando e 
     }
 
     if (!rawJsonText.trim()) {
-      throw new Error(`Erro Gemini (${requestedModel}): ${lastGeminiError || "Modelos Gemini em alta demanda temporária. Tente novamente."}`);
+      throw new Error(`Erro Gemini (${requestedModel}): ${lastGeminiError || "Modelos Gemini indisponíveis. Tente novamente."}`);
     }
   }
 
