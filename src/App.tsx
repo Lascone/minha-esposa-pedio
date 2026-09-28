@@ -3,6 +3,7 @@ import { AppLayout } from "./core/layout/AppLayout";
 import { HomeView } from "./core/views/HomeView";
 import { ProjectsView } from "./core/views/ProjectsView";
 import { SettingsView } from "./core/views/SettingsView";
+import { AiSettingsView } from "./core/views/AiSettingsView";
 import { AboutView } from "./core/views/AboutView";
 import { AssetHubView } from "./core/views/AssetHubView";
 import { ProfileView } from "./core/views/ProfileView";
@@ -305,6 +306,9 @@ export const App: React.FC = () => {
     }
     if (currentRoute === "/shortcuts") {
       return <ShortcutsHubView />;
+    }
+    if (currentRoute === "/ai" || currentRoute === "/ais") {
+      return <AiSettingsView />;
     }
     if (currentRoute === "/settings") {
       return <SettingsView />;

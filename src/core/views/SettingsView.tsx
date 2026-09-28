@@ -27,6 +27,7 @@ import {
 import { checkForUpdates, getCurrentVersion, UpdateInfo } from "@/core/services/updateService";
 import { UpdateModal } from "@/core/components/UpdateModal";
 import { IntegrationsManagerCard } from "@/core/components/IntegrationsManagerCard";
+import { useAiStore } from "@/core/stores/aiStore";
 
 interface MonitorOption {
   name: string;
@@ -102,6 +103,7 @@ export const SettingsView: React.FC = () => {
   const handleSaveGeminiKey = () => {
     const trimmed = geminiApiKey.trim();
     localStorage.setItem("pmm_gemini_api_key", trimmed);
+    useAiStore.getState().setGeminiApiKey(trimmed);
     addToast(trimmed ? "Chave do Gemini 2.0 Flash salva! 🚀" : "Chave removida.", "sparkle");
   };
 
@@ -437,13 +439,22 @@ export const SettingsView: React.FC = () => {
             <Sparkles size={18} className="text-purple-500" />
             <h3 className="text-base font-bold text-theme-text">IA em Nuvem & Visão (Google Gemini 2.0 Flash)</h3>
           </div>
-          <button
-            onClick={() => setShowGeminiTutorial(true)}
-            className="flex items-center gap-1.5 text-xs text-theme-primary hover:underline font-bold"
-          >
-            <HelpCircle size={14} />
-            <span>Como pegar a chave grátis (Tutorial)</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="#/ai"
+              className="text-xs font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 hover:underline"
+            >
+              <span>Gerenciar na Central de IAs (Groq + Gemini)</span>
+              <span>&rarr;</span>
+            </a>
+            <button
+              onClick={() => setShowGeminiTutorial(true)}
+              className="flex items-center gap-1.5 text-xs text-theme-primary hover:underline font-bold"
+            >
+              <HelpCircle size={14} />
+              <span>Tutorial</span>
+            </button>
+          </div>
         </div>
 
         {/* Input da Chave */}

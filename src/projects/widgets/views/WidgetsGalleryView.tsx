@@ -6,6 +6,7 @@ import { useCustomWidgetsStore } from "../custom/customWidgetsStore";
 import { CustomWidgetPackage } from "../custom/types";
 import { CustomWidgetEditorModal } from "../custom/CustomWidgetEditorModal";
 import { CustomWidgetDocsModal } from "../custom/CustomWidgetDocsModal";
+import { CustomWidgetAiChatModal } from "../custom/CustomWidgetAiChatModal";
 import { ConsoleSnesCard } from "../console/components/ConsoleSnesCard";
 import { WidgetThumbnail } from "../components/WidgetThumbnail";
 import { AddGameWizard } from "../console/components/AddGameWizard";
@@ -48,6 +49,8 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
   // Modals state
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<CustomWidgetPackage | undefined>(undefined);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiChatPackage, setAiChatPackage] = useState<CustomWidgetPackage | undefined>(undefined);
   const [docsOpen, setDocsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -191,10 +194,22 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {/* Create with Free AI */}
+            <button
+              onClick={() => {
+                setAiChatPackage(undefined);
+                setAiChatOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-cute bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-xs font-black transition-all shadow-soft active:scale-95 border border-pink-300/30"
+            >
+              <Sparkles size={14} className="text-yellow-200 animate-pulse" />
+              <span>Criar com IA Gratuita</span>
+            </button>
+
             {/* Create with code */}
             <button
               onClick={handleOpenNewEditor}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-cute bg-theme-primary hover:bg-pink-600 text-white text-xs font-bold transition-all shadow-soft active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-cute bg-theme-surface-card hover:bg-theme-surface border border-theme-border text-theme-text text-xs font-bold transition-all shadow-soft active:scale-95"
             >
               <Code size={14} />
               <span>Criar com Modelo</span>
@@ -330,6 +345,19 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
                 {isCustom && (
                   <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                     <button
+                      onClick={() => {
+                        const pkg = customPackages.find((p) => p.manifest.id === def.type);
+                        if (pkg) {
+                          setAiChatPackage(pkg);
+                          setAiChatOpen(true);
+                        }
+                      }}
+                      className="p-1 rounded-lg hover:bg-theme-surface-card text-pink-400 hover:text-pink-300 transition-colors"
+                      title="Modificar com IA (Chat)"
+                    >
+                      <Sparkles size={13} />
+                    </button>
+                    <button
                       onClick={() => handleEditCustom(def.type)}
                       className="p-1 rounded-lg hover:bg-theme-surface-card text-theme-text-muted hover:text-pink-400 transition-colors"
                       title="Editar código"
@@ -426,6 +454,21 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
           }}
         />
       )}
+
+      {/* AI Chat Studio Modal */}
+      <CustomWidgetAiChatModal
+        isOpen={aiChatOpen}
+        initialPackage={aiChatPackage}
+        onClose={() => setAiChatOpen(false)}
+        onSavedAndAdded={(pkg) => {
+          if (onWidgetAdded) onWidgetAdded();
+          showNotice(`Widget "${pkg.manifest.name}" criado e adicionado ao seu Desktop! ✨`);
+        }}
+        onOpenCodeEditor={(pkg) => {
+          setEditingPackage(pkg);
+          setEditorOpen(true);
+        }}
+      />
     </div>
   );
 };

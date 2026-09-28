@@ -15,6 +15,7 @@ import {
   MousePointer,
   Keyboard,
   SlidersHorizontal,
+  Bot,
 } from "lucide-react";
 import { useThemeStore } from "../theme/themeManager";
 import { useProfileStore } from "../providers/dicebearProvider";
@@ -85,6 +86,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: "Asset Hub",
       icon: <Search size={18} />,
       route: "/hub",
+    },
+    {
+      id: "ai",
+      label: "IAs & Modelos",
+      icon: <Bot size={18} />,
+      route: "/ai",
+      badge: "NOVO",
     },
     {
       id: "settings",

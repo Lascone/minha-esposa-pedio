@@ -29,6 +29,13 @@ export interface CustomWidgetManifest {
   website?: string;
 }
 
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
+
 export interface CustomWidgetPackage {
   manifest: CustomWidgetManifest;
   html: string;
@@ -37,6 +44,7 @@ export interface CustomWidgetPackage {
   assets?: Record<string, string>; // Filename -> Data URI
   createdAt: number;
   updatedAt: number;
+  chatHistory?: AiChatMessage[];
 }
 
 export interface SandboxMessageToParent {
