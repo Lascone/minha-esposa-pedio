@@ -19,6 +19,7 @@ import {
 import { usePetStore } from "../store/petStore";
 import { PetCarePanel } from "../components/PetCarePanel";
 import { PetEditorModal } from "../editor/PetEditorModal";
+import { PetMakerStudio } from "../maker/PetMakerStudio";
 import { PetCharacterManifest } from "../types";
 
 export const PetMainView: React.FC = () => {
@@ -39,6 +40,7 @@ export const PetMainView: React.FC = () => {
     deleteCustomCharacter,
   } = usePetStore();
 
+  const [viewMode, setViewMode] = useState<"game" | "maker">("game");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<
     PetCharacterManifest | undefined
@@ -77,6 +79,15 @@ export const PetMainView: React.FC = () => {
   const isSvg =
     currentFrame.trim().startsWith("<svg") || currentFrame.includes("</svg>");
 
+  if (viewMode === "maker") {
+    return (
+      <PetMakerStudio
+        onBackToGame={() => setViewMode("game")}
+        targetCharacterId={editingCharacter?.id}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8 p-6 max-w-7xl mx-auto animate-fadeIn select-none">
       {/* Top Banner & Header */}
@@ -101,15 +112,38 @@ export const PetMainView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Switcher de Modo Jogo vs Oficina Mod Maker */}
+          <div className="flex items-center bg-theme-surface p-1 rounded-2xl border border-theme-border/60">
+            <button
+              onClick={() => setViewMode("game")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                viewMode === "game"
+                  ? "bg-pink-500 text-white shadow-soft"
+                  : "text-theme-text-muted hover:text-theme-text"
+              }`}
+            >
+              🎮 Jogo
+            </button>
+            <button
+              onClick={() => {
+                setEditingCharacter(character);
+                setViewMode("maker");
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-card"
+            >
+              🛠️ Oficina Mod Maker
+            </button>
+          </div>
+
           <button
             onClick={() => {
               setEditingCharacter(undefined);
-              setIsEditorOpen(true);
+              setViewMode("maker");
             }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-theme-surface-card hover:bg-theme-surface text-theme-text border border-theme-border/60 font-bold text-xs shadow-soft transition-all"
           >
             <Plus size={16} className="text-pink-500" />
-            <span>Criar Novo Pet (Mod Maker)</span>
+            <span>Criar Novo Pet</span>
           </button>
 
           <button
@@ -198,12 +232,12 @@ export const PetMainView: React.FC = () => {
             <button
               onClick={() => {
                 setEditingCharacter(character);
-                setIsEditorOpen(true);
+                setViewMode("maker");
               }}
               className="mt-4 w-full py-2 rounded-xl bg-theme-surface hover:bg-theme-surface-card border border-theme-border/60 text-xs font-bold text-theme-text transition-all flex items-center justify-center gap-2"
             >
               <Sliders size={14} className="text-pink-500" />
-              Editar no Mod Maker
+              Editar na Oficina (Mod Maker)
             </button>
           </div>
 
@@ -375,10 +409,10 @@ export const PetMainView: React.FC = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingCharacter(char);
-                            setIsEditorOpen(true);
+                            setViewMode("maker");
                           }}
                           className="p-1 rounded-md text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-card"
-                          title="Editar no Mod Maker"
+                          title="Editar na Oficina (Mod Maker)"
                         >
                           <Sliders size={13} />
                         </button>
