@@ -20,17 +20,23 @@ O módulo **Bichinho Virtual** foi criado com carinho dentro de **"Pedi para meu
    - **Felicidade (✨):** Brinque com bolinhas e novelos de lã.
    - **Cafuné e Dengo (💖):** Clique na cabeça ou corpo para fazer carinho com partículas de corações flutuantes.
    - **Vínculo e Experiência (XP):** Ganhe pontos de vínculo e suba de nível com cada cuidado.
+   - **Baú de Mimos 2D com Animação Pixel Art:** Baú de itens flutuante arrastável na tela com animações reais de abrir/fechar (temas Ouro e Madeira), permitindo arrastar os itens diretamente até a mascotinha ou alimentá-la com um clique!
 
 3. **Passagem de Tempo Amigável e Segura (Zero Punição):**
    - **O bichinho NUNCA MORRE!** Se a usuária ficar dias sem abrir o computador, o pet apenas sentirá saudades e pedirá atenção. Os indicadores possuem pisos de segurança (mínimo 15%~25%) e o cálculo offline é limitado a no máximo 12 horas.
 
-4. **Falas e Reações 100% em Português do Brasil (pt-BR):**
-   - Balão de fala flutuante estilizado acima do mascote.
-   - Frases contextuais para quando acordar, sentir fome, sede, sono, felicidade ou receber cafuné.
-   - Clique com o botão direito abre um menu contextual com opções rápidas de cuidado e recolhimento.
+4. **Física e Arraste do VPet Original:**
+   - **Arrastar e Levantar:** Pressionar e mover a mascotinha ativa a animação oficial de suspensão pelas axilas (`drag`) e move a janela suavemente pelo desktop via Tauri WebviewWindow.
+   - **Soltar e Jogar nos Cantos:** Ao soltar o mouse, o pet entra no estado de queda (`fall`) e aterrissa em `idle`. Ao soltar próximo aos cantos da tela (`x <= 50` ou `x >= screenWidth - windowWidth - 50`), a personagem detecta a borda, vira o olhar para o lado da tela e solta frases fofas em pt-BR!
+   - **Balão de Fala Protegido:** Posicionado com margem de segurança garantida dentro da janela para nunca ser cortado pelo topo do desktop.
 
-5. **Editor de Personagens Completo (VPet Mod Maker Integrado):**
-   - Acesso direto pelo botão **"Criar Novo Pet (Mod Maker)"** ou **"Editar no Mod Maker"**.
+5. **Oficina Steam (Steam Workshop) Integrada:**
+   - Navegue por centenas de mods e personagens criados pela comunidade oficial do VPet Simulator (AppID `1920960`) diretamente dentro do aplicativo usando a Steam Web API.
+   - Filtros por Mais Votados, Em Alta, Mais Inscritos e Recentes, com busca por texto e tags.
+   - Importação rápida de mods como personagens jogáveis no Pet Studio e links diretos para abrir na Oficina Steam!
+
+6. **Editor de Personagens Completo (VPet Mod Maker Integrado):**
+   - Acesso direto pelo botão **"Criador de Mods"**.
    - Definição de nome, espécie, autor e descrição.
    - Customização de falas em pt-BR para cada situação.
    - Importação de quadros de animação via upload (PNGs transparentes, GIFs, WebP ou SVGs).
@@ -44,12 +50,13 @@ O módulo **Bichinho Virtual** foi criado com carinho dentro de **"Pedi para meu
 
 - [types.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/types.ts): Definições de estados de animação, indicadores de status, falas, manifestos e pacotes.
 - [items.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/items.ts): Catálogo de comidas, bebidas, brinquedos e produtos de higiene.
-- [presets.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/presets.ts): Mascote original "Mimi Sakura" com animações completas SVG vetoriais para 13 estados.
+- [presets.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/presets.ts): Mascote original "VUP" com sprites HD oficiais e "Mimi Sakura".
 - [petStore.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/store/petStore.ts): Gerenciador Zustand persistido (`pmm_vpet_character_store`) com cálculo offline, ganho de XP e controle de desktop.
-- [PetCarePanel.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/components/PetCarePanel.tsx): Painel de necessidades e gaveta de inventário de itens.
-- [PetDesktopView.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/components/PetDesktopView.tsx): Visualização flutuante de desktop com arrastar nativo, partículas e menu de clique direito.
-- [PetEditorModal.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/editor/PetEditorModal.tsx): Editor visual de personagens e pacotes `.pet.json`.
-- [PetMainView.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/views/PetMainView.tsx): Tela principal com visão geral, seletor de personagens e controles de tela.
+- [steamWorkshopService.ts](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/services/steamWorkshopService.ts): Serviço da Steam Web API (AppID 1920960).
+- [PetSteamWorkshop.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/components/PetSteamWorkshop.tsx): Interface da Oficina Steam com catálogo de mods, filtros e importação.
+- [PetDesktopView.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/components/PetDesktopView.tsx): Visualização flutuante de desktop com arrastar nativo, física de cantos, baú 2D animado e balão protegido.
+- [PetMakerStudio.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/maker/PetMakerStudio.tsx): Estúdio VPet ModMaker completo para criar pets, comidas e falas.
+- [PetMainView.tsx](file:///c:/Projetos/Minha%20Esposa%20Pedio/src/projects/pet/views/PetMainView.tsx): Tela principal com seletor de modos (Jogo, Criador de Mods e Oficina Steam).
 
 ---
 

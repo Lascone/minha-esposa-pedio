@@ -344,8 +344,8 @@ export const usePetStore = create<PetStateStore>()(
       // Controle da Janela do Companion no Desktop
       spawnPetOnDesktop: async () => {
         const { config, activeCharacterId, customName } = get();
-        const width = 360;
-        const height = 380;
+        const width = 440;
+        const height = 480;
         const posX = Math.max(50, Math.round(config.x || 300));
         const posY = Math.max(50, Math.round(config.y || 300));
         try {

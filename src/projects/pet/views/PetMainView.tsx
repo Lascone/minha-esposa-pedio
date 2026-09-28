@@ -20,6 +20,7 @@ import { usePetStore } from "../store/petStore";
 import { PetCarePanel } from "../components/PetCarePanel";
 import { PetEditorModal } from "../editor/PetEditorModal";
 import { PetMakerStudio } from "../maker/PetMakerStudio";
+import { PetSteamWorkshop } from "../components/PetSteamWorkshop";
 import { PetCharacterManifest } from "../types";
 
 export const PetMainView: React.FC = () => {
@@ -40,7 +41,7 @@ export const PetMainView: React.FC = () => {
     deleteCustomCharacter,
   } = usePetStore();
 
-  const [viewMode, setViewMode] = useState<"game" | "maker">("game");
+  const [viewMode, setViewMode] = useState<"game" | "maker" | "workshop">("game");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<
     PetCharacterManifest | undefined
@@ -82,6 +83,17 @@ export const PetMainView: React.FC = () => {
   const isDirectSvg =
     currentFrame.trim().startsWith("<svg") && !currentFrame.startsWith("data:");
 
+  if (viewMode === "workshop") {
+    return (
+      <PetSteamWorkshop
+        onBackToGame={() => setViewMode("game")}
+        onImportCharacter={(newChar) => {
+          setViewMode("game");
+        }}
+      />
+    );
+  }
+
   if (viewMode === "maker") {
     return (
       <PetMakerStudio
@@ -115,15 +127,11 @@ export const PetMainView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Switcher de Modo Jogo vs Oficina Mod Maker */}
+          {/* Switcher de Modo: Jogo, Mod Maker, Oficina Steam */}
           <div className="flex items-center bg-theme-surface p-1 rounded-2xl border border-theme-border/60">
             <button
               onClick={() => setViewMode("game")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                viewMode === "game"
-                  ? "bg-pink-500 text-white shadow-soft"
-                  : "text-theme-text-muted hover:text-theme-text"
-              }`}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-pink-500 text-white shadow-soft"
             >
               🎮 Jogo
             </button>
@@ -134,7 +142,13 @@ export const PetMainView: React.FC = () => {
               }}
               className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-card"
             >
-              🛠️ Oficina Mod Maker
+              🛠️ Criador de Mods
+            </button>
+            <button
+              onClick={() => setViewMode("workshop")}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-card"
+            >
+              🛍️ Oficina Steam
             </button>
           </div>
 
