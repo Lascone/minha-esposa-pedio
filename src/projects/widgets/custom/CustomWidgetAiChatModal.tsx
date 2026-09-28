@@ -20,15 +20,22 @@ import {
   Image as ImageIcon,
   Paperclip,
   Trash2,
+  History,
+  Search,
+  Plus,
+  Edit2,
+  PanelLeft,
 } from "lucide-react";
 import { CustomWidgetPackage, AiChatMessage } from "./types";
 import { useCustomWidgetsStore } from "./customWidgetsStore";
 import { useWidgetsStore } from "../store/widgetsStore";
-import { useAiStore, GEMINI_AVAILABLE_MODELS } from "@/core/stores/aiStore";
-import { generateOrModifyCustomWidget } from "@/core/services/aiService";
+import { useAiStore } from "@/core/stores/aiStore";
+import { generateOrModifyCustomWidget, fetchGeminiModels, fetchGroqModels } from "@/core/services/aiService";
 import { WidgetSandbox } from "./WidgetSandbox";
 import { WidgetTheme } from "../types";
 import { useToast } from "@/core/components/Toast";
+import { useWidgetChatsStore, WidgetChatSession } from "./customWidgetChatsStore";
+import { CuteImagePickerModal } from "./CuteImagePickerModal";
 
 interface CustomWidgetAiChatModalProps {
   isOpen: boolean;
@@ -112,13 +119,28 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     groqApiKey,
     groqModel,
     setGroqModel,
+    availableGroqModels,
     geminiApiKey,
     geminiModel,
     setGeminiModel,
+    availableGeminiModels,
   } = useAiStore();
   const savePackage = useCustomWidgetsStore((s) => s.savePackage);
   const addWidget = useWidgetsStore((s) => s.addWidget);
   const { addToast } = useToast();
+
+  const {
+    sessions,
+    activeSessionId,
+    createSession,
+    selectSession,
+    updateActiveSession,
+    renameSession,
+    deleteSession,
+  } = useWidgetChatsStore();
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
   const [currentPackage, setCurrentPackage] = useState<CustomWidgetPackage | null>(initialPackage || null);
   const [previewWallpaper, setPreviewWallpaper] = useState<"grid" | "pink" | "aero" | "dark">("grid");
@@ -131,8 +153,8 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         id: "welcome",
         role: "assistant",
         content: initialPackage
-          ? `Olá! Estou pronta para aprimorar o gadget "${initialPackage.manifest.name}". O que você gostaria de mudar ou adicionar nele? 💖`
-          : "Oi! Sou seu assistente de criação de gadgets. Me diga como você quer o seu novo gadget (ex: 'Um relógio lilás com cantos arredondados e frase do dia') e eu crio para você na hora! ✨",
+          ? `Oi, amor da minha vida! 💕 Já parei tudo o que eu tava fazendo aqui pra mexer no seu "${initialPackage.manifest.name}". O que a patroa quer mudar ou melhorar hoje? (pede pouco hein kkkk) 💖`
+          : "Oi, meu amor! 💖 O que a patroa vai mandar eu programar hoje? Pode pedir qualquer coisa que o maridão resolve (mas já aviso que vou dar uma reclamadinha antes kkkk)! 🌸✨",
         timestamp: Date.now(),
       },
     ];
@@ -150,22 +172,72 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Auto-busca modelos disponíveis da conta quando o modal abre
+  useEffect(() => {
+    if (isOpen) {
+      fetchGeminiModels();
+      fetchGroqModels();
+    }
+  }, [isOpen]);
+
+  // Sincroniza sessões de histórico
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialPackage) {
+      const existing = sessions.find((s) => s.currentPackage?.manifest.id === initialPackage.manifest.id);
+      if (existing) {
+        selectSession(existing.id);
+        setCurrentPackage(existing.currentPackage || initialPackage);
+        setMessages(existing.messages || []);
+      } else {
+        createSession(initialPackage.manifest.name, initialPackage);
+        setCurrentPackage(initialPackage);
+        if (initialPackage.chatHistory && initialPackage.chatHistory.length > 0) {
+          setMessages(initialPackage.chatHistory);
+        }
+      }
+    } else {
+      if (sessions.length === 0) {
+        createSession("Novo Gadget Fofo 🌸");
+      } else if (activeSessionId) {
+        const active = sessions.find((s) => s.id === activeSessionId);
+        if (active) {
+          setCurrentPackage(active.currentPackage || null);
+          setMessages(active.messages);
+        }
+      }
+    }
+  }, [isOpen, initialPackage]);
+
+  const handleStartNewChat = () => {
+    createSession("Novo Gadget Fofo 🌸");
+    setCurrentPackage(null);
+    const welcomeMsg: AiChatMessage = {
+      id: `welcome-${Date.now()}`,
+      role: "assistant",
+      content: "Fala, amor! 💖 O que a patroa vai mandar eu programar hoje? Pode pedir qualquer coisa que o maridão resolve (vou reclamar mas vou fazer com todo o amor do mundo)! 🌸✨",
+      timestamp: Date.now(),
+    };
+    setMessages([welcomeMsg]);
+    setIsHistoryOpen(false);
+    addToast("Novo projeto iniciado! Peça o que quiser ✨", "sparkle");
+  };
+
+  const handleSelectChatSession = (sess: WidgetChatSession) => {
+    selectSession(sess.id);
+    setCurrentPackage(sess.currentPackage || null);
+    setMessages(sess.messages || []);
+    setIsHistoryOpen(false);
+    addToast(`Chat "${sess.title}" carregado! ✨`, "sparkle");
+  };
+
   // Auto-scroll chat
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [messages, isGenerating]);
-
-  // Se mudar o initialPackage externo, recarrega
-  useEffect(() => {
-    if (initialPackage) {
-      setCurrentPackage(initialPackage);
-      if (initialPackage.chatHistory && initialPackage.chatHistory.length > 0) {
-        setMessages(initialPackage.chatHistory);
-      }
-    }
-  }, [initialPackage]);
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -278,6 +350,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
       setMessages(updatedPkg.chatHistory || []);
       setHasUnsavedChanges(true);
       setPreviewKey((k) => k + 1);
+      updateActiveSession(updatedPkg.chatHistory || [], updatedPkg, updatedPkg.manifest.name);
       addToast("Gadget atualizado no preview ao vivo! ✨", "sparkle");
     } catch (err: any) {
       const errorMsg: AiChatMessage = {
@@ -286,7 +359,11 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         content: `Ops, tive um problema ao criar: ${err.message || "Tente novamente ou verifique sua conexão."} 🥺`,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => {
+        const next = [...prev, errorMsg];
+        updateActiveSession(next, currentPackage || undefined);
+        return next;
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -302,6 +379,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     };
 
     savePackage(pkgToSave);
+    updateActiveSession(messages, pkgToSave, pkgToSave.manifest.name);
     addWidget(pkgToSave.manifest.id as any);
     addToast(`"${pkgToSave.manifest.name}" adicionado à Área de Trabalho! 🚀`, "success");
     setHasUnsavedChanges(false);
@@ -320,6 +398,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
       updatedAt: Date.now(),
     };
     savePackage(pkgToSave);
+    updateActiveSession(messages, pkgToSave, pkgToSave.manifest.name);
     setHasUnsavedChanges(false);
     addToast(`"${pkgToSave.manifest.name}" salvo com sucesso!`, "sparkle");
   };
@@ -337,57 +416,68 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         {/* Header */}
         <div className="px-6 py-4 border-b border-theme-border/80 flex items-center justify-between bg-theme-surface/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 text-white flex items-center justify-center text-xl shadow-soft">
-              <Sparkles size={20} />
+            <div className="w-10 h-10 rounded-2xl overflow-hidden border border-pink-500/30 shadow-soft flex-shrink-0 bg-pink-500/10">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold text-theme-text">
-                  {currentPackage ? `Modificando: ${currentPackage.manifest.name}` : "Estúdio de Gadgets com IA"}
+                <h2 className="text-base font-extrabold text-theme-text flex items-center gap-1.5">
+                  <span>🤵‍♂️</span>
+                  <span>{currentPackage ? `Maridão Modificando: ${currentPackage.manifest.name}` : "Maridão Programador (Modo Reclamão Ativo 💕)"}</span>
                 </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-bold border border-pink-500/30">
                   {currentPackage ? "Modo Refinamento" : "Novo Gadget"}
                 </span>
               </div>
               <p className="text-xs text-theme-text-muted mt-0.5">
-                Peça o que quiser no chat à esquerda e veja a mágica acontecer ao vivo na direita.
+                Pede aí, amor... vou reclamar mas vou programar tudo do jeitinho que a patroa mandar!
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* Quick Model Selector */}
+            {/* Quick Model Selector com modelos detectados e visual escuro legível */}
             {activeProvider === "groq" ? (
-              <div className="flex items-center gap-1.5 bg-theme-surface-card border border-theme-border rounded-xl px-2.5 py-1 text-xs">
-                <Zap size={13} className="text-orange-400" />
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs shadow-soft">
+                <Zap size={13} className="text-orange-400 shrink-0" />
                 <select
                   value={groqModel}
                   onChange={(e) => {
                     setGroqModel(e.target.value);
                     addToast(`Modelo alterado para ${e.target.value}! ⚡`, "sparkle");
                   }}
-                  className="bg-transparent text-xs text-theme-text font-semibold focus:outline-none cursor-pointer"
+                  className="bg-slate-900 text-xs text-white font-semibold focus:outline-none cursor-pointer border-none"
                 >
-                  <option value="openai/gpt-oss-120b">GPT-OSS 120B 🧠</option>
-                  <option value="llama-3.1-8b-instant">Llama 3.1 8B ⚡</option>
-                  <option value="llama-3.3-70b-versatile">Llama 3.3 70B ✨</option>
+                  {(availableGroqModels.length > 0 ? availableGroqModels : ["openai/gpt-oss-120b"]).map((m) => (
+                    <option key={m} value={m} className="bg-slate-900 text-white py-1">
+                      {m} ⚡
+                    </option>
+                  ))}
                 </select>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 bg-theme-surface-card border border-theme-border rounded-xl px-2.5 py-1 text-xs">
-                <Sparkles size={13} className="text-blue-400" />
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs shadow-soft">
+                <Sparkles size={13} className="text-blue-400 shrink-0" />
                 <select
                   value={geminiModel}
                   onChange={(e) => {
                     setGeminiModel(e.target.value);
                     addToast(`Modelo Gemini alterado para ${e.target.value}! 🌟`, "sparkle");
                   }}
-                  className="bg-transparent text-xs text-theme-text font-semibold focus:outline-none cursor-pointer"
+                  className="bg-slate-900 text-xs text-white font-semibold focus:outline-none cursor-pointer border-none"
                 >
-                  <option value="gemini-3.8-flash">Gemini 3.8 Flash 🚀 (Oficial 2026)</option>
-                  <option value="gemini-flash-latest">Gemini Flash Latest ⚡</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro 👑 (Pro)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash 🌸</option>
+                  {(availableGeminiModels.length > 0
+                    ? availableGeminiModels
+                    : [
+                        { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash 🚀 (Recomendado)" },
+                        { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
+                        { id: "gemini-1.5-pro", displayName: "Gemini 1.5 Pro 👑 (Pro)" },
+                      ]
+                  ).map((m) => (
+                    <option key={m.id} value={m.id} className="bg-slate-900 text-white py-1">
+                      {m.displayName || m.id} {m.id.includes("flash") ? "⚡" : "👑"}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -422,21 +512,130 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
           {/* LADO ESQUERDO: CHAT INTERATIVO (5 Colunas em telas grandes) */}
           <div className="lg:col-span-5 border-r border-theme-border/80 flex flex-col h-full bg-theme-surface/30 min-h-0">
-            {/* Top Toolbar do Chat: Brain Ideas & Ações */}
-            <div className="px-4 py-2 border-b border-theme-border/60 bg-theme-surface/40 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowBrainModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-pink-500/20 hover:from-amber-500/30 hover:to-pink-500/30 border border-amber-500/35 text-amber-200 text-[11px] font-bold transition-all shadow-soft active:scale-95"
-              >
-                <Lightbulb size={13} className="text-amber-400 animate-pulse" />
-                <span>💡 Ideias Fofas (Brain de Gadgets)</span>
-              </button>
+            {/* Top Toolbar do Chat: Histórico, Novo Gadget, Brain & Imagens */}
+            <div className="px-3 py-2 border-b border-theme-border/60 bg-theme-surface/40 flex items-center justify-between gap-1.5 shrink-0 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-bold transition-all shadow-soft active:scale-95 ${
+                    isHistoryOpen
+                      ? "bg-pink-500/25 border-pink-500/50 text-pink-200"
+                      : "bg-theme-surface-card hover:bg-theme-surface border-theme-border text-theme-text-muted hover:text-theme-text"
+                  }`}
+                  title="Abrir/Fechar Histórico de Conversas e Gadgets"
+                >
+                  <History size={12} className="text-pink-400" />
+                  <span>Histórico ({sessions.length})</span>
+                </button>
 
-              <span className="text-[10px] text-theme-text-muted">
-                {currentPackage ? `Versão ${currentPackage.manifest.version || "1.0.0"}` : "Novo Projeto"}
-              </span>
+                <button
+                  type="button"
+                  onClick={handleStartNewChat}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 text-[11px] font-bold transition-all shadow-soft active:scale-95"
+                  title="Criar um novo gadget do zero"
+                >
+                  <Plus size={12} />
+                  <span>Novo</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowImagePicker(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 text-[11px] font-bold transition-all shadow-soft active:scale-95"
+                  title="Buscar imagens fofas, anime, manhwa e wallpapers"
+                >
+                  <ImageIcon size={12} className="text-blue-400" />
+                  <span>Imagens</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBrainModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-pink-500/20 hover:from-amber-500/30 hover:to-pink-500/30 border border-amber-500/35 text-amber-200 text-[11px] font-bold transition-all shadow-soft active:scale-95"
+                  title="Abrir inspirações e ideias prontas do Brain de Gadgets"
+                >
+                  <Lightbulb size={12} className="text-amber-400" />
+                  <span>Ideias</span>
+                </button>
+              </div>
             </div>
+
+            {/* GAVETA / HISTÓRICO DE CHATS ANTIGOS COMPACTO */}
+            {isHistoryOpen && (
+              <div className="p-3 border-b border-theme-border/80 bg-slate-950/80 backdrop-blur-md animate-in slide-in-from-top duration-200 max-h-56 overflow-y-auto shrink-0 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 pb-1 border-b border-slate-800">
+                  <span className="flex items-center gap-1 text-pink-300">
+                    <History size={12} /> Conversas Anteriores & Projetos
+                  </span>
+                  <button
+                    onClick={() => setIsHistoryOpen(false)}
+                    className="p-0.5 rounded text-slate-400 hover:text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                {sessions.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 text-center py-2">
+                    Nenhum chat salvo ainda. Seus gadgets ficam gravados aqui automaticamente! 🌸
+                  </p>
+                ) : (
+                  sessions.map((sess) => (
+                    <div
+                      key={sess.id}
+                      onClick={() => handleSelectChatSession(sess)}
+                      className={`group p-2 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                        sess.id === activeSessionId
+                          ? "bg-pink-500/20 border-pink-500/50 text-pink-200 shadow-soft"
+                          : "bg-slate-900/80 hover:bg-slate-800 border-slate-800 text-slate-200"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold truncate text-[11px]">{sess.title}</div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          <span>{new Date(sess.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>•</span>
+                          <span>{sess.messages?.length || 0} msgs</span>
+                          {sess.currentPackage && (
+                            <span className="text-pink-400/80">📦 {sess.currentPackage.manifest.name}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newTitle = prompt("Renomear conversa:", sess.title);
+                            if (newTitle) renameSession(sess.id, newTitle);
+                          }}
+                          className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
+                          title="Renomear"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Deseja apagar a conversa "${sess.title}"?`)) {
+                              deleteSession(sess.id);
+                            }
+                          }}
+                          className="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
+                          title="Apagar"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Mensagens do Chat */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3.5 scroll-smooth">
@@ -454,7 +653,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                         : "bg-theme-surface-card border border-theme-border text-pink-400"
                     }`}
                   >
-                    {msg.role === "user" ? <User size={13} /> : <Bot size={14} />}
+                    {msg.role === "user" ? <User size={13} /> : <span className="text-sm">🤵‍♂️</span>}
                   </div>
 
                   <div
@@ -484,13 +683,13 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
               {isGenerating && (
                 <div className="flex gap-2.5 max-w-[85%] mr-auto animate-pulse">
                   <div className="w-7 h-7 rounded-xl bg-theme-surface-card border border-theme-border text-pink-400 flex items-center justify-center text-xs">
-                    <Sparkles size={14} className="animate-spin text-pink-400" />
+                    <span className="text-sm animate-bounce">🤵‍♂️</span>
                   </div>
                   <div className="p-3 rounded-2xl rounded-tl-none bg-theme-surface-card border border-pink-500/30 text-xs text-theme-text flex items-center gap-2">
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce" />
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce delay-150" />
                     <span className="inline-block w-2 h-2 rounded-full bg-pink-500 animate-bounce delay-300" />
-                    <span className="text-theme-text-muted ml-1">Criando seu gadget com carinho...</span>
+                    <span className="text-theme-text-muted ml-1">Seu marido tá reclamando mas tá codando seu gadget com amor... 💻💕</span>
                   </div>
                 </div>
               )}
@@ -562,13 +761,23 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                   <ImageIcon size={15} />
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setShowImagePicker(true)}
+                  disabled={isGenerating}
+                  className="p-2 rounded-xl bg-theme-surface-card hover:bg-theme-surface border border-theme-border text-pink-400 hover:text-pink-300 transition-all shadow-soft shrink-0"
+                  title="Galeria & Banco de Imagens Fofas (Anime, Manhwa, Gatinhos e Wallpapers)"
+                >
+                  <Search size={15} />
+                </button>
+
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   disabled={isGenerating}
-                  placeholder="Peça o que quiser ou cole uma foto de referência com Ctrl+V..."
+                  placeholder="Pede o que você quiser, amor... (vou reclamar mas vou fazer com amor) 💕"
                   rows={2}
                   className="w-full bg-transparent text-xs text-theme-text placeholder:text-theme-text-muted/60 focus:outline-none resize-none p-1 scrollbar-none"
                 />
@@ -827,6 +1036,25 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
           </div>
         </div>
       )}
+
+      {/* Modal de Busca de Imagens Fofas com Filtros */}
+      <CuteImagePickerModal
+        isOpen={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onSelectImageAsPrompt={(url, label, mode) => {
+          if (mode === "background") {
+            handleSendMessage(`Amor, coloca esta imagem fofa de fundo (${label}): ${url}`);
+          } else if (mode === "sticker") {
+            handleSendMessage(`Amor, adiciona esta imagem como um sticker decorativo fofo (${label}): ${url}`);
+          } else {
+            setInputText(`Coloque esta imagem no gadget (${label}): ${url}`);
+          }
+        }}
+        onSelectImageAsReference={(url) => {
+          setAttachedImage(url);
+          addToast("Imagem anexada como referência visual para o maridão! 📸✨", "sparkle");
+        }}
+      />
     </div>
   );
 };

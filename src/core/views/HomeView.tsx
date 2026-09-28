@@ -50,25 +50,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Hero Welcome Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent p-8 rounded-cuter border border-theme-border/60 shadow-soft">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                onClick={handleHeartClick}
-                className="cursor-pointer select-none text-2xl hover:scale-125 transition-transform"
-                title="Feito com muito carinho 💕"
-              >
-                💕
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-theme-primary">
-                Central de Mimos & Projetos
-              </span>
+          <div className="flex items-center gap-5">
+            <div
+              onClick={handleHeartClick}
+              className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-pink-500/40 shadow-soft cursor-pointer hover:scale-105 transition-all bg-pink-500/10 shrink-0"
+              title="Feito com muito carinho pelo seu marido! Clique para soltar confetes 💕"
+            >
+              <img src="/logo.png" alt="Mascote Pedi para meu Marido" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-3xl font-extrabold text-theme-text">
-              Oi, meu amor! O que vamos usar hoje? ✨
-            </h1>
-            <p className="text-sm text-theme-text-muted max-w-xl">
-              Aqui fica reunido tudo o que você me pediu, desenvolvido com amor, cuidado e atenção a cada detalhe.
-            </p>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-theme-primary">
+                  Central de Mimos & Projetos
+                </span>
+                <span className="text-xs">💕</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-theme-text">
+                Oi, meu amor! O que vamos usar hoje? ✨
+              </h1>
+              <p className="text-xs lg:text-sm text-theme-text-muted max-w-xl">
+                Aqui fica reunido tudo o que você me pediu, desenvolvido com amor, cuidado e atenção a cada detalhe.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

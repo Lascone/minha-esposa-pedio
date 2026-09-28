@@ -1,4 +1,9 @@
-import { useAiStore, AiProvider } from "../stores/aiStore";
+import {
+  useAiStore,
+  AiProvider,
+  selectBestGeminiModel,
+  selectBestGroqModel,
+} from "../stores/aiStore";
 import { parseAiWidgetResponse } from "@/projects/widgets/custom/aiPrompt";
 import { CustomWidgetPackage, AiChatMessage } from "@/projects/widgets/custom/types";
 
@@ -19,7 +24,6 @@ const WIDGET_SYSTEM_PROMPT = WIDGET_ECOSYSTEM_BRAIN;
 const GEMINI_CANDIDATE_MODELS = [
   "gemini-3.8-flash",
   "gemini-flash-latest",
-  "gemini-1.5-flash",
   "gemini-1.5-pro",
 ];
 
@@ -56,10 +60,17 @@ export async function fetchGroqModels(apiKey?: string): Promise<string[]> {
     const list: any[] = data.data || [];
     const modelIds = list
       .map((m) => m.id as string)
-      .filter((id) => id && !id.includes("whisper") && !id.includes("guard") && !id.includes("tts"))
+      .filter((id) => id && !id.includes("whisper") && !id.includes("guard") && !id.includes("tts") && id !== "llama-3.1-8b-instant" && id !== "llama-3.3-70b-versatile")
       .sort();
 
-    store.setAvailableGroqModels(modelIds);
+    if (modelIds.length > 0) {
+      store.setAvailableGroqModels(modelIds);
+      const current = store.groqModel;
+      if (!current || current === "llama-3.1-8b-instant" || current === "llama-3.3-70b-versatile" || !modelIds.includes(current)) {
+        const bestGroq = selectBestGroqModel(modelIds);
+        store.setGroqModel(bestGroq);
+      }
+    }
     return modelIds;
   } catch {
     return [];
@@ -81,14 +92,25 @@ export async function fetchGeminiModels(apiKey?: string): Promise<{ id: string; 
     const data = await res.json();
     const list: any[] = data.models || [];
 
-    return list
+    const filtered = list
       .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
       .map((m) => ({
         id: (m.name as string).replace(/^models\//, ""),
         displayName: m.displayName || (m.name as string).replace(/^models\//, ""),
       }))
-      .filter((m) => m.id.includes("gemini") && !m.id.includes("embedding") && !m.id.includes("imagen") && !m.id.includes("aqa"))
+      .filter((m) => m.id.includes("gemini") && !m.id.includes("1.5-flash") && !m.id.includes("2.0-flash") && !m.id.includes("embedding") && !m.id.includes("imagen") && !m.id.includes("aqa"))
       .sort((a, b) => a.id.localeCompare(b.id));
+
+    if (filtered.length > 0) {
+      store.setAvailableGeminiModels(filtered);
+      const current = store.geminiModel;
+      if (!current || current === "gemini-1.5-flash" || current === "gemini-2.0-flash" || !filtered.some((f) => f.id === current)) {
+        const bestFlash = selectBestGeminiModel(filtered);
+        store.setGeminiModel(bestFlash);
+      }
+    }
+
+    return filtered;
   } catch {
     return [];
   }
@@ -297,6 +319,8 @@ export async function generateOrModifyCustomWidget({
       "openai/gpt-oss-120b",
     ])).filter((m) => m && m !== "llama-3.1-8b-instant" && m !== "llama-3.3-70b-versatile");
 
+    const groqUserPayload = enrichedUserMessage + "\n\n[RESPOSTA OBRIGATÓRIA: Responda estritamente com um JSON válido iniciando em { e fechando em } com as chaves assistantMessage, manifest, html, css e js.]";
+
     const groqMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: fullSystemInstruction },
     ];
@@ -310,7 +334,7 @@ export async function generateOrModifyCustomWidget({
 
     groqMessages.push({
       role: "user",
-      content: enrichedUserMessage,
+      content: groqUserPayload,
     });
 
     let lastGroqError = "";
@@ -326,7 +350,7 @@ export async function generateOrModifyCustomWidget({
           body: JSON.stringify({
             model: modelToUse,
             messages: groqMessages,
-            temperature: 0.5,
+            temperature: 0.4,
             response_format: { type: "json_object" },
           }),
         });
@@ -335,6 +359,7 @@ export async function generateOrModifyCustomWidget({
           const errData = await res.json().catch(() => ({}));
           lastGroqError = errData?.error?.message || `HTTP ${res.status}`;
 
+          // Se falhar no json_object, tenta fallback clássico sem response_format estrito
           const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -344,15 +369,21 @@ export async function generateOrModifyCustomWidget({
             body: JSON.stringify({
               model: modelToUse,
               messages: [
-                { role: "system", content: fullSystemInstruction + "\n\nResponda estritamente com o JSON iniciando em { e terminando em }." },
+                {
+                  role: "system",
+                  content: fullSystemInstruction + "\n\nIMPORTANTE: Sua resposta inteira DEVE ser APENAS um objeto JSON válido iniciando com { e terminando com }. Não adicione texto antes ou depois do JSON.",
+                },
                 ...groqMessages.filter((msg) => msg.role !== "system"),
               ],
-              temperature: 0.5,
+              temperature: 0.3,
             }),
           });
 
           if (retryRes.ok) {
             res = retryRes;
+          } else {
+            const retryErr = await retryRes.json().catch(() => ({}));
+            lastGroqError = retryErr?.error?.message || lastGroqError;
           }
         }
 
@@ -388,7 +419,11 @@ export async function generateOrModifyCustomWidget({
       }
     }
 
-    const requestedModel = store.geminiModel || "gemini-3.8-flash";
+    let requestedModel = store.geminiModel || "gemini-3.8-flash";
+    if (requestedModel === "gemini-1.5-flash" || requestedModel === "gemini-2.0-flash") {
+      requestedModel = "gemini-3.8-flash";
+      store.setGeminiModel("gemini-3.8-flash");
+    }
     const modelsToTry = Array.from(new Set([
       requestedModel,
       ...availableGemini,

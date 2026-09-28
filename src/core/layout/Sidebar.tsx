@@ -127,8 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate("/")}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-400 to-rose-500 text-white flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform flex-shrink-0">
-              <Heart size={20} className="fill-white" />
+            <div className="w-10 h-10 rounded-2xl overflow-hidden border border-pink-500/30 shadow-soft group-hover:scale-105 transition-transform flex-shrink-0 bg-pink-500/10">
+              <img src="/logo.png" alt="Logo Pedi para meu Marido" className="w-full h-full object-cover" />
             </div>
             {!collapsed && (
               <div className="flex flex-col overflow-hidden">

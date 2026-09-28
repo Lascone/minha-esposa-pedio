@@ -262,6 +262,36 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
             }
           }
         },
+        images: {
+          getCuteImage: function(category) {
+            category = category || "waifu";
+            if (category === "anime" || category === "waifu" || category === "manhwa") {
+              return fetch("https://api.waifu.pics/sfw/waifu")
+                .then(function(r) { return r.json(); })
+                .then(function(d) { return d.url; })
+                .catch(function() {
+                  return "https://picsum.photos/seed/" + encodeURIComponent(category) + "/600/400";
+                });
+            } else if (category === "neko" || category === "cat") {
+              return fetch("https://api.waifu.pics/sfw/neko")
+                .then(function(r) { return r.json(); })
+                .then(function(d) { return d.url; })
+                .catch(function() {
+                  return "https://picsum.photos/seed/cat/600/400";
+                });
+            } else {
+              return Promise.resolve("https://picsum.photos/seed/" + encodeURIComponent(category) + "/600/400");
+            }
+          },
+          search: function(query) {
+            var term = encodeURIComponent(query || "aesthetic");
+            return Promise.resolve([
+              "https://picsum.photos/seed/" + term + "1/600/400",
+              "https://picsum.photos/seed/" + term + "2/600/400",
+              "https://picsum.photos/seed/" + term + "3/600/400",
+            ]);
+          }
+        },
         emitReady: function() {
           window.parent.postMessage({ type: "widget:ready" }, "*");
         },

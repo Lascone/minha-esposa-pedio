@@ -46,8 +46,8 @@ export const AboutView: React.FC = () => {
       {/* Dedicação Especial */}
       <Card className="bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border-theme-primary/30 p-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-pink-100 text-pink-500 flex items-center justify-center text-2xl flex-shrink-0">
-            💕
+          <div className="w-16 h-16 rounded-2xl overflow-hidden border border-pink-500/40 shadow-soft flex-shrink-0 bg-pink-500/10">
+            <img src="/logo.png" alt="Mascote Oficial" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
             <div className="flex items-center justify-between">
