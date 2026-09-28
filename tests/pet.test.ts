@@ -8,8 +8,8 @@ describe("Módulo Bichinho Virtual (VPet)", () => {
   beforeEach(() => {
     // Reset para valores padrão
     usePetStore.setState({
-      activeCharacterId: "mimi-sakura",
-      customName: "Mimi",
+      activeCharacterId: "vpet-vup",
+      customName: "VUP",
       stats: {
         hunger: 80,
         thirst: 80,
@@ -27,12 +27,13 @@ describe("Módulo Bichinho Virtual (VPet)", () => {
     });
   });
 
-  it("deve carregar o personagem padrão Mimi Sakura com falas em português", () => {
+  it("deve carregar o personagem padrão VUP oficial com falas em português", () => {
     const char = usePetStore.getState().getActiveCharacter();
-    expect(char.id).toBe("mimi-sakura");
-    expect(char.name).toBe("Mimi Sakura");
+    expect(char.id).toBe("vpet-vup");
+    expect(char.name).toContain("VUP");
     expect(char.voiceLines.greetings.length).toBeGreaterThan(0);
     expect(char.animations.idle.frames.length).toBeGreaterThan(0);
+    expect(char.animations.idle.frames[0]).toContain("/vpet/vup/idle/");
   });
 
   it("deve alimentar o pet e aumentar a saciedade e XP de vínculo", () => {

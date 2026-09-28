@@ -91,6 +91,47 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-theme-primary/10 rounded-full blur-2xl pointer-events-none" />
       </div>
 
+      {/* BANNER DE DESTAQUE: NOVO JOGO PET VIRTUAL (VPET) */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-indigo-500/15 p-6 rounded-3xl border-2 border-pink-500/40 shadow-soft flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-pink-500/60 transition-all">
+        <div className="flex items-center gap-5 z-10">
+          <div className="w-20 h-20 rounded-2xl bg-white/10 border border-pink-400/40 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-soft backdrop-blur-sm">
+            <img
+              src="/vpet/vup/idle/idle_0.png"
+              alt="Mascote VUP Original"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-500 text-white shadow-soft">
+                🎮 NOVO JOGO PARA VOCÊ
+              </span>
+              <span className="text-xs text-pink-500 font-bold">Inspirado no VPet</span>
+            </div>
+            <h2 className="text-xl font-extrabold text-theme-text flex items-center gap-2">
+              🐾 Seu Bichinho Virtual de Desktop
+            </h2>
+            <p className="text-xs text-theme-text-muted max-w-lg">
+              Adote a mascotinha original VUP! Cuide dela com comidinhas, aguinha, carinho, banho e veja ela passeando pela sua tela todos os dias. 💕
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 z-10 shrink-0">
+          <Button
+            variant="primary"
+            size="lg"
+            icon={<Sparkles size={18} />}
+            onClick={() => onNavigateToTab("pet")}
+            className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-extrabold shadow-soft transform active:scale-95 text-sm"
+          >
+            Jogar com meu Bichinho 🐾
+          </Button>
+        </div>
+
+        <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-pink-500/10 to-transparent pointer-events-none" />
+      </div>
+
       {/* Seção: Pedidos Concluídos & Em Andamento */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -104,6 +145,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card: Pet Virtual VPet Concluído */}
+          <Card
+            hoverable
+            onClick={() => onNavigateToTab("pet")}
+            className="flex flex-col justify-between border-pink-500/30 bg-gradient-to-b from-pink-500/5 to-transparent relative overflow-hidden group"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center text-2xl shadow-soft group-hover:scale-110 transition-transform">
+                🐾
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
+                <CheckCircle2 size={12} /> Jogo Novo
+              </span>
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-theme-text">Pet Virtual (VPet)</h4>
+              <p className="text-xs text-theme-text-muted mt-1">
+                Mascote oficial VUP no seu desktop, com cuidados, comidas, cafuné e editor de mods.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-theme-border/40 flex items-center justify-between text-xs text-pink-500 font-semibold">
+              <span>Jogar agora</span>
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Card>
+
           {/* Card: Crosshair Studio Concluído */}
           <Card
             hoverable

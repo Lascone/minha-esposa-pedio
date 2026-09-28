@@ -8,7 +8,7 @@ import {
   PetItem,
   PetInstanceConfig,
 } from "../types";
-import { DEFAULT_PRESET_CHARACTERS, MIMI_CHARACTER } from "../presets";
+import { DEFAULT_PRESET_CHARACTERS, VUP_CHARACTER, MIMI_CHARACTER } from "../presets";
 import { DEFAULT_PET_ITEMS } from "../items";
 
 interface PetStateStore {
@@ -68,8 +68,8 @@ const INITIAL_STATS: PetStats = {
 };
 
 const INITIAL_CONFIG: PetInstanceConfig = {
-  petId: "mimi-sakura",
-  customName: "Mimi",
+  petId: "vpet-vup",
+  customName: "VUP",
   scale: 1.15,
   alwaysOnTop: true,
   isPaused: false,
@@ -83,8 +83,8 @@ const INITIAL_CONFIG: PetInstanceConfig = {
 export const usePetStore = create<PetStateStore>()(
   persist(
     (set, get) => ({
-      activeCharacterId: "mimi-sakura",
-      customName: "Mimi",
+      activeCharacterId: "vpet-vup",
+      customName: "VUP",
       stats: INITIAL_STATS,
       lastTickTimestamp: Date.now(),
       currentState: "idle",
@@ -101,7 +101,7 @@ export const usePetStore = create<PetStateStore>()(
         const found =
           customCharacters.find((c) => c.id === activeCharacterId) ||
           DEFAULT_PRESET_CHARACTERS.find((c) => c.id === activeCharacterId);
-        return found || MIMI_CHARACTER;
+        return found || VUP_CHARACTER;
       },
 
       getAllCharacters: () => {

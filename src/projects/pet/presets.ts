@@ -284,6 +284,216 @@ export const MIMI_CHARACTER: PetCharacterManifest = {
   },
 };
 
+export const VUP_CHARACTER: PetCharacterManifest = {
+  version: "1.0.0",
+  id: "vpet-vup",
+  name: "VUP (VPet Original)",
+  author: "LorisYounger & PMM 💕",
+  description: "A clássica e adorável mascotinha do VPet Simulator, totalmente animada com seus sprites originais de alta definição.",
+  species: "Anime Waifu Chibi",
+  previewImage: "/vpet/vup/idle/idle_0.png",
+  defaultScale: 1.15,
+  moveSpeed: 55,
+  hitbox: { width: 130, height: 130, offsetX: 0, offsetY: 0 },
+  voiceLines: {
+    greetings: [
+      "Oie amor! Cheguei pra te fazer companhia! 💕",
+      "Miau! Que saudades de você!",
+      "Pronta para brincar e passear pela sua tela! ✨",
+    ],
+    hungry: [
+      "Amor, tô com muita fominha... Me dá um lanchinho? 🥪",
+      "Minha barriguinha tá roncando!",
+      "Não esquece de me alimentar, por favorzinho! 🥺",
+    ],
+    thirsty: [
+      "Que sede... Pode me dar uma aguinha bem geladinha? 💧",
+      "Tô com a garganta sequinha amor!",
+    ],
+    sleepy: [
+      "Bocejando... Me coloca pra nanar? 💤",
+      "Que soninho bom... Vamos descansar juntinhos?",
+    ],
+    happy: [
+      "Você é a melhor pessoa do mundo! 🥰",
+      "Tô muito feliz aqui com você!",
+      "Amo tanto ficar no seu cantinho da tela! 💕",
+    ],
+    afterCare: [
+      "Purr... Que cafuné gostosinho! 🥰",
+      "Amo seu dengo amor!",
+      "Obrigada pelo carinho, tava tão bom! 💕",
+    ],
+    idle: [
+      "Te vigiando com muito amor enquanto você joga ou estuda ✨",
+      "Fica tranquila, estou aqui com você!",
+      "Você é incrível, sabia? 💕",
+      "Dando uma voltinha pela sua área de trabalho! 🐾",
+    ],
+  },
+  animations: {
+    idle: {
+      name: "idle",
+      frames: [
+        "/vpet/vup/idle/idle_0.png",
+        "/vpet/vup/idle/idle_1.png",
+        "/vpet/vup/idle/idle_2.png",
+        "/vpet/vup/idle/idle_3.png",
+        "/vpet/vup/idle/idle_4.png",
+        "/vpet/vup/idle/idle_5.png",
+        "/vpet/vup/idle/idle_6.png",
+        "/vpet/vup/idle/idle_7.png",
+      ],
+      frameDuration: 200,
+      loop: true,
+    },
+    walk: {
+      name: "walk",
+      frames: [
+        "/vpet/vup/walk_right/walk_right_0.png",
+        "/vpet/vup/walk_right/walk_right_1.png",
+        "/vpet/vup/walk_right/walk_right_2.png",
+      ],
+      frameDuration: 130,
+      loop: true,
+    },
+    happy: {
+      name: "happy",
+      frames: [
+        "/vpet/vup/happy/happy_0.png",
+        "/vpet/vup/happy/happy_1.png",
+        "/vpet/vup/happy/happy_2.png",
+      ],
+      frameDuration: 200,
+      loop: true,
+    },
+    sad: {
+      name: "sad",
+      frames: [
+        "/vpet/vup/idle/idle_2.png",
+        "/vpet/vup/idle/idle_3.png",
+      ],
+      frameDuration: 300,
+      loop: true,
+    },
+    hungry: {
+      name: "hungry",
+      frames: [
+        "/vpet/vup/idle/idle_1.png",
+        "/vpet/vup/idle/idle_2.png",
+      ],
+      frameDuration: 300,
+      loop: true,
+    },
+    eat: {
+      name: "eat",
+      frames: [
+        "/vpet/vup/happy/happy_1.png",
+        "/vpet/vup/happy/happy_2.png",
+        "/vpet/vup/idle/idle_4.png",
+      ],
+      frameDuration: 250,
+      loop: true,
+    },
+    drink: {
+      name: "drink",
+      frames: [
+        "/vpet/vup/happy/happy_0.png",
+        "/vpet/vup/idle/idle_0.png",
+      ],
+      frameDuration: 300,
+      loop: true,
+    },
+    play: {
+      name: "play",
+      frames: [
+        "/vpet/vup/happy/happy_0.png",
+        "/vpet/vup/happy/happy_1.png",
+        "/vpet/vup/happy/happy_2.png",
+        "/vpet/vup/walk_right/walk_right_1.png",
+      ],
+      frameDuration: 180,
+      loop: true,
+    },
+    sleep: {
+      name: "sleep",
+      frames: [
+        "/vpet/vup/sleep/sleep_0.png",
+        "/vpet/vup/sleep/sleep_1.png",
+        "/vpet/vup/sleep/sleep_2.png",
+        "/vpet/vup/sleep/sleep_3.png",
+        "/vpet/vup/sleep/sleep_4.png",
+        "/vpet/vup/sleep/sleep_5.png",
+      ],
+      frameDuration: 220,
+      loop: true,
+    },
+    wake: {
+      name: "wake",
+      frames: [
+        "/vpet/vup/wake/wake_0.png",
+        "/vpet/vup/wake/wake_1.png",
+        "/vpet/vup/wake/wake_2.png",
+        "/vpet/vup/wake/wake_3.png",
+        "/vpet/vup/wake/wake_4.png",
+        "/vpet/vup/wake/wake_5.png",
+        "/vpet/vup/wake/wake_6.png",
+        "/vpet/vup/wake/wake_7.png",
+        "/vpet/vup/wake/wake_8.png",
+        "/vpet/vup/wake/wake_9.png",
+        "/vpet/vup/wake/wake_10.png",
+        "/vpet/vup/wake/wake_11.png",
+        "/vpet/vup/wake/wake_12.png",
+        "/vpet/vup/wake/wake_13.png",
+      ],
+      frameDuration: 120,
+      loop: false,
+    },
+    pet_head: {
+      name: "pet_head",
+      frames: [
+        "/vpet/vup/touch_head/touch_head_0.png",
+        "/vpet/vup/touch_head/touch_head_1.png",
+        "/vpet/vup/touch_head/touch_head_2.png",
+      ],
+      frameDuration: 180,
+      loop: true,
+    },
+    pet_body: {
+      name: "pet_body",
+      frames: [
+        "/vpet/vup/touch_head/touch_head_0.png",
+        "/vpet/vup/touch_head/touch_head_1.png",
+      ],
+      frameDuration: 220,
+      loop: true,
+    },
+    drag: {
+      name: "drag",
+      frames: [
+        "/vpet/vup/drag/drag_0.png",
+        "/vpet/vup/drag/drag_1.png",
+        "/vpet/vup/drag/drag_2.png",
+        "/vpet/vup/drag/drag_3.png",
+        "/vpet/vup/drag/drag_4.png",
+        "/vpet/vup/drag/drag_5.png",
+      ],
+      frameDuration: 140,
+      loop: true,
+    },
+    fall: {
+      name: "fall",
+      frames: [
+        "/vpet/vup/drag/drag_0.png",
+        "/vpet/vup/drag/drag_1.png",
+      ],
+      frameDuration: 150,
+      loop: true,
+    },
+  },
+};
+
 export const DEFAULT_PRESET_CHARACTERS: PetCharacterManifest[] = [
+  VUP_CHARACTER,
   MIMI_CHARACTER,
 ];

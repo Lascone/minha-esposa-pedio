@@ -65,10 +65,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: "pet",
-      label: "Bichinho Virtual",
+      label: "🐾 Pet Virtual (VPet)",
       icon: <Cat size={18} />,
       route: "/pet",
-      badge: "VPET",
+      badge: "JOGO NOVO",
     },
     {
       id: "mods",
