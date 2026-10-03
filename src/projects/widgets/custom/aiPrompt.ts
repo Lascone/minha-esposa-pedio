@@ -37,6 +37,8 @@ export const WIDGET_TECH_RULES = `## COMO O WIDGET FUNCIONA (regras obrigatória
 - JavaScript defensivo: comece numa função start() chamada quando o DOM estiver pronto, confira se cada elemento existe antes de usar e nunca deixe um erro quebrar o widget.
 - Nunca invente dados falsos (temperatura, CPU, notícias...). Se algo depende da internet e falhar, mostre uma mensagem amigável.
 - Nunca invente URLs de imagens (imgur e afins quebram). Prefira desenhar com SVG/CSS. Use uma URL de imagem só se a usuária enviar uma.
+- Imagens que a usuária enviar são obrigatórias no resultado. No app elas chegam como endereços pmm-asset://nome, que funcionam como uma URL normal em url(...) e em src.
+- Toda resposta traz os 4 arquivos completos, mesmo para uma mudança pequena. Nunca responda só com texto.
 - Datas "AAAA-MM-DD" de APIs: new Date("2026-10-03") vira UTC e mostra o dia anterior no Brasil. Monte com new Date(ano, mes - 1, dia) ou acrescente "T12:00".
 - Para dados da internet, mostre um estado de carregamento bonito (skeleton ou spinner suave) enquanto espera, esconda-o assim que os dados chegarem (ou der erro) e atualize sozinho de tempos em tempos com setInterval (nunca loops infinitos).
 - Textos visíveis em português do Brasil.`;
@@ -52,6 +54,7 @@ export const WIDGET_DESIGN_GUIDE = `## PADRÃO VISUAL (o widget precisa parecer 
 - Espaçamento generoso e consistente (múltiplos de 4px), alinhamentos perfeitos, nada encostado na borda.
 - Decoração com propósito: SVGs desenhados à mão (corações, estrelas, flores, personagens) combinando com o tema do pedido.
 - Ícones precisam representar o que significam (sol = círculo com raios, nuvem, gotas de chuva, floco de neve, raio...). Cada situação tem o seu ícone; nunca repita um ícone genérico (✓, círculo) para coisas diferentes. Se um SVG bom ficar difícil, um emoji grande e bem posicionado é melhor do que um ícone errado.
+- Relógio analógico e outros itens em volta de um círculo: mostrador redondo de verdade (aspect-ratio: 1, centralizado, manifest quadrado como 260x260), números posicionados com Math.sin/Math.cos e sempre EM PÉ (nunca girados junto com o ângulo), ponteiros com tamanhos e espessuras diferentes (horas curto e grosso, minutos longo, segundos fino) e um pino no centro. Com imagem de fundo, ponha o mostrador num vidro fosco semitransparente por cima dela.
 - Tudo cabe no tamanho do manifest sem rolagem nem corte: conte os itens e escolha o layout (ex.: 3 dias = grid-template-columns: repeat(3, 1fr) numa linha), reduza fontes com clamp() e esconda detalhes secundários com @container quando o espaço for pequeno.
 - Antes de responder, revise mentalmente: está bonito em 280x180 e em 500x350? O texto está legível nos 4 temas? Algum elemento ficou com cara de padrão do navegador? Corrija antes de entregar.`;
 
@@ -262,6 +265,20 @@ export function looksTruncated(raw: string): boolean {
   const fences = raw.match(/```/g)?.length ?? 0;
   return fences % 2 === 1;
 }
+
+/** True when the answer carries the gadget's files (or got cut while sending them). */
+export function hasWidgetCode(raw: string): boolean {
+  return /```\s*html?\b/i.test(raw) || /"html"\s*:/.test(raw) || looksTruncated(raw);
+}
+
+/** The chat part of an answer, short enough to quote back to the user. */
+export function chatTextOnly(raw: string): string {
+  const text = raw.replace(/```[\s\S]*?(```|$)/g, " ").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\s+/g, " ").trim();
+  return text.length > 220 ? `${text.slice(0, 217)}...` : text;
+}
+
+export const MISSING_CODE_REMINDER =
+  "[ATENÇÃO] Sua resposta anterior veio sem os arquivos do widget. Responda AGORA com o texto curto e os 4 blocos de código completos (```json, ```html, ```css e ```js), já com o pedido aplicado.";
 
 export function parseAiWidgetResponse(raw: string): AiWidgetResult {
   if (!raw.trim()) {

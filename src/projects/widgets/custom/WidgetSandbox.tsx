@@ -6,6 +6,7 @@ import { DRAG_EXEMPT_SELECTOR, DRAG_THRESHOLD_PX } from "../dragLogic";
 import { useIntegrationsStore } from "@/core/stores/integrationsStore";
 import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
 import { invoke } from "@tauri-apps/api/core";
+import { resolveAssetRefs } from "./widgetAssets";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -198,7 +199,7 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
       -webkit-font-smoothing: antialiased;
     }
     /* User CSS */
-    ${pkg.css || ""}
+    ${resolveAssetRefs(pkg.css || "", pkg.assets)}
   </style>
   <script>
     (function() {
@@ -398,10 +399,10 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   </script>
 </head>
 <body>
-  ${pkg.html || ""}
+  ${resolveAssetRefs(pkg.html || "", pkg.assets)}
   <script>
     try {
-      ${pkg.js || ""}
+      ${resolveAssetRefs(pkg.js || "", pkg.assets)}
     } catch (err) {
       window.parent.postMessage({
         type: "widget:error",

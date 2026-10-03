@@ -35,7 +35,7 @@ mod media_system;
 use media_system::{media_send_command, media_open_firefox};
 
 mod image_search;
-use image_search::search_web_images;
+use image_search::{search_web_images, widget_fetch_image};
 
 mod single_instance;
 
@@ -593,6 +593,7 @@ pub fn run() {
             media_send_command,
             media_open_firefox,
             search_web_images,
+            widget_fetch_image,
         ])
 
         .setup(|app| {

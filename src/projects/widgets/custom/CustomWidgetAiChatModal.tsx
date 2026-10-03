@@ -31,6 +31,7 @@ import { useCustomWidgetsStore } from "./customWidgetsStore";
 import { useWidgetsStore } from "../store/widgetsStore";
 import { useAiStore } from "@/core/stores/aiStore";
 import { generateOrModifyCustomWidget, fetchGeminiModels, fetchGroqModels } from "@/core/services/aiService";
+import { findLinks, importImageLinks } from "./widgetAssets";
 import { WidgetSandbox } from "./WidgetSandbox";
 import { WidgetTheme } from "../types";
 import { useToast } from "@/core/components/Toast";
@@ -329,12 +330,19 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     setIsGenerating(true);
 
     try {
+      const imported = text ? await importImageLinks(text, currentPackage?.assets) : { text, assets: {} as Record<string, string>, preview: undefined };
+      if (findLinks(text).length > 0 && Object.keys(imported.assets).length === 0) {
+        addToast("Não consegui baixar a imagem desse link. Tente um link direto da imagem (.jpg/.png) ou anexe o arquivo.", "warning");
+      }
+      const assets = { ...(currentPackage?.assets || {}), ...imported.assets };
+
       const result = await generateOrModifyCustomWidget({
-        userMessage: text || "Crie um gadget inspirado na imagem anexada",
+        userMessage: imported.text || "Crie um gadget inspirado na imagem anexada",
         currentPackage: currentPackage || undefined,
         chatHistory: newMessages,
         options: {
-          attachedImageBase64: imageToSend || undefined,
+          attachedImageBase64: imageToSend || imported.preview || undefined,
+          assetNames: Object.keys(assets),
           currentError: errToSend || undefined,
           currentWidgetPreview: currentPackage
             ? {
@@ -358,6 +366,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         html: result.package.html,
         css: result.package.css,
         js: result.package.js,
+        assets,
         createdAt: currentPackage?.createdAt || Date.now(),
         updatedAt: Date.now(),
         chatHistory: [

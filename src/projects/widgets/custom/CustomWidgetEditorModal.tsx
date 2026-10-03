@@ -137,6 +137,8 @@ export const CustomWidgetEditorModal: React.FC<CustomWidgetEditorModalProps> = (
         html: htmlCode,
         css: cssCode,
         js: jsCode,
+        assets: initialPackage?.assets,
+        chatHistory: initialPackage?.chatHistory,
         createdAt: initialPackage?.createdAt || Date.now(),
         updatedAt: Date.now(),
       };

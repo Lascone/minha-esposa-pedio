@@ -4,7 +4,15 @@ import {
   selectBestGeminiModel,
   selectBestGroqModel,
 } from "../stores/aiStore";
-import { formatWidgetFiles, looksTruncated, parseAiWidgetResponse } from "@/projects/widgets/custom/aiPrompt";
+import {
+  AiWidgetResult,
+  MISSING_CODE_REMINDER,
+  chatTextOnly,
+  formatWidgetFiles,
+  hasWidgetCode,
+  looksTruncated,
+  parseAiWidgetResponse,
+} from "@/projects/widgets/custom/aiPrompt";
 import { CustomWidgetPackage, AiChatMessage } from "@/projects/widgets/custom/types";
 
 import { WIDGET_ECOSYSTEM_BRAIN } from "./widgetBrain";
@@ -33,6 +41,8 @@ export interface GenerateWidgetOptions {
   attachedImageBase64?: string;
   attachedImageMimeType?: string;
   currentError?: string;
+  /** Images saved in the gadget, available to its code as pmm-asset://name. */
+  assetNames?: string[];
   currentWidgetPreview?: {
     html: string;
     css: string;
@@ -272,8 +282,20 @@ export function buildWidgetUserTurn(userMessage: string, options?: GenerateWidge
   if (options?.currentError) {
     parts.push(`[ERRO NO CONSOLE DO WIDGET]\n"${options.currentError}"\nDescubra a causa e corrija.`);
   }
+  const assetNames = options?.assetNames || [];
+  if (assetNames.length > 0) {
+    parts.push(
+      `[IMAGENS DA USUÁRIA]\n${assetNames.map((n) => `- ${n}: pmm-asset://${n}`).join("\n")}\n` +
+        'Essas imagens já estão salvas no gadget. Use o endereço exatamente assim, como uma URL normal (ex.: background-image: url("pmm-asset://imagem-1") ou <img src="pmm-asset://imagem-1">). ' +
+        "Se a usuária pediu a imagem como fundo, ela precisa aparecer de verdade, ocupando o fundo inteiro (background-size: cover), com uma camada leve por cima só para o texto ficar legível."
+    );
+  }
   if (options?.attachedImageBase64) {
-    parts.push("[IMAGEM ANEXADA]\nUse a imagem como referência visual: cores, formas, estilo e elementos.");
+    parts.push(
+      assetNames.length > 0
+        ? "[IMAGEM ANEXADA]\nÉ a imagem da usuária: use as cores e o clima dela no resto do visual."
+        : "[IMAGEM ANEXADA]\nUse a imagem como referência visual: cores, formas, estilo e elementos."
+    );
   }
   parts.push(current ? "Devolva os 4 arquivos completos já com a mudança." : "Crie o widget completo.");
   return parts.join("\n\n");
@@ -314,6 +336,7 @@ export async function generateOrModifyCustomWidget({
     .slice(0, -1)
     .slice(-6);
 
+  const ask = async (turn: string): Promise<{ rawText: string; truncated: boolean }> => {
   let rawText = "";
   let truncated = false;
 
@@ -335,7 +358,7 @@ export async function generateOrModifyCustomWidget({
     const messages = [
       { role: "system", content: WIDGET_SYSTEM_PROMPT },
       ...history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
-      { role: "user", content: userTurn },
+      { role: "user", content: turn },
     ];
 
     let lastGroqError = "";
@@ -424,7 +447,7 @@ export async function generateOrModifyCustomWidget({
     if (contents.length > 0 && contents[contents.length - 1].role === "user") {
       contents.pop();
     }
-    const userParts: any[] = [{ text: userTurn }];
+    const userParts: any[] = [{ text: turn }];
     if (options?.attachedImageBase64) {
       const match = options.attachedImageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
       userParts.push({
@@ -476,16 +499,37 @@ export async function generateOrModifyCustomWidget({
       throw new Error(`Erro Gemini (${requestedModel}): ${lastGeminiError || "Modelos Gemini indisponíveis. Tente novamente."}`);
     }
   }
+  return { rawText, truncated };
+  };
 
-  if (looksTruncated(rawText)) {
-    throw new Error(
-      truncated
-        ? "A resposta da IA ficou grande demais e veio cortada. Tente pedir de novo, ou peça algo um pouco mais simples."
-        : "A resposta da IA veio incompleta. Tente pedir de novo."
-    );
+  const readWidget = ({ rawText, truncated }: { rawText: string; truncated: boolean }) => {
+    if (looksTruncated(rawText)) {
+      throw new Error(
+        truncated
+          ? "A resposta da IA ficou grande demais e veio cortada. Tente pedir de novo, ou peça algo um pouco mais simples."
+          : "A resposta da IA veio incompleta. Tente pedir de novo."
+      );
+    }
+    return parseAiWidgetResponse(rawText);
+  };
+
+  const first = await ask(userTurn);
+  let parsed: AiWidgetResult;
+  if (hasWidgetCode(first.rawText)) {
+    parsed = readWidget(first);
+  } else {
+    // Models sometimes just chat ("vou colocar a imagem!") without sending the files: ask once more.
+    const second = await ask(`${userTurn}\n\n${MISSING_CODE_REMINDER}`);
+    if (!hasWidgetCode(second.rawText)) {
+      const said = chatTextOnly(second.rawText || first.rawText);
+      throw new Error(
+        said
+          ? `A IA respondeu sem mandar o código: "${said}". Peça de novo, amor.`
+          : "A IA respondeu sem mandar o código. Peça de novo, amor."
+      );
+    }
+    parsed = readWidget(second);
   }
-
-  const parsed = parseAiWidgetResponse(rawText);
 
   return {
     package: {

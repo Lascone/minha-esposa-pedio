@@ -25,6 +25,64 @@ struct BingMObject {
     mh: Option<u32>,
 }
 
+const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+fn sniff_image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        Some("image/png")
+    } else if bytes.starts_with(b"GIF8") {
+        Some("image/gif")
+    } else if bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+/// Downloads an image the user pasted as a link and returns it as a data URL. Many wallpaper sites
+/// refuse images embedded from other pages, so widgets can't simply point at the original address.
+#[tauri::command(async)]
+pub fn widget_fetch_image(url: String) -> Result<String, String> {
+    use base64::Engine;
+
+    let url = url.trim();
+    if !(url.starts_with("https://") || url.starts_with("http://")) || url.contains('"') || url.contains(char::is_whitespace) {
+        return Err("Link de imagem inválido.".into());
+    }
+    let referer = url.splitn(4, '/').take(3).collect::<Vec<_>>().join("/") + "/";
+    let args = [
+        "-s", "-L", "--fail", "--max-time", "20", "--max-filesize", "15000000",
+        "-A", BROWSER_UA, "-e", referer.as_str(), url,
+    ];
+
+    #[cfg(target_os = "windows")]
+    let output = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("curl.exe")
+            .args(args)
+            .creation_flags(0x08000000)
+            .output()
+            .map_err(|e| format!("Falha ao invocar curl: {}", e))?
+    };
+    #[cfg(not(target_os = "windows"))]
+    let output = std::process::Command::new("curl")
+        .args(args)
+        .output()
+        .map_err(|e| format!("Falha ao invocar curl: {}", e))?;
+
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err("Não consegui baixar a imagem desse link.".into());
+    }
+    let mime = sniff_image_mime(&output.stdout).ok_or("O link não aponta para uma imagem.")?;
+    Ok(format!(
+        "data:{};base64,{}",
+        mime,
+        base64::engine::general_purpose::STANDARD.encode(&output.stdout)
+    ))
+}
+
 #[tauri::command(async)]
 pub fn search_web_images(
     query: String,
