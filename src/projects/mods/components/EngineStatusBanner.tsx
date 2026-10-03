@@ -18,6 +18,7 @@ export const EngineStatusBanner: React.FC = () => {
     status,
     isRefreshing,
     isRestartingExplorer,
+    explorerRestartPending,
     refreshStatus,
     restartExplorer,
     openFolder,
@@ -70,7 +71,7 @@ export const EngineStatusBanner: React.FC = () => {
                   <CheckCircle2 size={12} /> Motor Embutido & Independente
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-theme-text-muted bg-theme-border/40 border border-theme-border/40">
-                  {status?.version || "v2.5.0-native"}
+                  {status?.version ? `v${status.version}` : "—"}
                 </span>
               </div>
 
@@ -143,6 +144,29 @@ export const EngineStatusBanner: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {explorerRestartPending && (
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3">
+            <p className="text-xs text-theme-text leading-relaxed">
+              <strong>Falta só um passo:</strong> esse mod mexe na barra/Explorer e aparece depois de reiniciar o Explorer.
+              A barra e as janelas do Explorer somem por 1–2 segundinhos e voltam sozinhas.
+            </p>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => useModsStore.setState({ explorerRestartPending: false })}>
+                Depois
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<RotateCcw size={14} className={isRestartingExplorer ? "animate-spin" : ""} />}
+                onClick={handleRestartExplorer}
+                disabled={isRestartingExplorer}
+              >
+                Reiniciar agora
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {createModalOpen && (

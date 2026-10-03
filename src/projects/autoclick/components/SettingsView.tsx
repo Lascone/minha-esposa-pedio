@@ -132,9 +132,9 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div className="p-3 rounded-2xl bg-theme-surface-card border border-theme-border/40 flex flex-col">
-            <span className="text-[10px] text-theme-text-muted font-bold">Latência do Evento</span>
+            <span className="text-[10px] text-theme-text-muted font-bold">Intervalo Médio Real</span>
             <span className="text-base font-black text-theme-text font-mono mt-0.5">
-              {diagnostics.eventLatencyMs} ms
+              {diagnostics.realCps > 0 ? `${diagnostics.averageIntervalMs.toFixed(1)} ms` : "—"}
             </span>
           </div>
 

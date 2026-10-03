@@ -95,9 +95,84 @@ extern "system" {
     ) -> i32;
 }
 
+#[cfg(target_os = "windows")]
+#[link(name = "advapi32")]
+extern "system" {
+    fn RegGetValueW(
+        hkey: isize,
+        sub_key: *const u16,
+        value: *const u16,
+        flags: u32,
+        kind: *mut u32,
+        data: *mut u8,
+        data_len: *mut u32,
+    ) -> i32;
+}
+
 static CPU_TRACKER: Mutex<Option<(u64, u64, Instant)>> = Mutex::new(None);
 
-#[tauri::command]
+/// Processor model from the registry, e.g. "AMD Ryzen 7 5800X 8-Core Processor".
+#[cfg(target_os = "windows")]
+fn cpu_name() -> String {
+    static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| {
+        const HKEY_LOCAL_MACHINE: isize = 0x8000_0002u32 as i32 as isize;
+        const RRF_RT_REG_SZ: u32 = 0x0000_0002;
+        let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let key = wide(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+        let value = wide("ProcessorNameString");
+        let mut buf = vec![0u16; 256];
+        let mut len = (buf.len() * 2) as u32;
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                key.as_ptr(),
+                value.as_ptr(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                buf.as_mut_ptr() as *mut u8,
+                &mut len,
+            )
+        };
+        if status != 0 {
+            return "Processador".to_string();
+        }
+        let chars = (len as usize / 2).min(buf.len());
+        let name = String::from_utf16_lossy(&buf[..chars]);
+        let name = name.trim_matches(char::from(0)).trim();
+        if name.is_empty() { "Processador".to_string() } else { name.to_string() }
+    })
+    .clone()
+}
+
+const ALLOWED_FEEDS: &[&str] = &[
+    "https://g1.globo.com/rss/g1/",
+    "https://g1.globo.com/rss/g1/tecnologia/",
+    "https://canaltech.com.br/rss/",
+    "https://br.ign.com/feed.xml",
+];
+
+/// Raw RSS XML for the news widget (feeds don't send CORS headers, so the webview can't fetch them).
+#[tauri::command(async)]
+pub fn widget_fetch_feed(url: String) -> Result<String, String> {
+    if !ALLOWED_FEEDS.contains(&url.as_str()) {
+        return Err("Feed não permitido.".to_string());
+    }
+    let mut cmd = std::process::Command::new("curl.exe");
+    cmd.args(["-s", "-L", "-f", "--max-time", "10", "--max-filesize", "3000000", "-A", "Mozilla/5.0", &url]);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let out = cmd.output().map_err(|e| format!("Falha ao buscar notícias: {e}"))?;
+    if !out.status.success() || out.stdout.is_empty() {
+        return Err("Não consegui carregar as notícias agora.".to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+#[tauri::command(async)]
 pub fn widget_get_system_metrics() -> Result<SystemMetrics, String> {
     #[cfg(target_os = "windows")]
     {
@@ -139,15 +214,22 @@ pub fn widget_get_system_metrics() -> Result<SystemMetrics, String> {
         let mut kernel_ft = FILETIME::default();
         let mut user_ft = FILETIME::default();
 
-        let mut cpu_percent = 5.0;
+        let mut cpu_percent = 0.0;
 
         unsafe {
+            // CPU usage needs two samples; on the very first call take a short baseline.
+            let first_call = CPU_TRACKER.lock().unwrap_or_else(|e| e.into_inner()).is_none();
+            if first_call && GetSystemTimes(&mut idle_ft, &mut kernel_ft, &mut user_ft) != 0 {
+                *CPU_TRACKER.lock().unwrap_or_else(|e| e.into_inner()) =
+                    Some((idle_ft.to_u64(), kernel_ft.to_u64() + user_ft.to_u64(), Instant::now()));
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
             if GetSystemTimes(&mut idle_ft, &mut kernel_ft, &mut user_ft) != 0 {
                 let idle = idle_ft.to_u64();
                 let total = kernel_ft.to_u64() + user_ft.to_u64();
                 let now = Instant::now();
 
-                let mut lock = CPU_TRACKER.lock().unwrap();
+                let mut lock = CPU_TRACKER.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some((prev_idle, prev_total, _)) = *lock {
                     let delta_idle = idle.saturating_sub(prev_idle);
                     let delta_total = total.saturating_sub(prev_total);
@@ -233,7 +315,7 @@ pub fn widget_get_system_metrics() -> Result<SystemMetrics, String> {
 
         Ok(SystemMetrics {
             cpu_percent: (cpu_percent * 10.0).round() / 10.0,
-            cpu_name: "Processador Intel / AMD".to_string(),
+            cpu_name: cpu_name(),
             ram: ram_info,
             disks,
             battery: battery_info,
@@ -420,19 +502,11 @@ pub async fn widget_open_window(
         format!("widget-{}", safe_id)
     };
 
-    let log_msg = format!("[{}] widget_open_window called: label='{}', size={}x{}, pos=({}, {}), ontop={}\n", 
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
-        label, width, height, x, y, is_ontop);
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
-        .and_then(|mut f| std::io::Write::write_all(&mut f, log_msg.as_bytes()));
-
     if let Some(existing) = app.get_webview_window(&label) {
         let _ = existing.set_always_on_top(is_ontop);
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}';", label, label));
-        let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
-            .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> Existing window shown\n"));
         return Ok(());
     }
 
@@ -440,9 +514,6 @@ pub async fn widget_open_window(
         "window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}'; if (document.documentElement) {{ document.documentElement.classList.add('is-transparent-window', 'is-widget'); }}",
         label, label
     );
-
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
-        .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> Invoking WebviewWindowBuilder::build()...\n"));
 
     let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
@@ -468,9 +539,6 @@ pub async fn widget_open_window(
     let win = builder
     .build()
     .map_err(|e| {
-        let err_msg = format!("  -> ERRO ao criar janela do widget {}: {}\n", label, e);
-        let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
-            .and_then(|mut f| std::io::Write::write_all(&mut f, err_msg.as_bytes()));
         eprintln!("[Rust] Erro ao criar janela do widget {}: {}", label, e);
         format!("Erro ao criar janela do widget: {}", e)
     })?;
@@ -478,8 +546,6 @@ pub async fn widget_open_window(
     let _ = win.eval(&format!("window.__TAURI_WINDOW_LABEL__ = '{}'; window.location.hash = '/widget/{}';", label, label));
     let _ = win.show();
     let _ = win.unminimize();
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open("tauri_widget.log")
-        .and_then(|mut f| std::io::Write::write_all(&mut f, b"  -> SUCESSO: janela criada e exibida com sucesso!\n"));
 
     Ok(())
 }
@@ -532,7 +598,6 @@ pub async fn companion_open_window(
         format!("companion-{}", safe_id)
     };
 
-    println!("[Rust] companion_open_window: label='{}', size={}x{}, pos=({}, {})", label, width, height, x, y);
 
     if let Some(existing) = app.get_webview_window(&label) {
         let _ = existing.set_always_on_top(is_ontop);

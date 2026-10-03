@@ -159,6 +159,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
         }
 
         // 2. Atualizar no estado local
+        const previousKey = get().shortcuts.find((s) => s.id === id)?.currentKey || "";
         set((state) => ({
           shortcuts: state.shortcuts.map((item) =>
             item.id === id ? { ...item, currentKey: cleanKey } : item
@@ -177,9 +178,22 @@ export const useShortcutsStore = create<ShortcutsState>()(
 
           const action = actionMap[id];
           if (action) {
-            await invoke("register_action_shortcut", { action, key: cleanKey }).catch((err) => {
-              console.warn(`[ShortcutsStore] Erro ao registrar ação ${action}:`, err);
-            });
+            try {
+              await invoke("register_action_shortcut", { action, key: cleanKey });
+            } catch (err) {
+              set((state) => ({
+                shortcuts: state.shortcuts.map((item) =>
+                  item.id === id ? { ...item, currentKey: previousKey } : item
+                ),
+              }));
+              if (previousKey) {
+                invoke("register_action_shortcut", { action, key: previousKey }).catch(() => {});
+              }
+              return {
+                success: false,
+                message: `O Windows não aceitou o atalho ${cleanKey} (talvez outro programa já use). ${String(err)}`,
+              };
+            }
           }
 
           if (id === "system_toggle_window") {

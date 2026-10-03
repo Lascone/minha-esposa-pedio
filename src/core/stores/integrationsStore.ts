@@ -1,12 +1,11 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ServiceProvider,
   ConnectedAccount,
   TrackMetadata,
   GmailSummary,
   openBrowserAuthFlow,
-  getSimulatedTrack,
-  getSimulatedGmail,
 } from "../services/mediaIntegrationsService";
 
 const STORAGE_KEY = "minha_esposa_pedio_integrations_v3";
@@ -370,6 +369,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => {
     },
 
     togglePlayPause: () => {
+      invoke("media_send_command", { action: "play_pause" }).catch(() => {});
       const current = get().activeTrack;
       set({
         activeTrack: {
@@ -380,34 +380,14 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => {
     },
 
     skipTrack: (direction: "next" | "prev") => {
-      const providers: ServiceProvider[] = ["spotify", "youtube-music", "youtube"];
-      const current = get().activeMediaSource;
-      const nextIndex =
-        direction === "next"
-          ? (providers.indexOf(current) + 1) % providers.length
-          : (providers.indexOf(current) - 1 + providers.length) % providers.length;
-      const nextProvider = providers[nextIndex];
-      set({
-        activeMediaSource: nextProvider,
-        activeTrack: {
-          ...get().activeTrack,
-          provider: nextProvider,
-        },
-      });
+      invoke("media_send_command", { action: direction === "next" ? "next" : "previous" }).catch(() => {});
     },
 
     refreshGmail: () => {
-      // Abre o Gmail real diretamente no navegador do usuário
-      window.open("https://mail.google.com", "_blank");
-      set({
-        gmailSummary: {
-          unreadCount: 0,
-          totalCount: 0,
-          accountEmail: get().accounts.gmail.username || "Caixa de Entrada",
-          lastChecked: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-          recentMessages: [],
-        },
-      });
+      // Sem acesso à API do Gmail: abre a caixa real em vez de inventar contagens.
+      invoke("open_external_url", { url: "https://mail.google.com" }).catch(() =>
+        window.open("https://mail.google.com", "_blank")
+      );
     },
   };
 });

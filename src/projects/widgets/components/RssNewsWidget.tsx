@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { WidgetInstance } from "../types";
 
 interface RssNewsWidgetProps {
@@ -14,54 +15,70 @@ interface NewsItem {
   url?: string;
 }
 
-const DEFAULT_NEWS: NewsItem[] = [
-  {
-    id: "1",
-    title: "Novos avanços em inteligência artificial e aceleração gráfica no Windows",
-    source: "TechPulse",
-    time: "há 15 min",
-    category: "tech",
-    url: "https://g1.globo.com/tecnologia/",
-  },
-  {
-    id: "2",
-    title: "Roblox anuncia nova atualização de motor gráfico e ferramentas para criadores",
-    source: "GameSpot BR",
-    time: "há 42 min",
-    category: "games",
-    url: "https://www.roblox.com",
-  },
-  {
-    id: "3",
-    title: "Mercado de games no Brasil cresce 12% impulsionado por jogos mobile e PC",
-    source: "The Enemy",
-    time: "há 1 hora",
-    category: "games",
-    url: "https://www.theenemy.com.br",
-  },
-  {
-    id: "4",
-    title: "Exploração espacial: novo telescópio captura imagens inéditas de nebulosa",
-    source: "Ciência Hoje",
-    time: "há 2 horas",
-    category: "general",
-    url: "https://g1.globo.com/ciencia/",
-  },
-  {
-    id: "5",
-    title: "Lançamento de processadores de última geração com maior eficiência energética",
-    source: "Hardware Info",
-    time: "há 3 horas",
-    category: "tech",
-    url: "https://canaltech.com.br",
-  },
+const FEEDS: { url: string; source: string; category: NewsItem["category"] }[] = [
+  { url: "https://g1.globo.com/rss/g1/", source: "g1", category: "general" },
+  { url: "https://g1.globo.com/rss/g1/tecnologia/", source: "g1 Tecnologia", category: "tech" },
+  { url: "https://canaltech.com.br/rss/", source: "Canaltech", category: "tech" },
+  { url: "https://br.ign.com/feed.xml", source: "IGN Brasil", category: "games" },
 ];
 
+const PER_FEED = 8;
+
+function relativeTime(date: Date): string {
+  const min = Math.round((Date.now() - date.getTime()) / 60000);
+  if (!Number.isFinite(min) || min < 0) return "";
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+function parseFeed(xml: string, feed: (typeof FEEDS)[number]): (NewsItem & { ts: number })[] {
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  return Array.from(doc.querySelectorAll("item, entry"))
+    .slice(0, PER_FEED)
+    .flatMap((el, i) => {
+      const title = el.querySelector("title")?.textContent?.trim();
+      if (!title) return [];
+      const linkEl = el.querySelector("link");
+      const url = linkEl?.textContent?.trim() || linkEl?.getAttribute("href") || undefined;
+      const dateText = el.querySelector("pubDate, published, updated")?.textContent;
+      const date = dateText ? new Date(dateText) : null;
+      const ts = date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+      return [{ id: `${feed.source}-${i}-${title.slice(0, 24)}`, title, url, source: feed.source, category: feed.category, time: ts ? relativeTime(new Date(ts)) : "", ts }];
+    });
+}
+
 export const RssNewsWidget: React.FC<RssNewsWidgetProps> = ({ widget }) => {
-  const [news, setNews] = useState<NewsItem[]>(DEFAULT_NEWS);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [filter, setFilter] = useState<"all" | "tech" | "games">("all");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const loadNews = useCallback(async () => {
+    setLoading(true);
+    const results = await Promise.allSettled(
+      FEEDS.map(async (feed) => parseFeed(await invoke<string>("widget_fetch_feed", { url: feed.url }), feed))
+    );
+    const items = results
+      .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+      .sort((a, b) => b.ts - a.ts);
+    if (items.length > 0) {
+      setNews(items);
+      setFailed(false);
+    } else {
+      setFailed(true);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadNews();
+    const timer = setInterval(loadNews, 15 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [loadNews]);
 
   const filteredNews = news.filter((n) => filter === "all" || n.category === filter);
 
@@ -88,7 +105,7 @@ export const RssNewsWidget: React.FC<RssNewsWidgetProps> = ({ widget }) => {
 
   const handleOpenUrl = (url?: string) => {
     if (url) {
-      window.open(url, "_blank");
+      invoke("open_external_url", { url }).catch(() => window.open(url, "_blank"));
     }
   };
 
@@ -152,12 +169,23 @@ export const RssNewsWidget: React.FC<RssNewsWidgetProps> = ({ widget }) => {
             >
               Ler notícia completa ↗
             </button>
-            <span className="text-[9px] text-white/30">Atualizado via RSS</span>
+            <span className="text-[9px] text-white/30">{failed ? "Sem conexão · notícias anteriores" : "Via RSS"}</span>
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-xs text-white/40">
-          Nenhuma notícia encontrada.
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 text-xs text-white/50 text-center">
+          {loading ? (
+            <span className="animate-pulse">Buscando notícias…</span>
+          ) : failed ? (
+            <>
+              <span>Não consegui carregar as notícias agora.</span>
+              <button onClick={loadNews} className="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white">
+                Tentar de novo
+              </button>
+            </>
+          ) : (
+            "Nenhuma notícia nesta categoria."
+          )}
         </div>
       )}
 

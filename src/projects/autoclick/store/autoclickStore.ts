@@ -16,6 +16,9 @@ import {
 } from "../types";
 import { InputService } from "@/core/services/automation/InputService";
 
+/** Bumped by stop/emergency so a pending start countdown gives up instead of starting late. */
+let countdownToken = 0;
+
 export const AUTOCLICK_SCHEMA_VERSION = 1;
 
 export const AUTOCLICK_PRESETS: Partial<AutoClickProfile>[] = [
@@ -490,8 +493,7 @@ export const useAutoClickStore = create<AutoClickState>()(
         averageIntervalMs: 100,
         minIntervalMs: 98,
         maxIntervalMs: 102,
-        timerDriftMs: 0.1,
-        eventLatencyMs: 0.8,
+        timerDriftMs: 0,
         queueLength: 0,
       },
 
@@ -500,11 +502,14 @@ export const useAutoClickStore = create<AutoClickState>()(
         if (s.isRunning) return;
 
         // Visual Countdown if delay configured
+        const token = ++countdownToken;
         if (s.startDelaySeconds > 0) {
           for (let rem = s.startDelaySeconds; rem > 0; rem--) {
+            if (token !== countdownToken) return;
             set({ countdownSeconds: rem, statusMessage: `Iniciando em ${rem}s... 💕` });
             await new Promise((r) => setTimeout(r, 1000));
           }
+          if (token !== countdownToken) return;
           set({ countdownSeconds: null });
         }
 
@@ -516,41 +521,51 @@ export const useAutoClickStore = create<AutoClickState>()(
         });
 
         // Convert store state to Native engine config
-        await InputService.start({
-          click_mode: s.clickMode,
-          interval_ms: s.intervalMs,
-          min_interval_ms: s.minIntervalMs,
-          max_interval_ms: s.maxIntervalMs,
-          jitter_ms: s.jitterMs,
-          target_cps: s.cps,
-          min_cps: s.minCps,
-          max_cps: s.maxCps,
-          mouse_button: s.mouseButton,
-          click_type: s.clickType,
-          position_mode: s.positionMode,
-          fixed_x: s.fixedX,
-          fixed_y: s.fixedY,
-          repeat_mode: s.repeatMode,
-          repeat_count: s.repeatCount,
-          repeat_duration_seconds: s.repeatDurationSeconds,
-          start_delay_seconds: 0,
-          multi_points: s.multiPoints.map((p) => ({
-            id: p.id,
-            x: p.x,
-            y: p.y,
-            monitor_index: p.monitorIndex,
-            button: p.button,
-            click_type: p.clickType,
-            delay_before_ms: p.delayBeforeMs,
-            delay_after_ms: p.delayAfterMs,
-            repeat_times: p.repeatTimes,
-            enabled: p.enabled,
-          })),
-          timeline_actions: s.activeTab === "builder" ? s.timelineActions : [],
-          simulation_mode: s.simulationMode,
-          corner_failsafe: s.cornerFailsafe,
-          max_runtime_minutes: 60,
-        });
+        try {
+          await InputService.start({
+            click_mode: s.clickMode,
+            interval_ms: s.intervalMs,
+            min_interval_ms: s.minIntervalMs,
+            max_interval_ms: s.maxIntervalMs,
+            jitter_ms: s.jitterMs,
+            target_cps: s.cps,
+            min_cps: s.minCps,
+            max_cps: s.maxCps,
+            mouse_button: s.mouseButton,
+            click_type: s.clickType,
+            position_mode: s.positionMode,
+            fixed_x: s.fixedX,
+            fixed_y: s.fixedY,
+            repeat_mode: s.repeatMode,
+            repeat_count: s.repeatCount,
+            repeat_duration_seconds: s.repeatDurationSeconds,
+            start_delay_seconds: 0,
+            multi_points: s.multiPoints.map((p) => ({
+              id: p.id,
+              x: p.x,
+              y: p.y,
+              monitor_index: p.monitorIndex,
+              button: p.button,
+              click_type: p.clickType,
+              delay_before_ms: p.delayBeforeMs,
+              delay_after_ms: p.delayAfterMs,
+              repeat_times: p.repeatTimes,
+              enabled: p.enabled,
+            })),
+            timeline_actions: s.activeTab === "builder" ? s.timelineActions : [],
+            simulation_mode: s.simulationMode,
+            corner_failsafe: s.cornerFailsafe,
+            max_runtime_minutes: 60,
+          });
+        } catch (e: any) {
+          await InputService.stop().catch(() => {});
+          set({
+            isRunning: false,
+            isPaused: false,
+            statusMessage: `Não consegui começar a clicar: ${e?.message || e}`,
+          });
+          return;
+        }
 
         // Start background status poller
         const intervalId = setInterval(async () => {
@@ -576,7 +591,6 @@ export const useAutoClickStore = create<AutoClickState>()(
                 minIntervalMs: prev.minIntervalMs,
                 maxIntervalMs: prev.maxIntervalMs,
                 timerDriftMs: status.timer_drift_ms,
-                eventLatencyMs: 0.6,
                 queueLength: 0,
               },
             }));
@@ -604,7 +618,24 @@ export const useAutoClickStore = create<AutoClickState>()(
       },
 
       stopAutoClick: async (reason = "Usuário parou") => {
+        countdownToken++;
+        const wasRunning = get().isRunning;
+        const status = wasRunning ? await InputService.getStatus() : null;
         await InputService.stop();
+        if (wasRunning && status) {
+          get().addHistoryEntry({
+            id: `run-${Date.now()}`,
+            profileName: "Sessão Rápida",
+            startedAt: new Date(Date.now() - status.elapsed_seconds * 1000).toLocaleTimeString(),
+            finishedAt: new Date().toLocaleTimeString(),
+            durationSeconds: status.elapsed_seconds,
+            clickCount: status.click_count,
+            targetCps: get().cps,
+            status: "stopped",
+            stopReason: reason,
+          });
+          set((prev) => ({ totalLifetimeClicks: prev.totalLifetimeClicks + status.click_count }));
+        }
         set({
           isRunning: false,
           isPaused: false,
@@ -624,6 +655,7 @@ export const useAutoClickStore = create<AutoClickState>()(
       },
 
       emergencyStop: async () => {
+        countdownToken++;
         await InputService.emergencyStop();
         set({
           isRunning: false,

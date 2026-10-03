@@ -139,6 +139,10 @@ export const WidgetsGalleryView: React.FC<WidgetsGalleryViewProps> = ({
     const pkg = customPackages.find((p) => p.manifest.id === id);
     if (pkg && confirm(`Deseja remover o widget personalizado "${pkg.manifest.name}"?`)) {
       deletePackage(id);
+      const { activeWidgets: current, removeWidget } = useWidgetsStore.getState();
+      current
+        .filter((w) => w.type === id || w.type === `custom-${id}`)
+        .forEach((w) => removeWidget(w.id));
       setNotice(`Widget "${pkg.manifest.name}" removido.`);
       setTimeout(() => setNotice(null), 2000);
     }

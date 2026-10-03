@@ -163,9 +163,14 @@ function getInitialGeminiModel(): string {
   return "gemini-pro-latest";
 }
 
+function localDateKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getInitialGeminiUsage(): number {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = localDateKey();
     const savedDate = localStorage.getItem(STORAGE_KEY_GEMINI_DATE);
     if (savedDate !== today) {
       localStorage.setItem(STORAGE_KEY_GEMINI_DATE, today);
@@ -246,7 +251,7 @@ export const useAiStore = create<AiSettingsState>((set, get) => ({
     const current = get().geminiRequestsToday + 1;
     try {
       localStorage.setItem(STORAGE_KEY_GEMINI_USAGE, current.toString());
-      localStorage.setItem(STORAGE_KEY_GEMINI_DATE, new Date().toISOString().split("T")[0]);
+      localStorage.setItem(STORAGE_KEY_GEMINI_DATE, localDateKey());
     } catch {}
     set({ geminiRequestsToday: current });
   },

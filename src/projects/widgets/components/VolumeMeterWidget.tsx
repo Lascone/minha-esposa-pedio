@@ -1,143 +1,150 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { WidgetInstance } from "../types";
-import { Volume2, VolumeX, Music, Sliders } from "lucide-react";
+import { Volume1, Volume2, VolumeX, Music, Sliders, Play, SkipBack, SkipForward } from "lucide-react";
 
 interface VolumeMeterWidgetProps {
   widget: WidgetInstance;
 }
 
-export const VolumeMeterWidget: React.FC<VolumeMeterWidgetProps> = ({ widget }) => {
-  const [volume, setVolume] = useState<number>(75);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isPlayingTest, setIsPlayingTest] = useState(false);
-  const [barLevels, setBarLevels] = useState<number[]>([40, 60, 80, 50, 70, 30, 90, 65]);
+const BAR_COUNT = 8;
+const IDLE_BARS = Array(BAR_COUNT).fill(4);
 
-  // Audio test note generator
+export const VolumeMeterWidget: React.FC<VolumeMeterWidgetProps> = ({ widget }) => {
+  const [testVolume, setTestVolume] = useState<number>(60);
+  const [isPlayingTest, setIsPlayingTest] = useState(false);
+  const [barLevels, setBarLevels] = useState<number[]>(IDLE_BARS);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  const sendMediaKey = async (action: string, label: string) => {
+    try {
+      await invoke("media_send_command", { action });
+      setFeedback(label);
+    } catch {
+      setFeedback("Não consegui falar com o Windows");
+    }
+    window.setTimeout(() => setFeedback(null), 1400);
+  };
+
+  // Plays a short chord and drives the bars from the real output of an AnalyserNode.
   const playTestTone = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-
+      if (!AudioCtx || isPlayingTest) return;
+      const ctx: AudioContext = new AudioCtx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.connect(ctx.destination);
       setIsPlayingTest(true);
 
-      const notes = [523.25, 659.25, 783.99, 1046.5]; // C E G C chord
-      notes.forEach((freq, idx) => {
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
+        const t = ctx.currentTime + idx * 0.08;
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
-
-        const currentVol = isMuted ? 0 : (volume / 100) * 0.15;
-        gain.gain.setValueAtTime(currentVol, ctx.currentTime + idx * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8 + idx * 0.08);
-
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(Math.max(0.0002, (testVolume / 100) * 0.15), t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
         osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(ctx.currentTime + idx * 0.08);
-        osc.stop(ctx.currentTime + 0.9 + idx * 0.08);
+        gain.connect(analyser);
+        osc.start(t);
+        osc.stop(t + 0.9);
       });
 
-      setTimeout(() => setIsPlayingTest(false), 800);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const started = performance.now();
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const step = Math.floor(data.length / BAR_COUNT) || 1;
+        setBarLevels(Array.from({ length: BAR_COUNT }, (_, i) => Math.max(4, (data[i * step] / 255) * 100)));
+        if (performance.now() - started < 1100) {
+          rafRef.current = requestAnimationFrame(tick);
+        } else {
+          setBarLevels(IDLE_BARS);
+          setIsPlayingTest(false);
+          ctx.close().catch(() => {});
+        }
+      };
+      rafRef.current = requestAnimationFrame(tick);
     } catch {
       setIsPlayingTest(false);
+      setBarLevels(IDLE_BARS);
     }
   };
 
-  // Subtle pulsing animated VU meter bars
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBarLevels((prev) =>
-        prev.map((_, i) => {
-          if (isMuted) return 5;
-          const base = isPlayingTest ? 60 : 25;
-          const randomFactor = Math.sin(Date.now() / 200 + i) * 20;
-          return Math.max(10, Math.min(100, (base + randomFactor) * (volume / 100)));
-        })
-      );
-    }, 120);
-
-    return () => clearInterval(timer);
-  }, [volume, isMuted, isPlayingTest]);
+  const keyBtn =
+    "flex-1 flex items-center justify-center p-1.5 rounded-lg bg-white/10 border border-white/10 text-white/80 hover:text-white hover:bg-white/20 transition-all active:scale-95";
 
   return (
     <div className="flex flex-col justify-between h-full w-full p-2 select-none">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1 mb-1">
         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
           <Sliders size={13} className="text-emerald-400" />
-          <span>Medidor de Áudio</span>
+          <span>{feedback ?? "Controle de Som"}</span>
         </div>
         <button
           onClick={playTestTone}
           className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/30 font-semibold transition-all active:scale-95"
-          title="Tocar acorde suave de teste"
+          title="Tocar um acorde suave para testar as caixinhas de som"
         >
           <Music size={10} />
           <span>{isPlayingTest ? "Tocando..." : "Testar Som"}</span>
         </button>
       </div>
 
-      {/* Animated Graphic VU Meter Equalizer */}
-      <div className="flex items-end justify-center gap-1 h-12 my-auto px-1 bg-black/20 rounded-xl p-1.5 border border-white/5">
-        {barLevels.map((lvl, index) => {
-          const isHigh = lvl > 75;
-          const isMid = lvl > 45;
-
-          const barColor = isMuted
-            ? "bg-slate-600"
-            : isHigh
-            ? "bg-rose-400"
-            : isMid
-            ? "bg-amber-400"
-            : "bg-emerald-400";
-
-          return (
+      <div
+        className="flex items-end justify-center gap-1 h-10 my-auto px-1 bg-black/20 rounded-xl p-1.5 border border-white/5"
+        title="Nível real do som de teste"
+      >
+        {barLevels.map((lvl, index) => (
+          <div key={index} className="flex-1 bg-white/10 rounded-sm overflow-hidden flex flex-col justify-end h-full">
             <div
-              key={index}
-              className="flex-1 bg-white/10 rounded-sm overflow-hidden flex flex-col justify-end h-full"
-            >
-              <div
-                className={`w-full rounded-sm transition-all duration-100 ${barColor}`}
-                style={{ height: `${lvl}%` }}
-              />
-            </div>
-          );
-        })}
+              className={`w-full rounded-sm transition-[height] duration-75 ${lvl > 75 ? "bg-rose-400" : lvl > 45 ? "bg-amber-400" : "bg-emerald-400"}`}
+              style={{ height: `${lvl}%` }}
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Volume slider & Mute button */}
-      <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className={`p-1.5 rounded-lg border transition-all ${
-            isMuted
-              ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
-              : "bg-white/10 border-white/10 text-white/80 hover:text-white"
-          }`}
-          title={isMuted ? "Desmutar" : "Mutar"}
-        >
-          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+      <div className="flex items-center gap-1 mt-1">
+        <button className={keyBtn} title="Diminuir volume do Windows" onClick={() => sendMediaKey("volume_down", "Volume −")}>
+          <Volume1 size={14} />
         </button>
+        <button className={keyBtn} title="Mutar / desmutar o Windows" onClick={() => sendMediaKey("mute", "Mudo alternado")}>
+          <VolumeX size={14} />
+        </button>
+        <button className={keyBtn} title="Aumentar volume do Windows" onClick={() => sendMediaKey("volume_up", "Volume +")}>
+          <Volume2 size={14} />
+        </button>
+        <span className="w-px h-5 bg-white/10 mx-0.5" />
+        <button className={keyBtn} title="Faixa anterior" onClick={() => sendMediaKey("previous", "Faixa anterior")}>
+          <SkipBack size={13} />
+        </button>
+        <button className={keyBtn} title="Tocar / pausar" onClick={() => sendMediaKey("play_pause", "Tocar / pausar")}>
+          <Play size={13} />
+        </button>
+        <button className={keyBtn} title="Próxima faixa" onClick={() => sendMediaKey("next", "Próxima faixa")}>
+          <SkipForward size={13} />
+        </button>
+      </div>
 
+      <label className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5 text-[10px] text-white/50">
+        <span className="whitespace-nowrap">Volume do teste</span>
         <input
           type="range"
           min="0"
           max="100"
-          value={isMuted ? 0 : volume}
-          onChange={(e) => {
-            setVolume(Number(e.target.value));
-            if (isMuted) setIsMuted(false);
-          }}
+          value={testVolume}
+          onChange={(e) => setTestVolume(Number(e.target.value))}
           className="flex-1 h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-400"
         />
-
-        <span className="text-[11px] font-mono font-bold text-white/90 w-8 text-right">
-          {isMuted ? "0%" : `${volume}%`}
-        </span>
-      </div>
+        <span className="font-mono font-bold text-white/80 w-8 text-right">{testVolume}%</span>
+      </label>
     </div>
   );
 };

@@ -49,6 +49,34 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
   const [queueIndex, setQueueIndex] = useState<number>(0);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const playerRef = useRef<HTMLIFrameElement>(null);
+
+  const sendPlayerCommand = (func: string, args: unknown[] = []) => {
+    playerRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args }),
+      "*"
+    );
+  };
+
+  const syncPlayerAudio = () => {
+    sendPlayerCommand("setVolume", [volume]);
+    sendPlayerCommand(isMuted ? "mute" : "unMute");
+  };
+
+  // The embedded player only accepts commands once it has finished booting.
+  const handlePlayerLoad = () => {
+    [600, 1500, 3000].forEach((ms) => window.setTimeout(syncPlayerAudio, ms));
+  };
+
+  useEffect(() => {
+    syncPlayerAudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volume, isMuted]);
+
+  const togglePlay = () => {
+    sendPlayerCommand(isPlaying ? "pauseVideo" : "playVideo");
+    setIsPlaying(!isPlaying);
+  };
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -109,9 +137,11 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
       if (results.length > 0) {
         setSearchResults(results);
         setQueue(results);
+      } else {
+        addToast("Nenhuma música encontrada para essa busca.", "info");
       }
     } catch {
-      // Fallback
+      addToast("Não consegui buscar agora. Tente colar o link do YouTube.", "warning");
     } finally {
       setIsSearching(false);
     }
@@ -279,8 +309,10 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
       {/* Real Visible YouTube Music / Audio Stream Player */}
       <div className="relative z-10 flex-1 w-full min-h-[115px] my-1 rounded-xl overflow-hidden bg-black/80 border border-white/10 shadow-inner group">
         <iframe
+          ref={playerRef}
           key={currentTrackId}
-          src={`https://www.youtube-nocookie.com/embed/${currentTrackId}?autoplay=${isPlaying ? "1" : "0"}&controls=1&modestbranding=1&rel=0`}
+          onLoad={handlePlayerLoad}
+          src={`https://www.youtube-nocookie.com/embed/${currentTrackId}?autoplay=1&controls=1&modestbranding=1&rel=0&enablejsapi=1`}
           title={currentTitle}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -300,7 +332,7 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
         </div>
         <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-0.5 shrink-0">
           <Flame size={9} />
-          {isPlaying ? "AO VIVO / TOCANDO" : "PAUSADO"}
+          {isPlaying ? "TOCANDO" : "PAUSADO"}
         </span>
       </div>
 
@@ -341,7 +373,7 @@ export const YouTubeMusicWidget: React.FC<{ widget: WidgetInstance }> = ({ widge
           </button>
 
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={togglePlay}
             className="w-7 h-7 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
             title={isPlaying ? "Pausar" : "Tocar"}
           >

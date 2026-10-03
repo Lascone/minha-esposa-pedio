@@ -397,7 +397,6 @@ export const useWidgetsStore = create<WidgetsState>()(
           const width = Math.max(120, Math.round(widget.width * scale));
           const height = Math.max(90, Math.round(widget.height * scale));
 
-          console.log(`[Widgets] Lançando janela nativa para '${widget.title}' (${widget.id}) em (${posX}, ${posY})`);
           await invoke("widget_open_window", {
             widgetId: widget.id,
             title: widget.title,

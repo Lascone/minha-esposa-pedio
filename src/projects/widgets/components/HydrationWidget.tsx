@@ -7,10 +7,26 @@ interface HydrationWidgetProps {
 
 export const HydrationWidget: React.FC<HydrationWidgetProps> = ({ widget }) => {
   const targetMl = widget.settings?.targetMl || 2000;
+  const today = new Date().toDateString();
+  const storageKey = `pmm_hydration_${widget.id}`;
   const [currentMl, setCurrentMl] = useState<number>(() => {
-    const saved = localStorage.getItem("pmm_hydration_ml");
-    return saved ? parseInt(saved, 10) : 750;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (saved && saved.day === today && Number.isFinite(saved.ml)) return saved.ml;
+    } catch {}
+    return 0;
   });
+
+  // A new day starts from zero again.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (saved && saved.day !== new Date().toDateString()) setCurrentMl(0);
+      } catch {}
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [storageKey]);
 
   const [reminderMinutes, setReminderMinutes] = useState(45);
   const [secondsLeft, setSecondsLeft] = useState(45 * 60);
@@ -18,8 +34,8 @@ export const HydrationWidget: React.FC<HydrationWidgetProps> = ({ widget }) => {
 
   // Persist current ml
   useEffect(() => {
-    localStorage.setItem("pmm_hydration_ml", currentMl.toString());
-  }, [currentMl]);
+    localStorage.setItem(storageKey, JSON.stringify({ day: new Date().toDateString(), ml: currentMl }));
+  }, [currentMl, storageKey]);
 
   // Countdown timer for next water break
   useEffect(() => {

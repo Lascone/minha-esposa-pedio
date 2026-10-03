@@ -49,12 +49,9 @@ export interface AutoClickNativeStatus {
 }
 
 export class InputService {
+  /** Throws when the native engine refuses to start, so the UI never claims it is clicking. */
   static async start(config: AutoClickNativeConfig): Promise<void> {
-    try {
-      await invoke("autoclick_start", { config });
-    } catch (e) {
-      console.warn("[InputService] Running in web dev fallback:", e);
-    }
+    await invoke("autoclick_start", { config });
   }
 
   static async stop(): Promise<void> {

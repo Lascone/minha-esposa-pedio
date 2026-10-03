@@ -50,30 +50,27 @@ export const PomodoroWidget: React.FC<PomodoroWidgetProps> = ({ widget }) => {
   };
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            playChime();
-            setIsRunning(false);
-            if (mode === "focus") {
-              setCompletedSessions((c) => c + 1);
-              setMode("shortBreak");
-              return MODE_CONFIGS.shortBreak.defaultSec;
-            } else {
-              setMode("focus");
-              return MODE_CONFIGS.focus.defaultSec;
-            }
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  // Session end lives outside the state updater so the chime and counters fire exactly once.
+  useEffect(() => {
+    if (!isRunning || secondsLeft > 0) return;
+    playChime();
+    setIsRunning(false);
+    if (mode === "focus") {
+      setCompletedSessions((c) => c + 1);
+      setMode("shortBreak");
+      setSecondsLeft(MODE_CONFIGS.shortBreak.defaultSec);
+    } else {
+      setMode("focus");
+      setSecondsLeft(MODE_CONFIGS.focus.defaultSec);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRunning, mode]);
+  }, [secondsLeft, isRunning, mode]);
 
   const switchMode = (newMode: Mode) => {
     setIsRunning(false);

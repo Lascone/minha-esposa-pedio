@@ -31,6 +31,7 @@ import { WidgetSandbox } from "../custom/WidgetSandbox";
 import { useWidgetsStore } from "../store/widgetsStore";
 import { ConsoleSnesWidget } from "../console/components/ConsoleSnesWidget";
 import { isConsoleWidgetType } from "../console/types";
+import { getWidgetDefinition } from "../registry";
 
 interface WidgetRendererProps {
   widget: WidgetInstance;
@@ -55,7 +56,8 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 
   const isConsoleGame = isConsoleWidgetType(widget.type);
 
-  const customPkg = isConsoleGame ? undefined : packages.find(
+  const isBuiltIn = !!getWidgetDefinition(widget.type);
+  const customPkg = isConsoleGame || isBuiltIn ? undefined : packages.find(
     (p) =>
       p.manifest.id === widget.type ||
       `custom-${p.manifest.id}` === widget.type ||

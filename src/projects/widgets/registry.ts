@@ -198,10 +198,10 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
   },
   {
     type: "volume-meter",
-    name: "Medidor & Controle de Áudio",
+    name: "Controle de Som",
     category: "system",
     icon: "🎚️",
-    description: "Visualizador de áudio estilo equalizador VU meter com slider de volume, mute rápido e gerador de notas suaves.",
+    description: "Botões de volume, mudo e música do Windows (tocar/pausar, anterior, próxima) e um som de teste com medidor real.",
     defaultWidth: 260,
     defaultHeight: 180,
     minWidth: 220,

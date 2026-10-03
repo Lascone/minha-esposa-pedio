@@ -319,15 +319,15 @@ void Wh_ModUninit() {
   /**
    * Toggle mod state in native engine and synchronize files
    */
-  async toggleMod(modId: string, enabled: boolean): Promise<boolean> {
+  async toggleMod(modId: string, enabled: boolean): Promise<{ enabled: boolean; needs_explorer_restart: boolean }> {
     try {
       if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
-        return await invoke<boolean>("windhawk_toggle_mod", { modId, enabled });
+        return await invoke<{ enabled: boolean; needs_explorer_restart: boolean }>("windhawk_toggle_mod", { modId, enabled });
       }
     } catch (e) {
       console.error("Falha ao alternar mod nativo:", e);
     }
-    return enabled;
+    return { enabled, needs_explorer_restart: false };
   },
 
   /**

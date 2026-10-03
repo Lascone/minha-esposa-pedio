@@ -116,13 +116,17 @@ export async function checkForUpdates(manual = false): Promise<UpdateCheckResult
 
     // Encontra o instalador .exe entre os assets da release
     const assets = Array.isArray(releaseData.assets) ? releaseData.assets : [];
-    const setupAsset = assets.find((a: any) =>
-      a.name?.toLowerCase().endsWith(".exe") || a.name?.toLowerCase().includes("setup")
-    );
+    const setupAsset = assets.find((a: any) => a.name?.toLowerCase().endsWith(".exe") && a.browser_download_url);
+    if (!setupAsset) {
+      return {
+        hasUpdate: false,
+        currentVersion,
+        latestVersion: remoteVersion,
+        error: `A versão ${remoteVersion} ainda está sem instalador publicado. Tente de novo daqui a pouquinho.`,
+      };
+    }
 
-    const downloadUrl = setupAsset
-      ? setupAsset.browser_download_url
-      : releaseData.html_url;
+    const downloadUrl: string = setupAsset.browser_download_url;
 
     const notes =
       releaseData.body ||

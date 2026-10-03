@@ -98,6 +98,12 @@ export const BRAIN_IDEAS: BrainIdea[] = [
   },
 ];
 
+const withoutImages = (msgs: AiChatMessage[]): AiChatMessage[] =>
+  msgs.map((m) => (m.imageUrl && m.imageUrl.startsWith("data:") ? { ...m, imageUrl: undefined } : m));
+
+const POLISH_REQUEST =
+  "Amor, deixa o visual deste gadget muito mais bonito, no nível de um app profissional: hierarquia clara, fonte com personalidade, fundo em camadas com profundidade, ícones em SVG, micro-animações suaves e cores lindas em todos os temas. Mantém tudo o que já funciona.";
+
 const QUICK_SUGGESTIONS = [
   "🌸 Relógio digital rosa com data por extenso e emojis fofos",
   "💧 Contador diário de copos de água com botões de + e -",
@@ -138,6 +144,15 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     renameSession,
     deleteSession,
   } = useWidgetChatsStore();
+
+  // Attached images stay visible in this open chat but are not saved: data URLs of several MB
+  // would blow the localStorage quota and silently lose later saves.
+  const persistSession = (msgs: AiChatMessage[], pkg?: CustomWidgetPackage, title?: string) =>
+    updateActiveSession(
+      withoutImages(msgs),
+      pkg ? { ...pkg, chatHistory: pkg.chatHistory ? withoutImages(pkg.chatHistory) : pkg.chatHistory } : pkg,
+      title
+    );
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
@@ -188,7 +203,11 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
       const existing = sessions.find((s) => s.currentPackage?.manifest.id === initialPackage.manifest.id);
       if (existing) {
         selectSession(existing.id);
-        setCurrentPackage(existing.currentPackage || initialPackage);
+        // Code edited in the editor after this chat is newer than the chat's own copy.
+        const sessionPkg = existing.currentPackage;
+        const newest =
+          sessionPkg && (sessionPkg.updatedAt || 0) > (initialPackage.updatedAt || 0) ? sessionPkg : initialPackage;
+        setCurrentPackage(newest);
         setMessages(existing.messages || []);
       } else {
         createSession(initialPackage.manifest.name, initialPackage);
@@ -328,8 +347,14 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
         },
       });
 
+      let manifest = result.package.manifest;
+      if (!currentPackage && useCustomWidgetsStore.getState().packages.some((p) => p.manifest.id === manifest.id)) {
+        // A brand-new gadget must not overwrite another saved gadget that happens to get the same id.
+        manifest = { ...manifest, id: `${manifest.id}-${Date.now().toString(36).slice(-5)}` };
+      }
+
       const updatedPkg: CustomWidgetPackage = {
-        manifest: result.package.manifest,
+        manifest,
         html: result.package.html,
         css: result.package.css,
         js: result.package.js,
@@ -350,7 +375,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
       setMessages(updatedPkg.chatHistory || []);
       setHasUnsavedChanges(true);
       setPreviewKey((k) => k + 1);
-      updateActiveSession(updatedPkg.chatHistory || [], updatedPkg, updatedPkg.manifest.name);
+      persistSession(updatedPkg.chatHistory || [], updatedPkg, updatedPkg.manifest.name);
       addToast("Gadget atualizado no preview ao vivo! ✨", "sparkle");
     } catch (err: any) {
       const errorMsg: AiChatMessage = {
@@ -361,7 +386,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
       };
       setMessages((prev) => {
         const next = [...prev, errorMsg];
-        updateActiveSession(next, currentPackage || undefined);
+        persistSession(next, currentPackage || undefined);
         return next;
       });
     } finally {
@@ -374,13 +399,18 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
 
     const pkgToSave: CustomWidgetPackage = {
       ...currentPackage,
-      chatHistory: messages,
+      chatHistory: withoutImages(messages),
       updatedAt: Date.now(),
     };
 
     savePackage(pkgToSave);
-    updateActiveSession(messages, pkgToSave, pkgToSave.manifest.name);
-    addWidget(pkgToSave.manifest.id as any);
+    persistSession(messages, pkgToSave, pkgToSave.manifest.name);
+    const m = pkgToSave.manifest as any;
+    addWidget(pkgToSave.manifest.id as any, {
+      title: pkgToSave.manifest.name,
+      ...(Number(m.defaultWidth) > 0 ? { width: Number(m.defaultWidth) } : {}),
+      ...(Number(m.defaultHeight) > 0 ? { height: Number(m.defaultHeight) } : {}),
+    });
     addToast(`"${pkgToSave.manifest.name}" adicionado à Área de Trabalho! 🚀`, "success");
     setHasUnsavedChanges(false);
 
@@ -394,11 +424,11 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     if (!currentPackage) return;
     const pkgToSave: CustomWidgetPackage = {
       ...currentPackage,
-      chatHistory: messages,
+      chatHistory: withoutImages(messages),
       updatedAt: Date.now(),
     };
     savePackage(pkgToSave);
-    updateActiveSession(messages, pkgToSave, pkgToSave.manifest.name);
+    persistSession(messages, pkgToSave, pkgToSave.manifest.name);
     setHasUnsavedChanges(false);
     addToast(`"${pkgToSave.manifest.name}" salvo com sucesso!`, "sparkle");
   };
@@ -818,16 +848,29 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                 <span>Enter para enviar • Shift+Enter para quebra de linha</span>
                 {currentPackage && (
                   <button
+                    type="button"
+                    disabled={isGenerating}
+                    onClick={() => handleSendMessage(POLISH_REQUEST)}
+                    className="flex items-center gap-1 font-bold text-pink-300 hover:text-pink-200 disabled:opacity-40"
+                    title="Pede para a IA refazer só o visual, no padrão máximo, sem perder nada que funciona"
+                  >
+                    <Sparkles size={11} /> Caprichar no visual
+                  </button>
+                )}
+                {currentPackage && (
+                  <button
                     onClick={() => {
                       if (confirm("Deseja reiniciar a conversa com a IA para este gadget?")) {
-                        setMessages([
+                        const fresh: AiChatMessage[] = [
                           {
                             id: `init-${Date.now()}`,
                             role: "assistant",
                             content: `Histórico reiniciado. O que você gostaria de modificar em "${currentPackage.manifest.name}"? 💖`,
                             timestamp: Date.now(),
                           },
-                        ]);
+                        ];
+                        setMessages(fresh);
+                        persistSession(fresh, { ...currentPackage, chatHistory: fresh });
                       }
                     }}
                     className="hover:text-rose-400 underline"
@@ -1072,9 +1115,29 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
             setInputText(`Coloque esta imagem no gadget (${label}): ${url}`);
           }
         }}
-        onSelectImageAsReference={(url) => {
-          setAttachedImage(url);
-          addToast("Imagem anexada como referência visual para o maridão! 📸✨", "sparkle");
+        onSelectImageAsReference={async (url) => {
+          if (url.startsWith("data:")) {
+            setAttachedImage(url);
+            addToast("Imagem anexada como referência visual para o maridão! 📸✨", "sparkle");
+            return;
+          }
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(String(res.status));
+            const blob = await res.blob();
+            if (!blob.type.startsWith("image/") || blob.size > 5 * 1024 * 1024) throw new Error("tipo");
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blob);
+            });
+            setAttachedImage(dataUrl);
+            addToast("Imagem anexada como referência visual para o maridão! 📸✨", "sparkle");
+          } catch {
+            setInputText((prev) => `${prev ? `${prev}\n` : ""}Use esta imagem como referência de estilo: ${url}`);
+            addToast("Não deu pra anexar direto, então coloquei o link da imagem no pedido 💕", "info");
+          }
         }}
       />
     </div>

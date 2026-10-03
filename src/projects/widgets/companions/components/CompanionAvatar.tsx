@@ -143,53 +143,54 @@ export const CompanionAvatar: React.FC<CompanionAvatarProps> = ({
     const intervalMs = settings.fpsCap === 60 ? 16 : 33;
     const step = (speed * (intervalMs / 1000));
 
-    const moveTimer = setInterval(async () => {
-      let currentX = instance.x;
-      let currentY = instance.y;
-      let facing = instance.facing;
+    // The walk runs from a local copy; the persisted store (shared by every window) is only
+    // written about once a second instead of on every frame.
+    const pos = { x: instance.x, y: instance.y, facing: instance.facing };
+    let lastSaved = performance.now();
+    const save = (withFacing = false) =>
+      updateCompanionState(instance.instanceId, withFacing ? { x: pos.x, facing: pos.facing } : { x: pos.x });
 
+    const moveTimer = setInterval(() => {
       // Positions are physical pixels (companion_set_position).
       const screenWidth = (window.screen.width || 1920) * (window.devicePixelRatio || 1);
       const margin = settings.boundaryMargin || 30;
 
-      // Update position
-      if (facing === "right") {
-        currentX += step;
-        if (currentX > screenWidth - margin - 120) {
-          facing = "left";
-          currentX = screenWidth - margin - 120;
+      if (pos.facing === "right") {
+        pos.x += step;
+        if (pos.x > screenWidth - margin - 120) {
+          pos.facing = "left";
+          pos.x = screenWidth - margin - 120;
+          save(true);
         }
       } else {
-        currentX -= step;
-        if (currentX < margin) {
-          facing = "right";
-          currentX = margin;
+        pos.x -= step;
+        if (pos.x < margin) {
+          pos.facing = "right";
+          pos.x = margin;
+          save(true);
         }
       }
 
-      updateCompanionState(instance.instanceId, {
-        x: currentX,
-        facing,
-      });
+      if (performance.now() - lastSaved > 1000) {
+        lastSaved = performance.now();
+        save();
+      }
 
-      // Synchronize native Tauri window position
-      try {
-        await invoke("companion_set_position", {
-          companionId: instance.instanceId,
-          x: Math.round(currentX),
-          y: Math.round(currentY),
-        });
-      } catch {}
+      invoke("companion_set_position", {
+        companionId: instance.instanceId,
+        x: Math.round(pos.x),
+        y: Math.round(pos.y),
+      }).catch(() => {});
     }, intervalMs);
 
-    return () => clearInterval(moveTimer);
+    return () => {
+      clearInterval(moveTimer);
+      save();
+    };
   }, [
     interactive,
     instance.isPaused,
     instance.currentState,
-    instance.x,
-    instance.y,
-    instance.facing,
     instance.scale,
     manifest?.speed,
     settings.fpsCap,

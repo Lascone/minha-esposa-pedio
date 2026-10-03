@@ -144,6 +144,5 @@ export interface DeveloperDiagnostics {
   minIntervalMs: number;
   maxIntervalMs: number;
   timerDriftMs: number;
-  eventLatencyMs: number;
   queueLength: number;
 }

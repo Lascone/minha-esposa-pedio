@@ -433,7 +433,7 @@ pub fn apply_native_mod_tweak(mod_id: &str, enabled: bool) {
     notify_windows_shell();
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_get_status() -> WindhawkStatus {
     let integrated_dir = get_integrated_engine_dir();
     let mods_dir = integrated_dir.join("mods");
@@ -462,7 +462,7 @@ pub fn windhawk_get_status() -> WindhawkStatus {
         is_running: true, // Motor nativo embutido está sempre ativo
         executable_path: Some("Motor Nativo PMM (Embutido & Independente)".to_string()),
         data_path: Some(integrated_dir.to_string_lossy().to_string()),
-        version: Some("2.5.0-pmm-native".to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
         running_process_id: Some(std::process::id()),
         engine_status: "running".to_string(),
         engine_type: "integrated_native".to_string(),
@@ -488,7 +488,7 @@ pub fn windhawk_launch() -> Result<bool, String> {
     Ok(true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_restart_explorer() -> Result<bool, String> {
     // Also terminate StartMenuExperienceHost so both Start Menu and Explorer reload cleanly
     let _ = silent_cmd("taskkill")
@@ -532,7 +532,7 @@ pub fn windhawk_open_folder(folder_type: String) -> Result<bool, String> {
     Ok(true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_get_mod_source(mod_id: String) -> Result<String, String> {
     let integrated_dir = get_integrated_engine_dir();
     let local_file = integrated_dir.join("mods").join(format!("{}.wh.cpp", mod_id));
@@ -551,7 +551,7 @@ pub fn windhawk_get_mod_source(mod_id: String) -> Result<String, String> {
     );
 
     let curl_res = silent_cmd("curl.exe")
-        .args(["-s", "-L", &url])
+        .args(["-s", "-L", "--max-time", "15", &url])
         .output();
 
     if let Ok(out) = curl_res {
@@ -615,7 +615,7 @@ pub fn windhawk_save_mod_source(mod_id: String, source_code: String) -> Result<b
     Ok(true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_compile_mod(mod_id: String, source_code: String) -> Result<String, String> {
     let integrated_dir = get_integrated_engine_dir();
     let local_file = integrated_dir.join("mods").join(format!("{}.wh.cpp", mod_id));
@@ -643,7 +643,7 @@ pub fn windhawk_compile_mod(mod_id: String, source_code: String) -> Result<Strin
     apply_native_mod_tweak(&mod_id, true);
 
     // 4. If compiler toolchain exists on the machine, compile to DLL
-    let mut compile_info = String::new();
+    let compile_info: String;
     if let Some(compiler) = find_compiler_executable() {
         let res = silent_cmd(&compiler)
             .args([
@@ -659,20 +659,27 @@ pub fn windhawk_compile_mod(mod_id: String, source_code: String) -> Result<Strin
             ])
             .output();
 
-        if let Ok(comp_out) = res {
-            if comp_out.status.success() {
-                compile_info = " e DLL compilada com sucesso!".to_string();
+        match res {
+            Ok(comp_out) if comp_out.status.success() => {
+                compile_info = " A DLL também foi compilada com sucesso.".to_string();
+            }
+            Ok(comp_out) => {
+                let err = String::from_utf8_lossy(&comp_out.stderr);
+                let first = err.lines().find(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido");
+                compile_info = format!(" A compilação da DLL falhou: {}", first.chars().take(200).collect::<String>());
+            }
+            Err(e) => {
+                compile_info = format!(" Não consegui rodar o compilador: {}", e);
             }
         }
+    } else {
+        compile_info = " Nenhum compilador C++ encontrado, então só os ajustes nativos conhecidos deste mod foram aplicados.".to_string();
     }
 
-    Ok(format!(
-        "Mod '{}' salvo e ativado no Motor Nativo PMM{}! ✨",
-        mod_id, compile_info
-    ))
+    Ok(format!("Código do mod '{}' salvo.{}", mod_id, compile_info))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_setup_engine() -> Result<EngineSetupResult, String> {
     let integrated_dir = get_integrated_engine_dir();
     let state_file = integrated_dir.join("active_mods.json");
@@ -694,8 +701,14 @@ pub fn windhawk_setup_engine() -> Result<EngineSetupResult, String> {
     })
 }
 
-#[tauri::command]
-pub fn windhawk_toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String> {
+#[derive(Serialize)]
+pub struct ModToggleResult {
+    pub enabled: bool,
+    pub needs_explorer_restart: bool,
+}
+
+#[tauri::command(async)]
+pub fn windhawk_toggle_mod(mod_id: String, enabled: bool) -> Result<ModToggleResult, String> {
     let integrated_dir = get_integrated_engine_dir();
     let state_file = integrated_dir.join("active_mods.json");
 
@@ -723,9 +736,10 @@ pub fn windhawk_toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String
     // 2. Notify Explorer / Desktop
     notify_windows_shell();
 
-    // 3. If mod directly styles the Windows Explorer, Taskbar, or Start Menu, restart Explorer so it applies immediately
+    // 3. Mods that style Explorer, the taskbar or Start only show up after an Explorer restart,
+    // which the user must confirm in the UI.
     let lower = mod_id.to_lowercase();
-    if lower.contains("taskbar")
+    let needs_explorer_restart = lower.contains("taskbar")
         || lower.contains("explorer")
         || lower.contains("context")
         || lower.contains("grouping")
@@ -742,15 +756,12 @@ pub fn windhawk_toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String
         || lower.contains("extension")
         || lower.contains("search")
         || lower.contains("bing")
-        || lower.contains("icon")
-    {
-        let _ = windhawk_restart_explorer();
-    }
+        || lower.contains("icon");
 
-    Ok(enabled)
+    Ok(ModToggleResult { enabled, needs_explorer_restart })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_create_custom_mod(
     id: String,
     name: String,
@@ -804,7 +815,7 @@ void Wh_ModUninit() {{
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_get_installed_mods() -> Result<Vec<LocalModState>, String> {
     let mut mods = Vec::new();
     let integrated_dir = get_integrated_engine_dir();
@@ -840,7 +851,7 @@ pub fn windhawk_get_installed_mods() -> Result<Vec<LocalModState>, String> {
     Ok(mods)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windhawk_apply_theme(mod_id: String, theme_id: String) -> Result<bool, String> {
     let lower_mod = mod_id.to_lowercase();
     let lower_theme = theme_id.to_lowercase();

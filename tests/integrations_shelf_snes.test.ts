@@ -1,4 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+const invokeMock = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+
 import { getWidgetDefinition } from "../src/projects/widgets/registry";
 import {
   useSnesCustomizerStore,
@@ -6,10 +10,6 @@ import {
   SNES_SKINS,
 } from "../src/projects/widgets/console/snesCustomizer";
 import { useIntegrationsStore } from "../src/core/stores/integrationsStore";
-import {
-  getSimulatedTrack,
-  getSimulatedGmail,
-} from "../src/core/services/mediaIntegrationsService";
 
 describe("Desktop Shelf Widget & Personalizations", () => {
   it("should have desktop-shelf registered in WIDGET_REGISTRY with correct metadata", () => {
@@ -83,39 +83,21 @@ describe("Mini Console SNES Customizer API", () => {
   });
 });
 
-describe("Media & Accounts Integration (Spotify, YouTube Music, Gmail)", () => {
-  it("should simulate tracks for Spotify, YouTube Music, and YouTube", () => {
-    const spotify = getSimulatedTrack("spotify");
-    expect(spotify.provider).toBe("spotify");
-    expect(spotify.title).toBeTruthy();
-    expect(spotify.artist).toBeTruthy();
-
-    const ytMusic = getSimulatedTrack("youtube-music");
-    expect(ytMusic.provider).toBe("youtube-music");
-    expect(ytMusic.title).toBeTruthy();
-
-    const yt = getSimulatedTrack("youtube");
-    expect(yt.provider).toBe("youtube");
-    expect(yt.title).toBeTruthy();
-  });
-
-  it("should simulate Gmail unread count and messages correctly", () => {
-    const gmail = getSimulatedGmail();
-    expect(gmail.unreadCount).toBeGreaterThan(0);
-    expect(gmail.recentMessages.length).toBeGreaterThan(0);
-    expect(gmail.recentMessages[0].sender).toBeTruthy();
-  });
-
-  it("should manage playback state and track switching in useIntegrationsStore", () => {
+describe("Media controls", () => {
+  it("send the real Windows media keys instead of faking playback", () => {
+    invokeMock.mockClear();
     const store = useIntegrationsStore.getState();
 
     const initialPlaying = store.activeTrack.isPlaying;
     store.togglePlayPause();
     expect(useIntegrationsStore.getState().activeTrack.isPlaying).toBe(!initialPlaying);
+    expect(invokeMock).toHaveBeenCalledWith("media_send_command", { action: "play_pause" });
 
-    // Skip to next track
     const prevProvider = useIntegrationsStore.getState().activeTrack.provider;
     store.skipTrack("next");
-    expect(useIntegrationsStore.getState().activeTrack.provider).not.toBe(prevProvider);
+    store.skipTrack("prev");
+    expect(invokeMock).toHaveBeenCalledWith("media_send_command", { action: "next" });
+    expect(invokeMock).toHaveBeenCalledWith("media_send_command", { action: "previous" });
+    expect(useIntegrationsStore.getState().activeTrack.provider).toBe(prevProvider);
   });
 });

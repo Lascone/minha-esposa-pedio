@@ -18,8 +18,6 @@ import { AutoClickApp } from "./projects/autoclick/AutoClickApp";
 import { ManageGamesView } from "./projects/widgets/console/components/ManageGamesView";
 import { OverlayApp } from "./overlay/OverlayApp";
 import { ModsView } from "./projects/mods/views/ModsView";
-import { PetMainView } from "./projects/pet/views/PetMainView";
-import { usePetStore } from "./projects/pet/store/petStore";
 import { useCrosshairStore } from "./projects/crosshair/store/crosshairStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -102,6 +100,9 @@ export const App: React.FC = () => {
   // Synchronize OS-level shortcuts to Rust backend on startup
   useEffect(() => {
     syncAllSavedShortcutsToBackend();
+    if (localStorage.getItem("pmm_minimize_tray") === "false") {
+      invoke("set_minimize_to_tray", { enabled: false }).catch(() => {});
+    }
   }, []);
 
   // Root-level global listeners for automation shortcuts (AutoClick & Bots)
@@ -163,8 +164,7 @@ export const App: React.FC = () => {
       const isOverlayKeyMatch =
         keyUpper === savedOverlayKey ||
         (savedOverlayKey === "CONTROL+ALT+X" && e.ctrlKey && e.altKey && e.key.toLowerCase() === "x") ||
-        (savedOverlayKey.startsWith("F") && keyUpper === savedOverlayKey) ||
-        e.key === "F10";
+        (savedOverlayKey.startsWith("F") && keyUpper === savedOverlayKey);
 
       if (isOverlayKeyMatch) {
         e.preventDefault();
@@ -241,15 +241,12 @@ export const App: React.FC = () => {
     currentRoute === "/overlay" ||
     window.location.hash.startsWith("#/overlay");
 
-  // Auto-launch active desktop widgets, companions, and virtual pet ONLY in the real main window
+  // Auto-launch active desktop widgets and companions ONLY in the real main window
   useEffect(() => {
     if (windowLabel === "main" && !isWidgetWindow && !isCompanionWindow && !isOverlayWindow) {
       const timer = setTimeout(() => {
         useWidgetsStore.getState().launchAllActiveWidgets();
         useCompanionsStore.getState().launchAllActiveCompanions();
-        if (usePetStore.getState().isDesktopActive) {
-          usePetStore.getState().spawnPetOnDesktop();
-        }
       }, 700);
       return () => clearTimeout(timer);
     }
@@ -293,13 +290,6 @@ export const App: React.FC = () => {
       return (
         <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Gadgets da Área de Trabalho... 🪟</div>}>
           <WidgetsApp />
-        </Suspense>
-      );
-    }
-    if (currentRoute === "/pet" || currentRoute.startsWith("/pet/")) {
-      return (
-        <Suspense fallback={<div className="p-8 text-center text-sm text-theme-text-muted">Carregando Bichinho Virtual... 🐾</div>}>
-          <PetMainView />
         </Suspense>
       );
     }

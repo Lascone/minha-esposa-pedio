@@ -1,30 +1,4 @@
-use serde::{Deserialize, Serialize};
 use std::process::Command;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaSessionStatus {
-    pub has_media: bool,
-    pub source_app: String,
-    pub title: String,
-    pub artist: String,
-    pub album_title: String,
-    pub is_playing: bool,
-    pub playback_status: String,
-}
-
-impl Default for MediaSessionStatus {
-    fn default() -> Self {
-        Self {
-            has_media: false,
-            source_app: String::new(),
-            title: String::new(),
-            artist: String::new(),
-            album_title: String::new(),
-            is_playing: false,
-            playback_status: "Stopped".to_string(),
-        }
-    }
-}
 
 /// Send multimedia key directly via Win32 API in 0ms latency
 #[cfg(windows)]
@@ -41,7 +15,7 @@ fn send_vk_key(vk: u8) {
 #[cfg(not(windows))]
 fn send_vk_key(_vk: u8) {}
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn media_send_command(action: String) -> Result<bool, String> {
     match action.to_lowercase().as_str() {
         "play_pause" | "toggle" => {
@@ -78,7 +52,7 @@ pub fn media_send_command(action: String) -> Result<bool, String> {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn media_open_firefox(url: Option<String>) -> Result<bool, String> {
     let target_url = url.unwrap_or_else(|| "https://music.youtube.com".to_string());
 
@@ -120,11 +94,5 @@ pub fn media_open_firefox(url: Option<String>) -> Result<bool, String> {
     }
 
     Ok(true)
-}
-
-#[tauri::command]
-pub fn media_get_status() -> MediaSessionStatus {
-    // Retorna status limpo instantaneamente, sem spawnar processos powershell
-    MediaSessionStatus::default()
 }
 

@@ -9,7 +9,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 mod widget_system;
 use widget_system::{
-    widget_get_system_metrics, widget_open_window, widget_close_window,
+    widget_get_system_metrics, widget_fetch_feed, widget_open_window, widget_close_window,
     widget_set_always_on_top, widget_set_position, widget_reset_positions, widget_set_hit_rects,
     widget_launch_target, companion_open_window, companion_close_window,
     companion_set_position, companion_set_always_on_top,
@@ -32,7 +32,7 @@ use windhawk_system::{
 };
 
 mod media_system;
-use media_system::{media_send_command, media_open_firefox, media_get_status};
+use media_system::{media_send_command, media_open_firefox};
 
 mod image_search;
 use image_search::search_web_images;
@@ -40,24 +40,13 @@ use image_search::search_web_images;
 mod single_instance;
 
 mod autoclick_engine;
-mod autoclick_db;
 use autoclick_engine::{AutoClickEngine, AutoClickEngineConfig, EngineStatus};
-use autoclick_db::{AutoClickDatabase, AutoClickRunRecord};
 use std::sync::OnceLock;
 
 static AUTOCLICK_ENGINE: OnceLock<AutoClickEngine> = OnceLock::new();
-static AUTOCLICK_DB: OnceLock<AutoClickDatabase> = OnceLock::new();
 
 fn get_autoclick_engine() -> &'static AutoClickEngine {
     AUTOCLICK_ENGINE.get_or_init(AutoClickEngine::new)
-}
-
-fn get_autoclick_db(app: &AppHandle) -> &'static AutoClickDatabase {
-    AUTOCLICK_DB.get_or_init(|| {
-        let app_data = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        let db_path = app_data.join("autoclick.sqlite");
-        AutoClickDatabase::new(db_path).expect("Failed to initialize AutoClick SQLite database")
-    })
 }
 
 
@@ -424,24 +413,6 @@ fn autoclick_get_windows() -> Result<Vec<WindowInfo>, String> {
     Ok(windows)
 }
 
-#[tauri::command]
-fn autoclick_record_history(app: AppHandle, record: AutoClickRunRecord) -> Result<(), String> {
-    let db = get_autoclick_db(&app);
-    db.insert_history(&record).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn autoclick_get_history(app: AppHandle, limit: Option<usize>) -> Result<Vec<AutoClickRunRecord>, String> {
-    let db = get_autoclick_db(&app);
-    db.get_recent_history(limit.unwrap_or(50)).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn autoclick_clear_history(app: AppHandle) -> Result<(), String> {
-    let db = get_autoclick_db(&app);
-    db.clear_history().map_err(|e| e.to_string())
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UpdateProgressPayload {
     pub status: String,
@@ -456,12 +427,16 @@ fn get_app_version() -> String {
 
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
+    let lower = url.trim().to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) || url.contains('"') {
+        return Err("Só consigo abrir links da internet (http/https).".to_string());
+    }
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", &url])
-            .creation_flags(0x08000000)
+        // explorer.exe receives the URL as one argument; going through `cmd /c start`
+        // would let `&` in the URL run extra commands.
+        std::process::Command::new("explorer.exe")
+            .arg(url.trim())
             .spawn()
             .map_err(|e| format!("Erro ao abrir link: {}", e))?;
     }
@@ -474,6 +449,9 @@ fn open_external_url(url: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn download_and_run_installer(app: AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("https://github.com/") || !url.to_ascii_lowercase().ends_with(".exe") {
+        return Err("Endereço de atualização inválido.".to_string());
+    }
     let app_handle = app.clone();
 
     std::thread::spawn(move || {
@@ -488,7 +466,7 @@ async fn download_and_run_installer(app: AppHandle, url: String) -> Result<(), S
 
         // Usar curl nativo do Windows para baixar com suporte a redirects (GitHub Releases / AWS S3)
         let status = std::process::Command::new("curl.exe")
-            .args(["-L", "-f", "-o", target_path.to_str().unwrap_or_default(), &url])
+            .args(["-L", "-f", "--connect-timeout", "20", "--max-time", "900", "-o", target_path.to_str().unwrap_or_default(), &url])
             .status();
 
         match status {
@@ -563,6 +541,7 @@ pub fn run() {
             register_action_shortcut,
             register_custom_hotkey,
             widget_get_system_metrics,
+            widget_fetch_feed,
             widget_open_window,
             widget_close_window,
             widget_set_always_on_top,
@@ -593,9 +572,6 @@ pub fn run() {
             autoclick_emergency_stop,
             autoclick_get_cursor_pos,
             autoclick_get_windows,
-            autoclick_record_history,
-            autoclick_get_history,
-            autoclick_clear_history,
             autoclick_register_hotkey,
             autoclick_register_emergency_hotkey,
             get_app_version,
@@ -616,7 +592,6 @@ pub fn run() {
             windhawk_open_in_app,
             media_send_command,
             media_open_firefox,
-            media_get_status,
             search_web_images,
         ])
 

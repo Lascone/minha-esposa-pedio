@@ -13,17 +13,18 @@ interface CurrencyRate {
   pctChange: number;
 }
 
-const FALLBACK_RATES: CurrencyRate[] = [
-  { code: "USD", name: "Dólar Comercial", symbol: "$", bid: 5.42, pctChange: 0.15 },
-  { code: "EUR", name: "Euro", symbol: "€", bid: 5.92, pctChange: -0.22 },
-  { code: "BTC", name: "Bitcoin", symbol: "₿", bid: 348500, pctChange: 1.84 },
-  { code: "ETH", name: "Ethereum", symbol: "Ξ", bid: 15400, pctChange: 0.95 },
-];
+const CURRENCIES = [
+  { code: "USD", key: "USDBRL", name: "Dólar", symbol: "$" },
+  { code: "EUR", key: "EURBRL", name: "Euro", symbol: "€" },
+  { code: "BTC", key: "BTCBRL", name: "Bitcoin", symbol: "₿" },
+  { code: "ETH", key: "ETHBRL", name: "Ethereum", symbol: "Ξ" },
+] as const;
 
 export const CryptoCurrencyWidget: React.FC<CryptoCurrencyWidgetProps> = ({ widget }) => {
-  const [rates, setRates] = useState<CurrencyRate[]>(FALLBACK_RATES);
+  const [rates, setRates] = useState<CurrencyRate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState(false);
   const [brlInput, setBrlInput] = useState<string>("100");
   const [activeTab, setActiveTab] = useState<"cards" | "convert">("cards");
 
@@ -31,43 +32,21 @@ export const CryptoCurrencyWidget: React.FC<CryptoCurrencyWidgetProps> = ({ widg
     setLoading(true);
     try {
       const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL");
-      if (res.ok) {
-        const data = await res.json();
-        const updated: CurrencyRate[] = [
-          {
-            code: "USD",
-            name: "Dólar",
-            symbol: "$",
-            bid: parseFloat(data.USDBRL?.bid || "5.42"),
-            pctChange: parseFloat(data.USDBRL?.pctChange || "0"),
-          },
-          {
-            code: "EUR",
-            name: "Euro",
-            symbol: "€",
-            bid: parseFloat(data.EURBRL?.bid || "5.92"),
-            pctChange: parseFloat(data.EURBRL?.pctChange || "0"),
-          },
-          {
-            code: "BTC",
-            name: "Bitcoin",
-            symbol: "₿",
-            bid: parseFloat(data.BTCBRL?.bid || "348500"),
-            pctChange: parseFloat(data.BTCBRL?.pctChange || "0"),
-          },
-          {
-            code: "ETH",
-            name: "Ethereum",
-            symbol: "Ξ",
-            bid: parseFloat(data.ETHBRL?.bid || "15400"),
-            pctChange: parseFloat(data.ETHBRL?.pctChange || "0"),
-          },
-        ];
-        setRates(updated);
-        setLastUpdated(new Date());
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const updated: CurrencyRate[] = CURRENCIES.flatMap((c) => {
+        const bid = parseFloat(data?.[c.key]?.bid);
+        if (!Number.isFinite(bid)) return [];
+        const pct = parseFloat(data?.[c.key]?.pctChange);
+        return [{ code: c.code, name: c.name, symbol: c.symbol, bid, pctChange: Number.isFinite(pct) ? pct : 0 }];
+      });
+      if (updated.length === 0) throw new Error("sem dados");
+      setRates(updated);
+      setLastUpdated(new Date());
+      setError(false);
     } catch {
-      // Keep previous rates on network error
+      // Previous real rates stay on screen; the footer says they are not fresh.
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -115,7 +94,20 @@ export const CryptoCurrencyWidget: React.FC<CryptoCurrencyWidgetProps> = ({ widg
       </div>
 
       {/* Content Area */}
-      {activeTab === "cards" ? (
+      {rates.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 text-center text-xs text-white/60">
+          {loading ? (
+            <span className="animate-pulse">Buscando cotações…</span>
+          ) : (
+            <>
+              <span>Sem conexão com as cotações agora.</span>
+              <button onClick={fetchRates} className="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white">
+                Tentar de novo
+              </button>
+            </>
+          )}
+        </div>
+      ) : activeTab === "cards" ? (
         <div className="grid grid-cols-2 gap-1.5 flex-1 overflow-auto">
           {rates.map((r) => {
             const isPositive = r.pctChange >= 0;
@@ -183,7 +175,11 @@ export const CryptoCurrencyWidget: React.FC<CryptoCurrencyWidgetProps> = ({ widg
 
       {/* Footer Timestamp */}
       <div className="text-[9px] text-white/40 text-center pt-1 font-mono">
-        Atualizado às {lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        {lastUpdated
+          ? `${error ? "Sem conexão · última atualização" : "Atualizado"} às ${lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+          : error
+            ? "Cotações indisponíveis"
+            : "Carregando…"}
       </div>
     </div>
   );

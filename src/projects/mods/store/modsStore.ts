@@ -13,6 +13,8 @@ interface ModsStore {
   isLoading: boolean;
   isRefreshing: boolean;
   isRestartingExplorer: boolean;
+  /** A toggled mod only shows up after Explorer restarts; the user confirms it in the banner. */
+  explorerRestartPending: boolean;
   searchQuery: string;
   selectedCategory: ModCategory;
   selectedSort: ModSortOption;
@@ -79,6 +81,7 @@ export const useModsStore = create<ModsStore>((set, get) => ({
   isLoading: true,
   isRefreshing: false,
   isRestartingExplorer: false,
+  explorerRestartPending: false,
   searchQuery: "",
   selectedCategory: "all",
   selectedSort: "popular",
@@ -176,7 +179,8 @@ export const useModsStore = create<ModsStore>((set, get) => ({
     });
 
     // Notify native engine asynchronously
-    windhawkService.toggleMod(id, isEnabling).then(() => {
+    windhawkService.toggleMod(id, isEnabling).then((result) => {
+      if (result.needs_explorer_restart) set({ explorerRestartPending: true });
       if (isEnabling) {
         const themeToApply = themeId || get().selectedThemes[id];
         if (themeToApply) {
@@ -249,6 +253,7 @@ export const useModsStore = create<ModsStore>((set, get) => ({
     set({ isRestartingExplorer: true });
     try {
       const res = await windhawkService.restartExplorer();
+      if (res) set({ explorerRestartPending: false });
       setTimeout(() => {
         set({ isRestartingExplorer: false });
       }, 1200);

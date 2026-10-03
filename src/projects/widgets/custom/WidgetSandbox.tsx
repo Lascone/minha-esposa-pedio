@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 import { DRAG_EXEMPT_SELECTOR, DRAG_THRESHOLD_PX } from "../dragLogic";
 import { useIntegrationsStore } from "@/core/stores/integrationsStore";
 import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
+import { invoke } from "@tauri-apps/api/core";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -35,7 +36,13 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   const snesConfig = useSnesCustomizerStore((s) => s.config);
   const snesSkin = SNES_SKINS[snesConfig.skinId] || SNES_SKINS["snes-classic"];
 
-  // Keep configRef updated
+  // The iframe document is built once per package; later values go in through postMessage,
+  // so saving a setting or switching theme doesn't reload the widget and wipe its state.
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
+  const liveRef = useRef({ activeTrack, gmailSummary, snesSkin });
+  liveRef.current = { activeTrack, gmailSummary, snesSkin };
+
   useEffect(() => {
     configRef.current = initialConfig;
   }, [initialConfig]);
@@ -90,6 +97,16 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
             useIntegrationsStore.getState().skipTrack("prev");
           }
           break;
+
+        case "images:search": {
+          const { id, query } = data.payload || {};
+          const target = iframeRef.current?.contentWindow;
+          invoke<{ url: string }[]>("search_web_images", { query: String(query || "aesthetic"), count: 12 })
+            .then((results) => results.map((r) => r.url).filter(Boolean))
+            .catch(() => [] as string[])
+            .then((urls) => target?.postMessage({ type: "images:result", payload: { id, urls } }, "*"));
+          break;
+        }
 
         case "widget:log":
           // Optional debug logging in sandbox
@@ -155,11 +172,13 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
 
   // Construct srcdoc with isolated WidgetAPI bridge
   const srcDoc = useMemo(() => {
-    const safeConfigJson = JSON.stringify(initialConfig).replace(/</g, "\\u003c");
+    const theme = themeRef.current;
+    const { activeTrack, gmailSummary, snesSkin } = liveRef.current;
+    const safeConfigJson = JSON.stringify(configRef.current || {}).replace(/</g, "\\u003c");
     const safeTheme = JSON.stringify(theme);
 
     return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="${String(theme).replace(/[^a-z-]/g, "")}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -193,6 +212,8 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
       var _mediaListeners = [];
       var _gmailListeners = [];
       var _snesListeners = [];
+      var _searchSeq = 0;
+      var _searchWaiters = {};
 
       window.WidgetAPI = {
         getConfig: function(key, defaultValue) {
@@ -284,12 +305,14 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
             }
           },
           search: function(query) {
-            var term = encodeURIComponent(query || "aesthetic");
-            return Promise.resolve([
-              "https://picsum.photos/seed/" + term + "1/600/400",
-              "https://picsum.photos/seed/" + term + "2/600/400",
-              "https://picsum.photos/seed/" + term + "3/600/400",
-            ]);
+            var id = "s" + (++_searchSeq);
+            return new Promise(function(resolve) {
+              _searchWaiters[id] = resolve;
+              window.parent.postMessage({ type: "images:search", payload: { id: id, query: String(query || "") } }, "*");
+              setTimeout(function() {
+                if (_searchWaiters[id]) { delete _searchWaiters[id]; resolve([]); }
+              }, 15000);
+            });
           }
         },
         emitReady: function() {
@@ -310,6 +333,7 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
         if (e.data.type === "theme:changed") {
           _theme = e.data.payload.theme;
           document.documentElement.style.setProperty("--widget-theme", _theme);
+          document.documentElement.setAttribute("data-theme", _theme);
           _themeListeners.forEach(function(fn) {
             try { fn(_theme); } catch(err) { console.error(err); }
           });
@@ -325,6 +349,10 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           _gmailListeners.forEach(function(fn) {
             try { fn(_gmailSummary); } catch(err) { console.error(err); }
           });
+        }
+        if (e.data.type === "images:result" && e.data.payload) {
+          var waiter = _searchWaiters[e.data.payload.id];
+          if (waiter) { delete _searchWaiters[e.data.payload.id]; waiter(e.data.payload.urls || []); }
         }
         if (e.data.type === "snes:skin_changed") {
           _snesSkin = e.data.payload;
@@ -359,6 +387,13 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
         }, "*");
         return false;
       };
+      window.addEventListener("unhandledrejection", function(e) {
+        var r = e && e.reason;
+        window.parent.postMessage({
+          type: "widget:error",
+          payload: "Erro assíncrono: " + (r && r.message ? r.message : String(r))
+        }, "*");
+      });
     })();
   </script>
 </head>
@@ -376,7 +411,7 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   </script>
 </body>
 </html>`;
-  }, [pkg, theme, initialConfig]);
+  }, [pkg]);
 
   const handleReload = () => {
     setSandboxError(null);

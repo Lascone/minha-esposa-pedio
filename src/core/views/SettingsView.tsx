@@ -28,6 +28,12 @@ import { checkForUpdates, getCurrentVersion, UpdateInfo } from "@/core/services/
 import { UpdateModal } from "@/core/components/UpdateModal";
 import { IntegrationsManagerCard } from "@/core/components/IntegrationsManagerCard";
 import { useAiStore } from "@/core/stores/aiStore";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  enable as enableAutostart,
+  disable as disableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 
 interface MonitorOption {
   name: string;
@@ -50,16 +56,12 @@ export const SettingsView: React.FC = () => {
 
   const [autostart, setAutostart] = useState(false);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
-  const [restoreLastCrosshair, setRestoreLastCrosshair] = useState(true);
 
-  // Fallback monitor list
-  const [monitors, setMonitors] = useState<MonitorOption[]>([
-    { name: "Monitor 1 (Principal)", width: 1920, height: 1080, is_primary: true },
-    { name: "Monitor 2 (Secundário)", width: 2560, height: 1440, is_primary: false },
-  ]);
+  const [monitors, setMonitors] = useState<MonitorOption[]>([]);
+  const [monitorsError, setMonitorsError] = useState(false);
 
   const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [geminiRequestsToday, setGeminiRequestsToday] = useState(0);
+  const geminiRequestsToday = useAiStore((s) => s.geminiRequestsToday);
   const [showGeminiTutorial, setShowGeminiTutorial] = useState(false);
 
   const [currentVersion, setCurrentVersion] = useState("1.0.0");
@@ -71,15 +73,20 @@ export const SettingsView: React.FC = () => {
   useEffect(() => {
     try {
       getCurrentVersion().then(setCurrentVersion);
-      const savedAuto = localStorage.getItem("pmm_autostart") === "true";
       const savedTray = localStorage.getItem("pmm_minimize_tray") !== "false";
       const savedKey = localStorage.getItem("pmm_gemini_api_key") || "";
-      const savedUsage = parseInt(localStorage.getItem("pmm_gemini_requests_today") || "0", 10);
-      setAutostart(savedAuto);
       setMinimizeToTray(savedTray);
       setGeminiApiKey(savedKey);
-      setGeminiRequestsToday(savedUsage);
     } catch {}
+    isAutostartEnabled()
+      .then(setAutostart)
+      .catch(() => setAutostart(localStorage.getItem("pmm_autostart") === "true"));
+    invoke<MonitorOption[]>("get_monitors")
+      .then((list) => {
+        setMonitors(list);
+        setMonitorsError(list.length === 0);
+      })
+      .catch(() => setMonitorsError(true));
   }, []);
 
   const handleCheckUpdates = async () => {
@@ -90,6 +97,8 @@ export const SettingsView: React.FC = () => {
       if (res.hasUpdate && res.updateInfo) {
         setUpdateInfo(res.updateInfo);
         setUpdateModalOpen(true);
+      } else if (res.error) {
+        addToast(res.error, "warning");
       } else {
         addToast("Você já está na versão mais recente cheia de amor! 🥰✨", "sparkle");
       }
@@ -104,23 +113,30 @@ export const SettingsView: React.FC = () => {
     const trimmed = geminiApiKey.trim();
     localStorage.setItem("pmm_gemini_api_key", trimmed);
     useAiStore.getState().setGeminiApiKey(trimmed);
-    addToast(trimmed ? "Chave do Gemini 2.0 Flash salva! 🚀" : "Chave removida.", "sparkle");
+    addToast(trimmed ? "Chave do Gemini salva! 🚀" : "Chave removida.", "sparkle");
   };
 
   const handleToggleAutostart = async (val: boolean) => {
-    setAutostart(val);
-    localStorage.setItem("pmm_autostart", String(val));
-    addToast(
-      val
-        ? "Inicialização automática ativada! 🚀"
-        : "Inicialização automática desativada.",
-      "sparkle"
-    );
+    try {
+      if (val) await enableAutostart();
+      else await disableAutostart();
+      setAutostart(val);
+      localStorage.setItem("pmm_autostart", String(val));
+      addToast(
+        val
+          ? "Inicialização automática ativada! 🚀"
+          : "Inicialização automática desativada.",
+        "sparkle"
+      );
+    } catch (e: any) {
+      addToast(`Não consegui mudar a inicialização com o Windows: ${e?.message || e}`, "warning");
+    }
   };
 
   const handleToggleTray = (val: boolean) => {
     setMinimizeToTray(val);
     localStorage.setItem("pmm_minimize_tray", String(val));
+    invoke("set_minimize_to_tray", { enabled: val }).catch(() => {});
     addToast(
       val
         ? "O aplicativo agora continuará na bandeja ao fechar ✨"
@@ -229,14 +245,6 @@ export const SettingsView: React.FC = () => {
             />
           </div>
 
-          <div className="pt-3">
-            <Toggle
-              label="Restaurar última mira ao abrir"
-              description="Reativa automaticamente sua última mira utilizada."
-              checked={restoreLastCrosshair}
-              onChange={setRestoreLastCrosshair}
-            />
-          </div>
         </div>
       </Card>
 
@@ -252,6 +260,11 @@ export const SettingsView: React.FC = () => {
             <label className="text-xs font-semibold text-theme-text">
               Monitor de Exibição da Mira
             </label>
+            {monitorsError && (
+              <p className="text-[11px] text-theme-text-muted">
+                Não consegui ler a lista de monitores do Windows agora.
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {monitors.map((m, idx) => (
                 <button
@@ -482,25 +495,15 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-emerald-500" />
-              <span className="font-bold text-theme-text">Consumo Diário: {geminiRequestsToday} / 1.500</span>
+              <span className="font-bold text-theme-text">Pedidos ao Gemini hoje: {geminiRequestsToday}</span>
             </div>
-            <span className="font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md font-mono">
-              Gasto: R$ 0,00 (100% Gratuito)
-            </span>
           </div>
 
-          {/* Barra de Progresso */}
-          <div className="w-full h-2 rounded-full bg-theme-surface border border-theme-border/40 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 to-pink-500 transition-all duration-500"
-              style={{ width: `${Math.min(100, (geminiRequestsToday / 1500) * 100)}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-theme-text-muted">
-            <span>Limite de 1.500 req/dia. Bloqueio automático para garantir custo zero.</span>
-            <span>Reseta diariamente à meia-noite</span>
-          </div>
+          <p className="text-[11px] text-theme-text-muted leading-relaxed">
+            Contados por este aplicativo. Sem cartão cadastrado no Google AI Studio a chave usa só a cota gratuita:
+            quando ela acaba, o Google recusa os pedidos até o dia seguinte, sem cobrar nada. Os limites exatos
+            dependem do modelo e aparecem no painel do Google AI Studio.
+          </p>
         </div>
       </Card>
 
@@ -616,7 +619,7 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                ✨ <strong>100% Grátis:</strong> A cota oficial gratuita fornece 1.500 requisições diárias sem nenhuma cobrança. O aplicativo possui limitador automático que trava ao atingir 1.500 para proteger você.
+                ✨ <strong>Grátis:</strong> sem cartão cadastrado no Google AI Studio, a chave usa só a cota gratuita e nunca gera cobrança. Quando a cota do dia acaba, os pedidos são recusados até o dia seguinte.
               </div>
             </div>
 

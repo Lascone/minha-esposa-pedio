@@ -43,6 +43,15 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
   - `WidgetAPI.onThemeChange(callback)`
   - `WidgetAPI.emitReady()`
 - Segurar e arrastar dentro do iframe move o widget: o bootstrap do sandbox envia `widget:drag` ao host depois de 4 px de movimento (fora de botões, campos, links e `[data-no-drag]`); o host só aceita a mensagem vinda de um iframe dele e chama `startDragging()`.
+- O `srcdoc` do iframe é montado só a partir do pacote. Tema, configurações, mídia e skin chegam depois por `postMessage`, então `setConfig` e troca de tema **não recarregam** o widget.
+- `WidgetAPI.images.search(termo)` é uma busca real: o iframe pede ao host (`images:search`), que chama o comando Rust `search_web_images` e devolve as URLs.
+
+### Gerador de gadgets com IA (`aiPrompt.ts`, `widgetBrain.ts`, `aiService.ts`)
+- O chat e o botão "Como fazer" usam as mesmas regras (`WIDGET_TECH_RULES`), o mesmo guia visual (`WIDGET_DESIGN_GUIDE`) e o mesmo widget de referência (`REFERENCE_WIDGET`).
+- O gadget atual vai para a IA como 4 arquivos rotulados, e a resposta vem em blocos de código cercados (```` ```json ````, ```` ```html ````, ```` ```css ````, ```` ```js ````). O formato JSON antigo continua aceito.
+- Orçamento de saída alto (Gemini 65536 tokens, Groq 32768) e detecção de resposta cortada (`finishReason`/`finish_reason` e cercas ímpares).
+- Groq gratuita tem limite de tokens por minuto: em HTTP 429 o app espera o `retry-after` e tenta **o mesmo modelo** de novo. Nunca cair para um modelo mais fraco nem para a saída padrão curta (≈3 mil tokens): era isso que gerava gadgets cortados e feios.
+- Imagens anexadas no chat não são salvas no histórico (data URLs estouravam a cota do localStorage).
 
 ---
 

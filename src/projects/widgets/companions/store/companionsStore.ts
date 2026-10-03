@@ -186,7 +186,6 @@ export const useCompanionsStore = create<CompanionsState>()(
         const posY = Math.max(20, Math.round(instance.y));
 
         try {
-          console.log(`[Companions] Lançando janela nativa para '${instance.customName}' (${instance.instanceId})`);
           await invoke("companion_open_window", {
             companionId: instance.instanceId,
             title: instance.customName || "Desktop Companion",

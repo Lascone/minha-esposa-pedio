@@ -4,7 +4,7 @@ import {
   selectBestGeminiModel,
   selectBestGroqModel,
 } from "../stores/aiStore";
-import { parseAiWidgetResponse } from "@/projects/widgets/custom/aiPrompt";
+import { formatWidgetFiles, looksTruncated, parseAiWidgetResponse } from "@/projects/widgets/custom/aiPrompt";
 import { CustomWidgetPackage, AiChatMessage } from "@/projects/widgets/custom/types";
 
 import { WIDGET_ECOSYSTEM_BRAIN } from "./widgetBrain";
@@ -245,6 +245,51 @@ export async function testAiConnection(provider?: AiProvider): Promise<{ success
   }
 }
 
+const DEFAULT_REPLY = "Prontinho, amor! Fiz com todo o capricho. Dá uma olhada ao lado! ✨";
+/** Thinking models spend part of the output budget before writing: leave plenty for the code. */
+const GEMINI_MAX_OUTPUT = 65536;
+const GEMINI_LEGACY_MAX_OUTPUT = 8192;
+const GROQ_MAX_OUTPUT = 32768;
+const GROQ_FALLBACK_OUTPUT = 8192;
+
+/** The user's turn: the current widget as four separate files, then the request. */
+export function buildWidgetUserTurn(userMessage: string, options?: GenerateWidgetOptions, currentPackage?: CustomWidgetPackage): string {
+  const parts: string[] = [];
+  const current = currentPackage
+    ? { manifest: currentPackage.manifest, html: currentPackage.html, css: currentPackage.css, js: currentPackage.js }
+    : options?.currentWidgetPreview
+    ? {
+        manifest: { name: options.currentWidgetPreview.name || "Widget" },
+        html: options.currentWidgetPreview.html,
+        css: options.currentWidgetPreview.css,
+        js: options.currentWidgetPreview.js,
+      }
+    : null;
+  if (current) {
+    parts.push(`[WIDGET ATUAL]\n${formatWidgetFiles(current)}`);
+  }
+  parts.push(`[PEDIDO DA USUÁRIA]\n${userMessage}`);
+  if (options?.currentError) {
+    parts.push(`[ERRO NO CONSOLE DO WIDGET]\n"${options.currentError}"\nDescubra a causa e corrija.`);
+  }
+  if (options?.attachedImageBase64) {
+    parts.push("[IMAGEM ANEXADA]\nUse a imagem como referência visual: cores, formas, estilo e elementos.");
+  }
+  parts.push(current ? "Devolva os 4 arquivos completos já com a mudança." : "Crie o widget completo.");
+  return parts.join("\n\n");
+}
+
+/** Text of a Gemini candidate, without the model's thinking parts. */
+export function geminiCandidateText(data: any): { text: string; finishReason: string } {
+  const candidate = data?.candidates?.[0];
+  const parts: any[] = candidate?.content?.parts || [];
+  const text = parts
+    .filter((p) => typeof p?.text === "string" && !p.thought)
+    .map((p) => p.text)
+    .join("");
+  return { text, finishReason: String(candidate?.finishReason || "") };
+}
+
 /**
  * Envia uma mensagem e gera ou modifica o código de um widget
  */
@@ -261,46 +306,16 @@ export async function generateOrModifyCustomWidget({
 }): Promise<WidgetAiGenerationResult> {
   const store = useAiStore.getState();
   const provider = store.activeProvider;
+  const userTurn = buildWidgetUserTurn(userMessage, options, currentPackage);
 
-  // Montar o histórico no formato adequado
-  const conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
-
-  // Se já existe um widget sendo editado ou enviado via options, preparar contexto completo
-  const activePkg = currentPackage || (options?.currentWidgetPreview ? {
-    manifest: { name: options.currentWidgetPreview.name || "Widget", defaultWidth: 300, defaultHeight: 200 } as any,
-    html: options.currentWidgetPreview.html,
-    css: options.currentWidgetPreview.css,
-    js: options.currentWidgetPreview.js,
-  } : undefined);
-
-  // Instrução de Sistema completa com o widget atual para modificação
-  let fullSystemInstruction = WIDGET_SYSTEM_PROMPT;
-  if (activePkg) {
-    fullSystemInstruction += `\n\n[WIDGET ATUAL EM MODIFICAÇÃO]:\n` +
-      `Manifesto: ${JSON.stringify(activePkg.manifest)}\n` +
-      `HTML Atual:\n${activePkg.html}\n\n` +
-      `CSS Atual:\n${activePkg.css}\n\n` +
-      `JS Atual:\n${activePkg.js}\n\n` +
-      `INSTRUÇÃO DE MODIFICAÇÃO: A usuária está pedindo melhorias no gadget existente acima. Modifique com amor e perfeição mantendo o que já está funcionando. Mantenha código JavaScript 100% defensivo (aguardar DOMContentLoaded, checar se elementos e canvas existem antes de usar .style ou .getContext, e manter WidgetAPI.emitReady() no final).`;
-  }
-
-  // Enriquecer a mensagem do usuário com contexto diagnóstico de erro se houver
-  let enrichedUserMessage = userMessage;
-
-  if (options?.currentError) {
-    enrichedUserMessage += `\n\n⚠️ [ERRO DETECTADO NO CONSOLE DO WIDGET]:\n"${options.currentError}"\nPor favor, analise a causa do erro acima e corrija o código JavaScript/HTML com programação defensiva.`;
-  }
-
-  if (options?.attachedImageBase64) {
-    enrichedUserMessage += `\n\n🖼️ [IMAGEM ANEXADA]: A usuária enviou uma imagem/print em anexo! Observe com carinho todas as cores, elementos, formato e estilo visual da foto e crie o gadget correspondente.`;
-  }
-
-  // Pegar até 4 mensagens reais do histórico para não estourar tokens
-  const historySlice = chatHistory
+  // Earlier chat lines give context; the last one is the request being sent now.
+  const history = chatHistory
     .filter((m) => m.content && m.content.trim())
-    .slice(-4);
+    .slice(0, -1)
+    .slice(-6);
 
-  let rawJsonText = "";
+  let rawText = "";
+  let truncated = false;
 
   if (provider === "groq") {
     const apiKey = store.groqApiKey;
@@ -308,251 +323,181 @@ export async function generateOrModifyCustomWidget({
       throw new Error("Chave da API Groq não configurada. Acesse a aba 'IAs' para configurar sua chave da Groq.");
     }
 
-    // Buscar lista dinâmica de modelos suportados pela chave do usuário
     let availableGroq = store.availableGroqModels;
     if (!availableGroq || availableGroq.length === 0) {
       availableGroq = await fetchGroqModels(apiKey);
     }
-
     const requestedModel = store.groqModel || availableGroq[0] || "openai/gpt-oss-120b";
-    const modelsToTry = Array.from(new Set([
-      requestedModel,
-      ...availableGroq,
-      "openai/gpt-oss-120b",
-    ])).filter((m) => m && m !== "llama-3.1-8b-instant" && m !== "llama-3.3-70b-versatile");
+    const modelsToTry = Array.from(new Set([requestedModel, ...availableGroq, "openai/gpt-oss-120b"])).filter(
+      (m) => m && m !== "llama-3.1-8b-instant"
+    );
 
-    const groqUserPayload = enrichedUserMessage + "\n\n[RESPOSTA OBRIGATÓRIA: Responda estritamente com um JSON válido iniciando em { e fechando em } com as chaves assistantMessage, manifest, html, css e js.]";
-
-    const groqMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: fullSystemInstruction },
+    const messages = [
+      { role: "system", content: WIDGET_SYSTEM_PROMPT },
+      ...history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+      { role: "user", content: userTurn },
     ];
 
-    for (const m of historySlice) {
-      groqMessages.push({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: m.content,
-      });
-    }
-
-    groqMessages.push({
-      role: "user",
-      content: groqUserPayload,
-    });
-
     let lastGroqError = "";
-
-    for (const modelToUse of modelsToTry) {
+    for (const model of modelsToTry) {
       try {
-        let res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: modelToUse,
-            messages: groqMessages,
-            temperature: 0.4,
-            response_format: { type: "json_object" },
-          }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          lastGroqError = errData?.error?.message || `HTTP ${res.status}`;
-
-          // Se falhar no json_object, tenta fallback clássico sem response_format estrito
-          const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const send = (maxTokens: number) =>
+          fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: modelToUse,
-              messages: [
-                {
-                  role: "system",
-                  content: fullSystemInstruction + "\n\nIMPORTANTE: Sua resposta inteira DEVE ser APENAS um objeto JSON válido iniciando com { e terminando com }. Não adicione texto antes ou depois do JSON.",
-                },
-                ...groqMessages.filter((msg) => msg.role !== "system"),
-              ],
-              temperature: 0.3,
+              model,
+              messages,
+              temperature: 0.7,
+              max_completion_tokens: maxTokens,
             }),
           });
-
-          if (retryRes.ok) {
-            res = retryRes;
-          } else {
-            const retryErr = await retryRes.json().catch(() => ({}));
-            lastGroqError = retryErr?.error?.message || lastGroqError;
-          }
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          rawJsonText = data.choices?.[0]?.message?.content || "";
-          if (rawJsonText.trim()) {
-            store.setGroqModel(modelToUse);
+        let res = await send(GROQ_MAX_OUTPUT);
+        if (res.status === 429) {
+          // Free tier: tokens-per-minute window. Falling back to a weaker model or to the
+          // model's short default output is what produced cut or ugly widgets.
+          const waitS = Math.min(Number(res.headers.get("retry-after")) || 15, 30);
+          await new Promise((r) => setTimeout(r, waitS * 1000));
+          res = await send(GROQ_MAX_OUTPUT);
+          if (res.status === 429) {
+            lastGroqError =
+              "A Groq gratuita tem limite de uso por minuto e ele foi atingido. Espere uns 60 segundinhos e peça de novo, amor.";
             break;
           }
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          lastGroqError = err?.error?.message || `HTTP ${res.status}`;
+          // Some models cap the output lower than our budget.
+          res = await send(GROQ_FALLBACK_OUTPUT);
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          lastGroqError = err?.error?.message || lastGroqError;
+          continue;
+        }
+        const data = await res.json();
+        const text: string = data.choices?.[0]?.message?.content || "";
+        if (text.trim()) {
+          rawText = text;
+          truncated = data.choices?.[0]?.finish_reason === "length";
+          store.setGroqModel(model);
+          break;
         }
       } catch (e: any) {
         lastGroqError = e.message;
       }
     }
 
-    if (!rawJsonText.trim()) {
+    if (!rawText.trim()) {
       throw new Error(`Erro Groq: ${lastGroqError || "Falha ao gerar com os modelos Groq disponíveis."}`);
     }
   } else {
-    // Provedor Gemini
     const apiKey = store.geminiApiKey;
     if (!apiKey) {
       throw new Error("Chave da API Gemini não configurada. Acesse a aba 'IAs' para configurar sua chave do Gemini.");
     }
 
-    // Buscar lista de modelos do Google
     let availableGemini: string[] = store.availableGeminiModels?.map((m: { id: string }) => m.id) || [];
-    if (!availableGemini || availableGemini.length === 0) {
+    if (availableGemini.length === 0) {
       const fetched = await fetchGeminiModels(apiKey);
-      if (fetched.length > 0) {
-        availableGemini = fetched.map((m) => m.id);
-      }
+      availableGemini = fetched.map((m) => m.id);
     }
 
     let requestedModel = store.geminiModel || "gemini-pro-latest";
     if (requestedModel === "gemini-1.5-flash" || requestedModel === "gemini-2.0-flash") {
       requestedModel = "gemini-pro-latest";
-      store.setGeminiModel("gemini-pro-latest");
+      store.setGeminiModel(requestedModel);
     }
+    const modelsToTry = Array.from(
+      new Set([requestedModel, "gemini-pro-latest", "gemini-2.5-pro", ...availableGemini, "gemini-flash-latest"])
+    ).filter((m) => m && m !== "gemini-2.0-flash" && m !== "gemini-1.5-flash");
 
-    // O primeiro modelo a tentar é SEMPRE a escolha do usuário
-    const modelsToTry = Array.from(new Set([
-      requestedModel,
-      "gemini-pro-latest",
-      ...availableGemini,
-      "gemini-3.8-flash",
-      "gemini-flash-latest",
-      "gemini-2.5-pro",
-    ])).filter((m) => m && m !== "gemini-2.0-flash" && m !== "gemini-1.5-flash");
-
-    // Montar turnos estritamente alternados user -> model para o Gemini
-    const geminiContents: { role: "user" | "model"; parts: any[] }[] = [];
-
-    for (const m of historySlice) {
+    // Gemini needs strictly alternating user/model turns.
+    const contents: { role: "user" | "model"; parts: any[] }[] = [];
+    for (const m of history) {
       const role: "user" | "model" = m.role === "assistant" ? "model" : "user";
-      if (!m.content?.trim()) continue;
-
-      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
-        geminiContents[geminiContents.length - 1].parts[0].text += `\n\n${m.content}`;
-      } else {
-        geminiContents.push({
-          role,
-          parts: [{ text: m.content }],
-        });
-      }
+      const last = contents[contents.length - 1];
+      if (last && last.role === role) last.parts[0].text += `\n\n${m.content}`;
+      else contents.push({ role, parts: [{ text: m.content }] });
     }
-
-    // Se o último turno do histórico for user, removemos para colocar a mensagem atual com anexo
-    if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === "user") {
-      geminiContents.pop();
+    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+      contents.pop();
     }
-
-    // Turno final do usuário atual
-    const userParts: any[] = [{ text: enrichedUserMessage }];
+    const userParts: any[] = [{ text: userTurn }];
     if (options?.attachedImageBase64) {
-      const mimeType = options.attachedImageMimeType || "image/png";
-      const cleanBase64 = options.attachedImageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, "");
+      const match = options.attachedImageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
       userParts.push({
         inlineData: {
-          mimeType,
-          data: cleanBase64,
+          mimeType: options.attachedImageMimeType || match?.[1] || "image/png",
+          data: options.attachedImageBase64.replace(/^data:[^,]+,/, ""),
         },
       });
     }
-
-    geminiContents.push({
-      role: "user",
-      parts: userParts,
-    });
+    contents.push({ role: "user", parts: userParts });
 
     let lastGeminiError = "";
-
-    for (const targetModel of modelsToTry) {
+    for (const model of modelsToTry) {
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: fullSystemInstruction }],
-            },
-            contents: geminiContents,
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.5,
-              maxOutputTokens: 8192,
-            },
-          }),
-        });
-
-        if (res.ok) {
-          store.incrementGeminiUsage();
-          const data = await res.json();
-          rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (rawJsonText.trim()) break;
-        } else {
-          const errJson = await res.json().catch(() => ({}));
-          lastGeminiError = errJson?.error?.message || `HTTP ${res.status}`;
+        const send = (maxOutputTokens: number) =>
+          fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: WIDGET_SYSTEM_PROMPT }] },
+              contents,
+              generationConfig: { temperature: 0.7, maxOutputTokens },
+            }),
+          });
+        let res = await send(GEMINI_MAX_OUTPUT);
+        if (!res.ok && res.status === 400) {
+          // Older models reject a large output budget.
+          res = await send(GEMINI_LEGACY_MAX_OUTPUT);
         }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          lastGeminiError = err?.error?.message || `HTTP ${res.status}`;
+          continue;
+        }
+        store.incrementGeminiUsage();
+        const { text, finishReason } = geminiCandidateText(await res.json());
+        if (text.trim()) {
+          rawText = text;
+          truncated = finishReason === "MAX_TOKENS";
+          break;
+        }
+        lastGeminiError = finishReason ? `resposta vazia (${finishReason})` : "resposta vazia";
       } catch (e: any) {
         lastGeminiError = e.message;
       }
     }
 
-    if (!rawJsonText.trim()) {
+    if (!rawText.trim()) {
       throw new Error(`Erro Gemini (${requestedModel}): ${lastGeminiError || "Modelos Gemini indisponíveis. Tente novamente."}`);
     }
   }
 
-  if (!rawJsonText.trim()) {
-    throw new Error("A IA retornou uma resposta vazia. Tente novamente.");
+  if (looksTruncated(rawText)) {
+    throw new Error(
+      truncated
+        ? "A resposta da IA ficou grande demais e veio cortada. Tente pedir de novo, ou peça algo um pouco mais simples."
+        : "A resposta da IA veio incompleta. Tente pedir de novo."
+    );
   }
 
-  // Parse do retorno da IA
-  let parsedObj: any;
-  try {
-    parsedObj = JSON.parse(rawJsonText);
-  } catch {
-    const jsonMatch = rawJsonText.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (jsonMatch) {
-      parsedObj = JSON.parse(jsonMatch[1].trim());
-    } else {
-      const start = rawJsonText.indexOf("{");
-      const end = rawJsonText.lastIndexOf("}");
-      if (start !== -1 && end > start) {
-        parsedObj = JSON.parse(rawJsonText.substring(start, end + 1));
-      } else {
-        throw new Error("Não foi possível interpretar o formato retornado pela IA. Tente reenviar seu pedido.");
-      }
-    }
-  }
-
-  const assistantReply = parsedObj.assistantMessage || "Prontinho! Atualizei o seu widget com muito carinho. Veja ao lado como ficou! ✨";
-
-  const validParsed = parseAiWidgetResponse(JSON.stringify(parsedObj));
+  const parsed = parseAiWidgetResponse(rawText);
 
   return {
     package: {
       manifest: {
-        ...validParsed.manifest,
-        id: currentPackage?.manifest.id || validParsed.manifest.id,
+        ...parsed.manifest,
+        id: currentPackage?.manifest.id || parsed.manifest.id,
       },
-      html: validParsed.html,
-      css: validParsed.css,
-      js: validParsed.js,
+      html: parsed.html,
+      css: parsed.css,
+      js: parsed.js,
     },
-    assistantReply,
+    assistantReply: parsed.message || DEFAULT_REPLY,
   };
 }
+

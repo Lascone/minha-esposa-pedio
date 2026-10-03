@@ -5,9 +5,6 @@ import { CompanionAvatar } from "../components/CompanionAvatar";
 import { CompanionInstance } from "../types";
 import { getCompanionManifest } from "../registry";
 
-import { PetDesktopView } from "../../../pet/components/PetDesktopView";
-import { usePetStore } from "../../../pet/store/petStore";
-
 interface DesktopCompanionWindowProps {
   companionId?: string;
 }
@@ -44,21 +41,6 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
       }
     } catch {}
   }
-
-  // Verifica se a janela pertence a um Bichinho Virtual (Pet VPet)
-  const isPetWindow = useMemo(() => {
-    const allPets = usePetStore.getState().getAllCharacters();
-    const cleanId = (targetInstanceId || windowLabel || "").replace("companion-", "");
-    return (
-      allPets.some((p) => p.id === cleanId || targetInstanceId?.includes(p.id)) ||
-      targetInstanceId?.includes("vpet-vup") ||
-      targetInstanceId?.includes("vup") ||
-      targetInstanceId?.includes("mimi-sakura") ||
-      cleanId.startsWith("custom-pet") ||
-      targetInstanceId?.startsWith("pet-") ||
-      usePetStore.getState().isDesktopActive
-    );
-  }, [targetInstanceId, windowLabel]);
 
   const resolvedInstance: CompanionInstance = useMemo(() => {
     // 1. Try finding in activeCompanions store
@@ -120,11 +102,7 @@ export const DesktopCompanionWindow: React.FC<DesktopCompanionWindowProps> = ({
       className="w-screen h-screen flex items-center justify-center select-none overflow-hidden"
       style={{ background: "transparent" }}
     >
-      {isPetWindow ? (
-        <PetDesktopView />
-      ) : (
-        <CompanionAvatar instance={resolvedInstance} interactive={true} />
-      )}
+      <CompanionAvatar instance={resolvedInstance} interactive={true} />
     </div>
   );
 };

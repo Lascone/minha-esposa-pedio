@@ -25,7 +25,7 @@ struct BingMObject {
     mh: Option<u32>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn search_web_images(
     query: String,
     filter_type: Option<String>,
