@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.22",
-    "notes":  "Gadgets com IA ganharam particulas prontas e bonitas (sombrias, coracoes, petalas, estrelas, neve, brasas, vaga-lumes, confete, bolhas, chuva) e explosao de particulas no clique. Sem travar e sem bloquear cliques.",
-    "pub_date":  "2026-10-03T07:14:31.9424659Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.22/Pedi.para.meu.marido_1.3.22_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.22_x64-setup.exe",
-    "size":  3173209
+    "version":  "1.3.23",
+    "notes":  "Gadget novo no mesmo chat não apaga mais o anterior; Gemini 3.8 Flash como padrão com configuração certa; a IA confere e conserta sozinha os erros mais comuns dos gadgets.",
+    "pub_date":  "2026-10-03T08:06:09.5728919Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.23/Pedi.para.meu.marido_1.3.23_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.23_x64-setup.exe",
+    "size":  3172583
 }

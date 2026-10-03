@@ -74,10 +74,22 @@ export interface GeminiModelInfo {
   isPro?: boolean;
 }
 
+/** Best Flash for code (GA, Sep 2026): fast and the strongest at writing gadgets. */
+export const GEMINI_RECOMMENDED_MODEL = "gemini-3.8-flash";
+/** Fallback order when the chosen model is missing on the key or out of quota. */
+export const GEMINI_MODEL_PREFERENCE = [
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.5-flash",
+];
+
 export const GEMINI_AVAILABLE_MODELS: GeminiModelInfo[] = [
-  { id: "gemini-pro-latest", name: "Gemini Pro Latest 👑 (Recomendado)", desc: "Modelo Pro topo de linha oficial Google AI, raciocínio avançado para código completo", isPro: true },
-  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash ⚡", desc: "Modelo rápido e inteligente oficial Google AI" },
-  { id: "gemini-flash-latest", name: "Gemini Flash Latest ⚡", desc: "Endpoint estável do Google AI Studio" },
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash ⚡ (Recomendado)", desc: "O melhor para criar gadgets: rápido e o mais forte em código" },
+  { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro 👑", desc: "Mais caprichado em pedidos difíceis, porém bem mais lento", isPro: true },
+  { id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite 🚀", desc: "O mais rápido, mas erra mais em gadgets complexos" },
 ];
 
 const STORAGE_KEY_DETECTED_GEMINI = "pmm_ai_detected_gemini_models";
@@ -93,11 +105,7 @@ function getInitialDetectedGemini(): { id: string; displayName: string }[] {
       }
     }
   } catch {}
-  return [
-    { id: "gemini-pro-latest", displayName: "Gemini Pro Latest 👑 (Recomendado)" },
-    { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash ⚡" },
-    { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
-  ];
+  return GEMINI_AVAILABLE_MODELS.map((m) => ({ id: m.id, displayName: m.name }));
 }
 
 function getInitialDetectedGroq(): string[] {
@@ -114,25 +122,15 @@ function getInitialDetectedGroq(): string[] {
 }
 
 /**
- * Seleciona automaticamente o melhor modelo para Gemini (padrão Pro Latest)
+ * Melhor modelo Gemini que a chave realmente tem, na ordem de GEMINI_MODEL_PREFERENCE.
  */
 export function selectBestGeminiModel(models: { id: string; displayName?: string }[]): string {
-  if (!models || models.length === 0) return "gemini-pro-latest";
-
-  // Se gemini-pro-latest estiver na lista, é o padrão absoluto
-  const proLatest = models.find((m) => m.id.toLowerCase() === "gemini-pro-latest");
-  if (proLatest) return proLatest.id;
-
-  const pro31 = models.find((m) => m.id.toLowerCase().includes("3.1-pro"));
-  if (pro31) return pro31.id;
-
-  const flash38 = models.find((m) => m.id.toLowerCase().includes("3.8-flash"));
-  if (flash38) return flash38.id;
-
-  const flashLatest = models.find((m) => m.id.toLowerCase() === "gemini-flash-latest");
-  if (flashLatest) return flashLatest.id;
-
-  return models[0]?.id || "gemini-pro-latest";
+  if (!models || models.length === 0) return GEMINI_RECOMMENDED_MODEL;
+  const ids = models.map((m) => m.id);
+  const preferred = GEMINI_MODEL_PREFERENCE.find((id) => ids.includes(id));
+  if (preferred) return preferred;
+  const flash = ids.find((id) => /flash/.test(id) && !/lite|tts|image|live|audio/.test(id));
+  return flash || ids[0];
 }
 
 /**
@@ -152,15 +150,20 @@ export function selectBestGroqModel(models: string[]): string {
   return models[0] || "openai/gpt-oss-120b";
 }
 
+const STORAGE_KEY_GEMINI_DEFAULT_V = "pmm_gemini_default_v3";
+
 function getInitialGeminiModel(): string {
   try {
-    const val = localStorage.getItem(STORAGE_KEY_GEMINI_MODEL);
-    // Se o usuário já escolheu algo válido (que não seja os obsoletos 1.5 ou 2.0 flash), RESPEITA a escolha dele!
-    if (val && val !== "gemini-2.0-flash" && val !== "gemini-1.5-flash") {
-      return val;
+    // Once per new default: older versions saved gemini-pro-latest / 2.5 models that made weak gadgets.
+    if (localStorage.getItem(STORAGE_KEY_GEMINI_DEFAULT_V) !== GEMINI_RECOMMENDED_MODEL) {
+      localStorage.setItem(STORAGE_KEY_GEMINI_DEFAULT_V, GEMINI_RECOMMENDED_MODEL);
+      localStorage.setItem(STORAGE_KEY_GEMINI_MODEL, GEMINI_RECOMMENDED_MODEL);
+      return GEMINI_RECOMMENDED_MODEL;
     }
+    const val = localStorage.getItem(STORAGE_KEY_GEMINI_MODEL);
+    if (val) return val;
   } catch {}
-  return "gemini-pro-latest";
+  return GEMINI_RECOMMENDED_MODEL;
 }
 
 function localDateKey(): string {

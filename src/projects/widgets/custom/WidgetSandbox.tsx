@@ -17,6 +17,8 @@ interface WidgetSandboxProps {
   onConfigChange?: (key: string, value: any) => void;
   onRequestResize?: (width: number, height: number) => void;
   onFixWithAi?: (errorMsg: string) => void;
+  /** Called with each runtime error the gadget reports. */
+  onError?: (errorMsg: string) => void;
   className?: string;
 }
 
@@ -27,9 +29,12 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
   onConfigChange,
   onRequestResize,
   onFixWithAi,
+  onError,
   className = "w-full h-full",
 }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const configRef = useRef<Record<string, any>>(initialConfig);
@@ -87,9 +92,12 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           }
           break;
 
-        case "widget:error":
-          setSandboxError(String(data.payload || "Erro de execução no widget."));
+        case "widget:error": {
+          const msg = String(data.payload || "Erro de execução no widget.");
+          setSandboxError(msg);
+          onErrorRef.current?.(msg);
           break;
+        }
 
         case "media:control":
           if (data.payload?.action === "toggle") {

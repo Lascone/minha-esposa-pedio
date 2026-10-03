@@ -166,7 +166,16 @@ todo o CSS
 
 \`\`\`js
 todo o JavaScript, terminando com WidgetAPI.emitReady();
-\`\`\``;
+\`\`\`
+
+## CONFIRA ANTES DE RESPONDER (os erros que mais quebram gadgets)
+1. Todo id usado no JS (getElementById, querySelector("#...")) existe no HTML com o MESMO nome, ou é criado pelo próprio JS antes de usar.
+2. O JS não tem erro de sintaxe: chaves, parênteses e crases fechados; nada de código pela metade.
+3. Nada de localStorage, sessionStorage, cookies, alert, confirm, prompt, import, export, require ou <script> no HTML: tudo isso quebra no sandbox. Para salvar, use WidgetAPI.setConfig/getConfig.
+4. Variáveis e funções declaradas antes de serem usadas; o código roda dentro de start() e termina com WidgetAPI.emitReady().
+5. Nada fica do tamanho zero nem cortado: o container principal ocupa 100% x 100% e o conteúdo cabe no tamanho padrão do manifest.
+6. As cores ficam legíveis nos 4 temas (o texto contrasta com o fundo em cada [data-theme]).
+7. Se é uma mudança, o resto do gadget continua igual e funcionando; se é um gadget novo, ele tem id e nome novos.`;
 
 function fenced(lang: string, code: string): string {
   return "```" + lang + "\n" + code.trim() + "\n```";
@@ -287,6 +296,81 @@ export function chatTextOnly(raw: string): string {
 
 export const MISSING_CODE_REMINDER =
   "[ATENÇÃO] Sua resposta anterior veio sem os arquivos do widget. Responda AGORA com o texto curto e os 4 blocos de código completos (```json, ```html, ```css e ```js), já com o pedido aplicado.";
+
+const WIDGET_NOUN = "(gadget|widget|rel[oó]gio|calend[aá]rio|player|contador|cron[oô]metro|timer|painel|clima|agenda|lista de tarefas|to-?do)";
+
+/** True when the message asks for another gadget instead of a change to the current one. */
+export function isNewWidgetRequest(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  if (new RegExp(`\\b(outr[oa]|nov[oa])\\s+${WIDGET_NOUN}`).test(t)) return true;
+  if (new RegExp(`\\b${WIDGET_NOUN}\\s+(nov[oa]|diferente|separad[oa])\\b`).test(t)) return true;
+  if (/\b(do zero|come[cç]a(r)? de novo|recome[cç]a(r)?)\b/.test(t) && /\b(cri[ae]r?|faz(er)?|fa[cç]a|ger[ae]r?|mont[ae]r?)\b/.test(t)) return true;
+  return false;
+}
+
+/** The AI was handed the current gadget but answered with a different one. */
+export function looksLikeDifferentWidget(
+  current: { id: string; name: string },
+  answer: { id: string; name: string }
+): boolean {
+  const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const words = (s: string) => new Set(norm(s).split(" ").filter((w) => w.length >= 4));
+  if (!norm(answer.name) || !norm(current.name)) return false;
+  if (norm(answer.name) === norm(current.name)) return false;
+  // The AI often keeps the old id while building something else, so the name is what tells them apart.
+  const before = words(current.name);
+  const shared = Array.from(words(answer.name)).some((w) => before.has(w));
+  if (!shared) return true;
+  return norm(answer.id) !== norm(current.id) && !Array.from(words(answer.id)).some((w) => before.has(w) || words(current.id).has(w));
+}
+
+function stripJsComments(js: string): string {
+  return js.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
+}
+
+/**
+ * Mistakes that always break a gadget inside the sandbox. Found before showing it, so the AI can
+ * fix them instead of the user hitting a blank or frozen widget.
+ */
+export function lintWidget(widget: { html: string; css: string; js: string }): string[] {
+  const issues: string[] = [];
+  const html = widget.html || "";
+  const js = widget.js || "";
+  const code = stripJsComments(js);
+
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function(js);
+  } catch (e: any) {
+    issues.push(`script.js tem erro de sintaxe e não roda: ${e?.message || e}.`);
+  }
+  if (/\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie/.test(code)) {
+    issues.push("localStorage/sessionStorage/cookies dão erro no sandbox: salve com WidgetAPI.setConfig(chave, valor) e leia com WidgetAPI.getConfig(chave, padrão).");
+  }
+  if (/(^|[^.\w])(alert|confirm|prompt)\s*\(/.test(code)) {
+    issues.push("alert/confirm/prompt são bloqueados no sandbox: mostre mensagens e perguntas dentro do próprio widget.");
+  }
+  if (/^\s*(import|export)\s/m.test(code) || /\brequire\s*\(/.test(code)) {
+    issues.push("import/export/require não funcionam: o script.js é JavaScript puro, sem módulos.");
+  }
+  if (/<script\b/i.test(html)) {
+    issues.push("Não coloque <script> no index.html: todo o JavaScript vai no script.js.");
+  }
+  if (!/WidgetAPI\.emitReady\s*\(/.test(code)) {
+    issues.push("Falta chamar WidgetAPI.emitReady() no final do carregamento.");
+  }
+
+  const htmlIds = new Set(Array.from(html.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi), (m) => m[1]));
+  const createdIds = new Set(Array.from(code.matchAll(/\.id\s*=\s*["']([^"']+)["']|id\s*=\s*\\?["']([\w-]+)\\?["']/g), (m) => m[1] || m[2]));
+  const wanted = new Set<string>();
+  for (const m of code.matchAll(/getElementById\(\s*["']([^"']+)["']\s*\)/g)) wanted.add(m[1]);
+  for (const m of code.matchAll(/querySelector(?:All)?\(\s*["']#([\w-]+)["']\s*\)/g)) wanted.add(m[1]);
+  const missing = Array.from(wanted).filter((id) => !htmlIds.has(id) && !createdIds.has(id));
+  if (missing.length > 0) {
+    issues.push(`O script procura elementos que não existem no index.html: ${missing.map((id) => `#${id}`).join(", ")}. Crie esses elementos com o mesmo id ou corrija o script.`);
+  }
+  return issues;
+}
 
 export function fontsFrom(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;

@@ -29,9 +29,10 @@ import {
 import { CustomWidgetPackage, AiChatMessage } from "./types";
 import { useCustomWidgetsStore } from "./customWidgetsStore";
 import { useWidgetsStore } from "../store/widgetsStore";
-import { useAiStore } from "@/core/stores/aiStore";
+import { useAiStore, GEMINI_AVAILABLE_MODELS } from "@/core/stores/aiStore";
 import { generateOrModifyCustomWidget, fetchGeminiModels, fetchGroqModels } from "@/core/services/aiService";
 import { findLinks, importImageLinks } from "./widgetAssets";
+import { isNewWidgetRequest } from "./aiPrompt";
 import { WidgetSandbox } from "./WidgetSandbox";
 import { WidgetTheme } from "../types";
 import { useToast } from "@/core/components/Toast";
@@ -101,6 +102,24 @@ export const BRAIN_IDEAS: BrainIdea[] = [
 
 const withoutImages = (msgs: AiChatMessage[]): AiChatMessage[] =>
   msgs.map((m) => (m.imageUrl && m.imageUrl.startsWith("data:") ? { ...m, imageUrl: undefined } : m));
+
+/** Curated models first (with labels), then whatever else the key offers, always including the selected one. */
+export function geminiDropdownModels(
+  available: { id: string; displayName?: string }[],
+  selected: string
+): { id: string; displayName: string }[] {
+  const curated = GEMINI_AVAILABLE_MODELS.map((m) => ({ id: m.id, displayName: m.name }));
+  const ids = new Set(available.map((m) => m.id));
+  const list = available.length > 0 ? curated.filter((m) => ids.has(m.id)) : curated;
+  for (const m of available) {
+    if (!list.some((x) => x.id === m.id)) list.push({ id: m.id, displayName: m.displayName || m.id });
+  }
+  if (selected && !list.some((m) => m.id === selected)) list.unshift({ id: selected, displayName: selected });
+  return list;
+}
+
+const AUTO_FIX_REQUEST = (err: string) =>
+  `O gadget deu este erro assim que abriu: "${err}". Encontre a causa e corrija, mantendo o visual e tudo o que já funciona.`;
 
 const POLISH_REQUEST =
   "Amor, deixa o visual deste gadget muito mais bonito, no nível de um app profissional: hierarquia clara, fonte com personalidade, fundo em camadas com profundidade, ícones em SVG, micro-animações suaves e cores lindas em todos os temas. Mantém tudo o que já funciona.";
@@ -185,6 +204,8 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [currentLiveError, setCurrentLiveError] = useState<string | null>(null);
 
+  // One automatic repair per generation when the fresh gadget throws in the preview.
+  const autoFixBudgetRef = useRef(0);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -232,6 +253,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
 
   const handleStartNewChat = () => {
     createSession("Novo Gadget Fofo 🌸");
+    autoFixBudgetRef.current = 0;
     setCurrentPackage(null);
     const welcomeMsg: AiChatMessage = {
       id: `welcome-${Date.now()}`,
@@ -246,6 +268,7 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
 
   const handleSelectChatSession = (sess: WidgetChatSession) => {
     selectSession(sess.id);
+    autoFixBudgetRef.current = 0;
     setCurrentPackage(sess.currentPackage || null);
     setMessages(sess.messages || []);
     setIsHistoryOpen(false);
@@ -330,62 +353,83 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
     setIsGenerating(true);
 
     try {
-      const imported = text ? await importImageLinks(text, currentPackage?.assets) : { text, assets: {} as Record<string, string>, preview: undefined };
+      // "Faz outro gadget" in a chat that already has one must not reuse (and later overwrite) it.
+      const wantsNew = !!currentPackage && !errToSend && isNewWidgetRequest(text);
+      const basePkg = wantsNew ? null : currentPackage;
+
+      const imported = text ? await importImageLinks(text, basePkg?.assets) : { text, assets: {} as Record<string, string>, preview: undefined };
       if (findLinks(text).length > 0 && Object.keys(imported.assets).length === 0) {
         addToast("Não consegui baixar a imagem desse link. Tente um link direto da imagem (.jpg/.png) ou anexe o arquivo.", "warning");
       }
-      const assets = { ...(currentPackage?.assets || {}), ...imported.assets };
+      const assets = { ...(basePkg?.assets || {}), ...imported.assets };
 
       const result = await generateOrModifyCustomWidget({
         userMessage: imported.text || "Crie um gadget inspirado na imagem anexada",
-        currentPackage: currentPackage || undefined,
-        chatHistory: newMessages,
+        currentPackage: basePkg || undefined,
+        chatHistory: wantsNew ? [userMsg] : newMessages,
         options: {
           attachedImageBase64: imageToSend || imported.preview || undefined,
           assetNames: Object.keys(assets),
           currentError: errToSend || undefined,
-          currentWidgetPreview: currentPackage
+          currentWidgetPreview: basePkg
             ? {
-                html: currentPackage.html,
-                css: currentPackage.css,
-                js: currentPackage.js,
-                name: currentPackage.manifest.name,
+                html: basePkg.html,
+                css: basePkg.css,
+                js: basePkg.js,
+                name: basePkg.manifest.name,
               }
             : undefined,
         },
       });
 
+      const isNew = !currentPackage || wantsNew || !!result.isNewWidget;
       let manifest = result.package.manifest;
-      if (!currentPackage && useCustomWidgetsStore.getState().packages.some((p) => p.manifest.id === manifest.id)) {
-        // A brand-new gadget must not overwrite another saved gadget that happens to get the same id.
+      if (
+        isNew &&
+        (manifest.id === currentPackage?.manifest.id ||
+          useCustomWidgetsStore.getState().packages.some((p) => p.manifest.id === manifest.id))
+      ) {
         manifest = { ...manifest, id: `${manifest.id}-${Date.now().toString(36).slice(-5)}` };
       }
 
+      const aiMsg: AiChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: "assistant",
+        content: result.assistantReply,
+        timestamp: Date.now(),
+      };
+      const splitFromOld = isNew && !!currentPackage;
       const updatedPkg: CustomWidgetPackage = {
         manifest,
         html: result.package.html,
         css: result.package.css,
         js: result.package.js,
         assets,
-        createdAt: currentPackage?.createdAt || Date.now(),
+        createdAt: isNew ? Date.now() : currentPackage?.createdAt || Date.now(),
         updatedAt: Date.now(),
-        chatHistory: [
-          ...newMessages,
-          {
-            id: `ai-${Date.now()}`,
-            role: "assistant",
-            content: result.assistantReply,
-            timestamp: Date.now(),
-          },
-        ],
+        chatHistory: splitFromOld ? [userMsg, aiMsg] : [...newMessages, aiMsg],
       };
 
+      if (splitFromOld) {
+        // The old gadget keeps its own chat; the new one gets a fresh chat of its own.
+        createSession(updatedPkg.manifest.name);
+      }
       setCurrentPackage(updatedPkg);
       setMessages(updatedPkg.chatHistory || []);
       setHasUnsavedChanges(true);
       setPreviewKey((k) => k + 1);
       persistSession(updatedPkg.chatHistory || [], updatedPkg, updatedPkg.manifest.name);
-      addToast("Gadget atualizado no preview ao vivo! ✨", "sparkle");
+      autoFixBudgetRef.current = errToSend ? 0 : 1;
+
+      if (splitFromOld) {
+        addToast(`Gadget novo! Abri um chat só pra ele. O "${currentPackage!.manifest.name}" continua intacto no histórico 💖`, "sparkle");
+      } else {
+        addToast("Gadget atualizado no preview ao vivo! ✨", "sparkle");
+      }
+      const chosenModel = activeProvider === "groq" ? groqModel : geminiModel;
+      if (result.model && activeProvider === "gemini" && result.model !== chosenModel) {
+        addToast(`O ${chosenModel} não respondeu, então usei o ${result.model}.`, "warning");
+      }
     } catch (err: any) {
       const errorMsg: AiChatMessage = {
         id: `err-${Date.now()}`,
@@ -507,21 +551,9 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                   }}
                   className="bg-slate-900 text-xs text-white font-semibold focus:outline-none cursor-pointer border-none"
                 >
-                  {Array.from(
-                    new Map(
-                      [
-                        { id: "gemini-pro-latest", displayName: "Gemini Pro Latest 👑 (Padrão Pro)" },
-                        ...(availableGeminiModels.length > 0
-                          ? availableGeminiModels
-                          : [
-                              { id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash ⚡" },
-                              { id: "gemini-flash-latest", displayName: "Gemini Flash Latest ⚡" },
-                            ]),
-                      ].map((item) => [item.id, item])
-                    ).values()
-                  ).map((m) => (
+                  {geminiDropdownModels(availableGeminiModels, geminiModel).map((m) => (
                     <option key={m.id} value={m.id} className="bg-slate-900 text-white py-1">
-                      {m.displayName || m.id} {m.id.includes("pro") ? "👑" : "⚡"}
+                      {m.displayName}
                     </option>
                   ))}
                 </select>
@@ -970,6 +1002,12 @@ export const CustomWidgetAiChatModal: React.FC<CustomWidgetAiChatModalProps> = (
                         `O widget gerou o seguinte erro no navegador: "${errMsg}". Por favor, reescreva o código JavaScript com segurança defensiva: espere o DOM carregar (DOMContentLoaded), verifique se todos os elementos e canvas existem antes de acessar (.style, .getContext, etc.) e garanta que o widget funcione perfeitamente sem erros!`,
                         errMsg
                       );
+                    }}
+                    onError={(errMsg) => {
+                      if (autoFixBudgetRef.current <= 0 || isGenerating) return;
+                      autoFixBudgetRef.current = 0;
+                      addToast("O gadget deu um erro ao abrir, já estou consertando sozinho 🔧", "sparkle");
+                      handleSendMessage(AUTO_FIX_REQUEST(errMsg), errMsg);
                     }}
                     className="w-full h-full rounded-2xl overflow-hidden"
                   />

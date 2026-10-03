@@ -3,6 +3,8 @@ import {
   AiProvider,
   selectBestGeminiModel,
   selectBestGroqModel,
+  GEMINI_RECOMMENDED_MODEL,
+  GEMINI_MODEL_PREFERENCE,
 } from "../stores/aiStore";
 import {
   AiWidgetResult,
@@ -10,6 +12,8 @@ import {
   chatTextOnly,
   formatWidgetFiles,
   hasWidgetCode,
+  lintWidget,
+  looksLikeDifferentWidget,
   looksTruncated,
   parseAiWidgetResponse,
 } from "@/projects/widgets/custom/aiPrompt";
@@ -25,17 +29,47 @@ export interface WidgetAiGenerationResult {
     js: string;
   };
   assistantReply: string;
+  /** Model that actually answered (may differ from the selected one after a fallback). */
+  model?: string;
+  /** Problems still present after the automatic fix pass. */
+  remainingIssues?: string[];
+  /** The AI made a different gadget instead of changing the current one. */
+  isNewWidget?: boolean;
 }
 
 const WIDGET_SYSTEM_PROMPT = WIDGET_ECOSYSTEM_BRAIN;
 
-const GEMINI_CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-flash-latest",
-  "gemini-2.5-pro",
-  "gemini-1.5-pro",
-  "gemini-3.8-flash",
-];
+const GEMINI_CANDIDATE_MODELS = GEMINI_MODEL_PREFERENCE;
+
+class GeminiKeyError extends Error {
+  constructor() {
+    super("A chave do Gemini é inválida ou foi revogada. Gere uma nova em aistudio.google.com e cole na aba IAs.");
+  }
+}
+
+function isInvalidKeyError(err: any): boolean {
+  const msg = String(err?.error?.message || "");
+  const reason = JSON.stringify(err?.error?.details || "");
+  return /API key not valid|API_KEY_INVALID|API key expired/i.test(msg + reason);
+}
+
+/** The chosen model first, then the recommended ones the key really has (at most 4 attempts). */
+export function geminiModelsToTry(requested: string, available: string[]): string[] {
+  const all = Array.from(new Set([requested, ...GEMINI_MODEL_PREFERENCE].filter(Boolean)));
+  const usable = available.length > 0 ? all.filter((m, i) => i === 0 || available.includes(m)) : all;
+  return usable.slice(0, 4);
+}
+
+/**
+ * Gemini 3 models must keep the default temperature (Google: lower values can make them loop or
+ * degrade); their reasoning is set with thinkingLevel instead.
+ */
+export function geminiGenerationConfig(model: string, maxOutputTokens: number): Record<string, unknown> {
+  if (/^gemini-3/.test(model)) {
+    return { maxOutputTokens, thinkingConfig: { thinkingLevel: /lite/.test(model) ? "low" : "medium" } };
+  }
+  return { temperature: 0.7, maxOutputTokens };
+}
 
 export interface GenerateWidgetOptions {
   attachedImageBase64?: string;
@@ -117,7 +151,7 @@ export async function fetchGeminiModels(apiKey?: string): Promise<{ id: string; 
       store.setAvailableGeminiModels(filtered);
       const bestFlash = selectBestGeminiModel(filtered);
       const current = store.geminiModel;
-      if (!current || current.includes("lite") || current === "gemini-1.5-flash" || current === "gemini-2.0-flash" || !filtered.some((f) => f.id === current)) {
+      if (!current || !filtered.some((f) => f.id === current)) {
         store.setGeminiModel(bestFlash);
       }
     }
@@ -297,7 +331,11 @@ export function buildWidgetUserTurn(userMessage: string, options?: GenerateWidge
         : "[IMAGEM ANEXADA]\nUse a imagem como referência visual: cores, formas, estilo e elementos."
     );
   }
-  parts.push(current ? "Devolva os 4 arquivos completos já com a mudança." : "Crie o widget completo.");
+  parts.push(
+    current
+      ? "Devolva os 4 arquivos completos já com a mudança, mantendo o mesmo id no manifest. Se o pedido for um gadget NOVO e diferente (não uma mudança neste), crie do zero com id e nome novos."
+      : "Crie o widget completo."
+  );
   return parts.join("\n\n");
 }
 
@@ -336,9 +374,10 @@ export async function generateOrModifyCustomWidget({
     .slice(0, -1)
     .slice(-6);
 
-  const ask = async (turn: string): Promise<{ rawText: string; truncated: boolean }> => {
+  const ask = async (turn: string): Promise<{ rawText: string; truncated: boolean; usedModel: string }> => {
   let rawText = "";
   let truncated = false;
+  let usedModel = "";
 
   if (provider === "groq") {
     const apiKey = store.groqApiKey;
@@ -405,6 +444,7 @@ export async function generateOrModifyCustomWidget({
           rawText = text;
           truncated = data.choices?.[0]?.finish_reason === "length";
           store.setGroqModel(model);
+          usedModel = model;
           break;
         }
       } catch (e: any) {
@@ -413,6 +453,11 @@ export async function generateOrModifyCustomWidget({
     }
 
     if (!rawText.trim()) {
+      if (/request too large|reduce your message size/i.test(lastGroqError)) {
+        throw new Error(
+          "Esse gadget ficou grande demais para a Groq gratuita (ela aceita só 8 mil tokens por pedido). Troque para o Gemini na aba IAs, que aguenta gadgets bem maiores."
+        );
+      }
       throw new Error(`Erro Groq: ${lastGroqError || "Falha ao gerar com os modelos Groq disponíveis."}`);
     }
   } else {
@@ -427,14 +472,8 @@ export async function generateOrModifyCustomWidget({
       availableGemini = fetched.map((m) => m.id);
     }
 
-    let requestedModel = store.geminiModel || "gemini-pro-latest";
-    if (requestedModel === "gemini-1.5-flash" || requestedModel === "gemini-2.0-flash") {
-      requestedModel = "gemini-pro-latest";
-      store.setGeminiModel(requestedModel);
-    }
-    const modelsToTry = Array.from(
-      new Set([requestedModel, "gemini-pro-latest", "gemini-2.5-pro", ...availableGemini, "gemini-flash-latest"])
-    ).filter((m) => m && m !== "gemini-2.0-flash" && m !== "gemini-1.5-flash");
+    const requestedModel = store.geminiModel || GEMINI_RECOMMENDED_MODEL;
+    const modelsToTry = geminiModelsToTry(requestedModel, availableGemini);
 
     // Gemini needs strictly alternating user/model turns.
     const contents: { role: "user" | "model"; parts: any[] }[] = [];
@@ -469,17 +508,27 @@ export async function generateOrModifyCustomWidget({
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: WIDGET_SYSTEM_PROMPT }] },
               contents,
-              generationConfig: { temperature: 0.7, maxOutputTokens },
+              generationConfig: geminiGenerationConfig(model, maxOutputTokens),
             }),
           });
         let res = await send(GEMINI_MAX_OUTPUT);
         if (!res.ok && res.status === 400) {
+          const err = await res.clone().json().catch(() => ({}));
+          if (isInvalidKeyError(err)) {
+            throw new GeminiKeyError();
+          }
           // Older models reject a large output budget.
           res = await send(GEMINI_LEGACY_MAX_OUTPUT);
         }
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          lastGeminiError = err?.error?.message || `HTTP ${res.status}`;
+          if (isInvalidKeyError(err) || res.status === 401 || res.status === 403) throw new GeminiKeyError();
+          lastGeminiError =
+            res.status === 429
+              ? `${model} sem cota gratuita agora`
+              : res.status === 404
+              ? `${model} não existe nesta chave`
+              : err?.error?.message || `HTTP ${res.status}`;
           continue;
         }
         store.incrementGeminiUsage();
@@ -487,10 +536,12 @@ export async function generateOrModifyCustomWidget({
         if (text.trim()) {
           rawText = text;
           truncated = finishReason === "MAX_TOKENS";
+          usedModel = model;
           break;
         }
         lastGeminiError = finishReason ? `resposta vazia (${finishReason})` : "resposta vazia";
       } catch (e: any) {
+        if (e instanceof GeminiKeyError) throw e;
         lastGeminiError = e.message;
       }
     }
@@ -499,7 +550,7 @@ export async function generateOrModifyCustomWidget({
       throw new Error(`Erro Gemini (${requestedModel}): ${lastGeminiError || "Modelos Gemini indisponíveis. Tente novamente."}`);
     }
   }
-  return { rawText, truncated };
+  return { rawText, truncated, usedModel };
   };
 
   const readWidget = ({ rawText, truncated }: { rawText: string; truncated: boolean }) => {
@@ -514,6 +565,7 @@ export async function generateOrModifyCustomWidget({
   };
 
   const first = await ask(userTurn);
+  let usedModel = first.usedModel;
   let parsed: AiWidgetResult;
   if (hasWidgetCode(first.rawText)) {
     parsed = readWidget(first);
@@ -529,19 +581,64 @@ export async function generateOrModifyCustomWidget({
       );
     }
     parsed = readWidget(second);
+    usedModel = second.usedModel;
+  }
+
+  // One automatic repair pass for mistakes that always break a gadget in the sandbox.
+  let issues = lintWidget(parsed);
+  if (issues.length > 0) {
+    try {
+      const fixTurn =
+        `${userTurn}\n\n[CÓDIGO QUE VOCÊ MANDOU]\n${formatWidgetFiles(parsed)}\n\n` +
+        `[PROBLEMAS ENCONTRADOS NESSE CÓDIGO]\n${issues.map((i) => `- ${i}`).join("\n")}\n\n` +
+        "Corrija TODOS os problemas sem mudar o visual nem o que a usuária pediu, e devolva os 4 arquivos completos.";
+      const fixed = await ask(fixTurn);
+      if (hasWidgetCode(fixed.rawText) && !looksTruncated(fixed.rawText)) {
+        const repaired = parseAiWidgetResponse(fixed.rawText);
+        const repairedIssues = lintWidget(repaired);
+        if (repairedIssues.length < issues.length) {
+          parsed = { ...repaired, message: parsed.message || repaired.message };
+          issues = repairedIssues;
+          usedModel = fixed.usedModel || usedModel;
+        }
+      }
+    } catch {
+      // Keep the first answer: it still renders, and the preview shows its errors.
+    }
+  }
+
+  const askedRename = /\b(nome|renomei[ae]|t[ií]tulo)\b/i.test(userMessage);
+  const isNewWidget =
+    !!currentPackage &&
+    !askedRename &&
+    looksLikeDifferentWidget(
+      { id: currentPackage.manifest.id, name: currentPackage.manifest.name },
+      { id: parsed.manifest.id, name: parsed.manifest.name }
+    );
+
+  let id = parsed.manifest.id;
+  if (currentPackage && !isNewWidget) id = currentPackage.manifest.id;
+  else if (currentPackage && id === currentPackage.manifest.id) {
+    const fromName = parsed.manifest.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    id = fromName && fromName !== id ? fromName : `${id}-${Date.now().toString(36).slice(-5)}`;
   }
 
   return {
     package: {
-      manifest: {
-        ...parsed.manifest,
-        id: currentPackage?.manifest.id || parsed.manifest.id,
-      },
+      manifest: { ...parsed.manifest, id },
       html: parsed.html,
       css: parsed.css,
       js: parsed.js,
     },
     assistantReply: parsed.message || DEFAULT_REPLY,
+    model: usedModel,
+    remainingIssues: issues,
+    isNewWidget,
   };
 }
 

@@ -55,6 +55,9 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
 - Imagens anexadas no chat não são salvas no histórico (data URLs estouravam a cota do localStorage).
 - Links de imagem na mensagem são baixados pelo Rust (`widget_fetch_image`), reduzidos e salvos em `pkg.assets`. O código do gadget usa `pmm-asset://imagem-1`, que o sandbox troca pela imagem salva (`widgetAssets.ts`).
 - Fontes: o manifest lista `fonts` no formato da API css2 do Google Fonts (`"Fredoka:wght@400..700"`). O sandbox normaliza (eixos em ordem alfabética, tuplas ordenadas) e carrega com `<link>` + `display=swap` (`googleFonts.ts`). Um `@import` no CSS do gadget também é movido para `<link>`, porque no meio do `<style>` do sandbox ele seria ignorado.
+- Antes de mostrar o gadget, `lintWidget` (`aiPrompt.ts`) procura erros que sempre quebram no sandbox: sintaxe do JS, `localStorage`/`alert`/`import`, `<script>` no HTML, ids usados no JS que não existem no HTML e falta de `emitReady`. Se achar algo, a IA recebe o código e a lista de problemas uma vez para corrigir. Se o gadget novo der erro no preview logo ao abrir, o chat pede um conserto automático (uma vez por geração).
+- Gadget novo no mesmo chat: `isNewWidgetRequest` (pedido de "outro/novo gadget") ou `looksLikeDifferentWidget` (a IA mudou o nome para algo sem relação, mesmo mantendo o id) faz o gadget ganhar id próprio e um chat próprio. O gadget anterior nunca é sobrescrito.
+- Gemini: padrão `gemini-3.8-flash` com `thinkingLevel` (sem temperatura própria, como pede a doc do Gemini 3). Só tenta modelos que a chave tem; se outro modelo responder, o chat avisa.
 
 ---
 
