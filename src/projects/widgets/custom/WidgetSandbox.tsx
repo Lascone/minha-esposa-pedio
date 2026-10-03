@@ -7,6 +7,7 @@ import { useIntegrationsStore } from "@/core/stores/integrationsStore";
 import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
 import { invoke } from "@tauri-apps/api/core";
 import { resolveAssetRefs } from "./widgetAssets";
+import { extractCssImports, fontLinkTags } from "./googleFonts";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -177,12 +178,14 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
     const { activeTrack, gmailSummary, snesSkin } = liveRef.current;
     const safeConfigJson = JSON.stringify(configRef.current || {}).replace(/</g, "\\u003c");
     const safeTheme = JSON.stringify(theme);
+    const userCss = extractCssImports(resolveAssetRefs(pkg.css || "", pkg.assets));
 
     return `<!DOCTYPE html>
 <html lang="pt-BR" data-theme="${String(theme).replace(/[^a-z-]/g, "")}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${fontLinkTags(pkg.manifest.fonts, userCss.imports)}
   <style>
     /* Injected Base Styles */
     :root {
@@ -199,7 +202,7 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
       -webkit-font-smoothing: antialiased;
     }
     /* User CSS */
-    ${resolveAssetRefs(pkg.css || "", pkg.assets)}
+    ${userCss.css}
   </style>
   <script>
     (function() {

@@ -24,7 +24,8 @@ const VALID_CATEGORIES: CustomWidgetManifest["category"][] = [
 /** How the widget runs: shared by the copy-paste prompt and the in-app chat. */
 export const WIDGET_TECH_RULES = `## COMO O WIDGET FUNCIONA (regras obrigatórias)
 - Roda dentro de um iframe isolado (sandbox "allow-scripts"). Não existe Node.js, require, import de módulos, acesso a arquivos locais, localStorage confiável nem acesso ao Windows.
-- Apenas HTML, CSS e JavaScript puro (sem React, sem bibliotecas, sem CDN de scripts). Fontes do Google Fonts via @import no CSS são permitidas, sempre com fallback (ex.: 'Nunito', system-ui, sans-serif).
+- Apenas HTML, CSS e JavaScript puro (sem React, sem bibliotecas, sem CDN de scripts).
+- Fontes do Google Fonts (catálogo inteiro de fonts.google.com): liste no manifest em "fonts", no formato da API css2: "Nome da Família" ou "Nome:wght@400;700" (pesos fixos) ou "Nome:wght@300..900" (faixa, em fontes variáveis) ou "Nome:ital,wght@0,400;1,700" (eixos em ordem alfabética). Máximo de 3 famílias. O app carrega sozinho (com display=swap): NÃO use @import nem <link> para fontes. No CSS, use o nome exato da família com fallback (ex.: font-family: 'Fredoka', system-ui, sans-serif).
 - html e body já vêm com margin 0, 100% de largura/altura, overflow hidden e fundo TRANSPARENTE. Não pinte o body: todo o visual fica num container principal que ocupa 100% x 100%.
 - O tamanho da janela pode mudar: use unidades relativas (%, clamp(), cqmin com container-type: size) e flex/grid para nada estourar nem ficar cortado.
 - O tema atual fica em <html data-theme="aero-glass | cute-pastel | dark-modern | cyber-neon"> e muda ao vivo. Defina as cores em variáveis CSS e ajuste por tema com seletores [data-theme="dark-modern"] etc.
@@ -46,7 +47,7 @@ export const WIDGET_TECH_RULES = `## COMO O WIDGET FUNCIONA (regras obrigatória
 /** What makes a widget look premium instead of "default HTML". */
 export const WIDGET_DESIGN_GUIDE = `## PADRÃO VISUAL (o widget precisa parecer de um app profissional, nunca um HTML cru)
 - Hierarquia clara: UM elemento principal grande (número, relógio, personagem...) e informações secundárias menores e mais suaves. Nada de tudo do mesmo tamanho.
-- Tipografia: uma fonte com personalidade (Nunito, Quicksand, Poppins, Fredoka, Outfit via @import) com pesos variados (800 no destaque, 500–600 no resto), letter-spacing ajustado e font-variant-numeric: tabular-nums em números que mudam.
+- Tipografia: uma fonte do Google Fonts com personalidade e que combine com o tema (fofas: Fredoka, Quicksand, Nunito, Baloo 2, Comfortaa; elegantes: Playfair Display, Cormorant Garamond; modernas: Outfit, Poppins, Space Grotesk; góticas/dark: Cinzel, UnifrakturMaguntia, Creepster; tech: Orbitron, Audiowide, JetBrains Mono; manuscritas: Pacifico, Caveat, Dancing Script), declarada em "fonts" no manifest, com pesos variados (800 no destaque, 500–600 no resto), letter-spacing ajustado e font-variant-numeric: tabular-nums em números que mudam.
 - Profundidade: fundo em camadas (gradiente + brilho radial + leve textura/padrão), vidro fosco com backdrop-filter, borda interna clara (inset box-shadow) e sombra externa suave. Cantos de 20–28px.
 - Paleta coesa de 2–3 cores por tema, com contraste legível (texto claro em fundo escuro ou o contrário). Nunca use azul/cinza padrão do navegador.
 - Controles bonitos: botões arredondados com gradiente ou vidro, ícones em SVG inline (nunca emojis como único ícone de botão), estados :hover e :active (scale 0.96), cursor pointer, foco visível.
@@ -67,6 +68,7 @@ export const REFERENCE_WIDGET = {
     icon: "💞",
     defaultWidth: 300,
     defaultHeight: 200,
+    fonts: ["Nunito:wght@500;700;800;900"],
   },
   html: `<main class="card">
   <svg class="glow-heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.3 3.1 4.5 6.9 4.5c2.1 0 3.6 1.2 5.1 3 1.5-1.8 3-3 5.1-3 3.8 0 6 3.8 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
@@ -79,8 +81,7 @@ export const REFERENCE_WIDGET = {
   </button>
   <input type="date" id="picker" hidden />
 </main>`,
-  css: `@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap');
-:root { --bg1:#ffd6e7; --bg2:#e9d5ff; --ink:#5b2245; --soft:rgba(91,34,69,.62); --accent:#ff5c9a; --glass:rgba(255,255,255,.45); }
+  css: `:root { --bg1:#ffd6e7; --bg2:#e9d5ff; --ink:#5b2245; --soft:rgba(91,34,69,.62); --accent:#ff5c9a; --glass:rgba(255,255,255,.45); }
 [data-theme="dark-modern"] { --bg1:#1e1b2e; --bg2:#2a1f3d; --ink:#fbe7f3; --soft:rgba(251,231,243,.62); --accent:#ff7ab6; --glass:rgba(255,255,255,.08); }
 [data-theme="cyber-neon"] { --bg1:#0b1026; --bg2:#1a0b2e; --ink:#e0f7ff; --soft:rgba(224,247,255,.6); --accent:#22d3ee; --glass:rgba(34,211,238,.08); }
 [data-theme="aero-glass"] { --bg1:rgba(255,255,255,.55); --bg2:rgba(186,230,253,.45); --ink:#0f2a44; --soft:rgba(15,42,68,.6); --accent:#ec4899; --glass:rgba(255,255,255,.35); }
@@ -145,7 +146,7 @@ export const WIDGET_RESPONSE_FORMAT = `## FORMATO DA RESPOSTA (muito importante)
 Responda com UM bloco de código para cada arquivo, nesta ordem, cada um com o código COMPLETO (nunca "..." nem "resto igual"):
 
 \`\`\`json
-{ "id": "id-em-minusculas-com-hifens", "name": "Nome bonito", "description": "Frase curta", "category": "time | system | productivity | utilities (escolha UM)", "icon": "um emoji", "defaultWidth": 300, "defaultHeight": 200, "minWidth": 180, "minHeight": 120, "tags": ["palavras", "chave"] }
+{ "id": "id-em-minusculas-com-hifens", "name": "Nome bonito", "description": "Frase curta", "category": "time | system | productivity | utilities (escolha UM)", "icon": "um emoji", "defaultWidth": 300, "defaultHeight": 200, "minWidth": 180, "minHeight": 120, "fonts": ["Fredoka:wght@400..700"], "tags": ["palavras", "chave"] }
 \`\`\`
 
 \`\`\`html
@@ -280,6 +281,12 @@ export function chatTextOnly(raw: string): string {
 export const MISSING_CODE_REMINDER =
   "[ATENÇÃO] Sua resposta anterior veio sem os arquivos do widget. Responda AGORA com o texto curto e os 4 blocos de código completos (```json, ```html, ```css e ```js), já com o pedido aplicado.";
 
+export function fontsFrom(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const fonts = value.filter((f): f is string => typeof f === "string" && f.trim().length > 0).slice(0, 6);
+  return fonts.length > 0 ? fonts : undefined;
+}
+
 export function parseAiWidgetResponse(raw: string): AiWidgetResult {
   if (!raw.trim()) {
     throw new Error("Cole a resposta da IA antes de continuar.");
@@ -339,6 +346,7 @@ export function parseAiWidgetResponse(raw: string): AiWidgetResult {
     permissions: Array.isArray(m.permissions) ? m.permissions : ["storage", "theme"],
     configFields: Array.isArray(m.configFields) ? m.configFields : [],
     tags: Array.isArray(m.tags) ? m.tags : ["ia", "custom"],
+    fonts: fontsFrom(m.fonts),
   };
 
   return {

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CustomWidgetPackage, CustomWidgetManifest } from "./types";
 import { TEMPLATE_NEON_CLOCK, TEMPLATE_TODO_MINI } from "./templates";
+import { fontsFrom } from "./aiPrompt";
 
 interface CustomWidgetsState {
   packages: CustomWidgetPackage[];
@@ -108,6 +109,7 @@ export const useCustomWidgetsStore = create<CustomWidgetsState>()(
             permissions: parsed.manifest.permissions || ["storage", "theme"],
             configFields: parsed.manifest.configFields || [],
             tags: parsed.manifest.tags || ["custom"],
+            fonts: fontsFrom(parsed.manifest.fonts),
           };
 
           const pkg: CustomWidgetPackage = {

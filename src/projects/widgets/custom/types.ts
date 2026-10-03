@@ -26,6 +26,8 @@ export interface CustomWidgetManifest {
   permissions?: ("storage" | "resize" | "theme" | "audio")[];
   configFields?: CustomWidgetConfigField[];
   tags?: string[];
+  /** Google Fonts families in css2 form, e.g. "Nunito:wght@500;800". */
+  fonts?: string[];
   website?: string;
 }
 

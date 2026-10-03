@@ -52,6 +52,8 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
 - Orçamento de saída alto (Gemini 65536 tokens, Groq 32768) e detecção de resposta cortada (`finishReason`/`finish_reason` e cercas ímpares).
 - Groq gratuita tem limite de tokens por minuto: em HTTP 429 o app espera o `retry-after` e tenta **o mesmo modelo** de novo. Nunca cair para um modelo mais fraco nem para a saída padrão curta (≈3 mil tokens): era isso que gerava gadgets cortados e feios.
 - Imagens anexadas no chat não são salvas no histórico (data URLs estouravam a cota do localStorage).
+- Links de imagem na mensagem são baixados pelo Rust (`widget_fetch_image`), reduzidos e salvos em `pkg.assets`. O código do gadget usa `pmm-asset://imagem-1`, que o sandbox troca pela imagem salva (`widgetAssets.ts`).
+- Fontes: o manifest lista `fonts` no formato da API css2 do Google Fonts (`"Fredoka:wght@400..700"`). O sandbox normaliza (eixos em ordem alfabética, tuplas ordenadas) e carrega com `<link>` + `display=swap` (`googleFonts.ts`). Um `@import` no CSS do gadget também é movido para `<link>`, porque no meio do `<style>` do sandbox ele seria ignorado.
 
 ---
 
