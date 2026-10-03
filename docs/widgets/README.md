@@ -44,6 +44,7 @@ Na aba de Widgets há um banner de destaque **"Adicionar Personalizado"** com:
   - `WidgetAPI.emitReady()`
 - Segurar e arrastar dentro do iframe move o widget: o bootstrap do sandbox envia `widget:drag` ao host depois de 4 px de movimento (fora de botões, campos, links e `[data-no-drag]`); o host só aceita a mensagem vinda de um iframe dele e chama `startDragging()`.
 - O `srcdoc` do iframe é montado só a partir do pacote. Tema, configurações, mídia e skin chegam depois por `postMessage`, então `setConfig` e troca de tema **não recarregam** o widget.
+- `WidgetAPI.particles({ preset, count, colors, speed, size, opacity, layer, target })` é um motor de partículas próprio (`particlesRuntime.ts`, sem biblioteca externa): um canvas por chamada, `pointer-events: none`, até 150 partículas, pausa com o widget oculto, respeita `prefers-reduced-motion` e aceita cores `var(--x)` do tema. Presets: stars, sparkles, snow, hearts, sakura, embers, dark, ash, bubbles, fireflies, confetti, rain. Devolve `burst(evento)`, `setPreset`, `setColors`, `setCount`, `stop`, `start`, `destroy`.
 - `WidgetAPI.images.search(termo)` é uma busca real: o iframe pede ao host (`images:search`), que chama o comando Rust `search_web_images` e devolve as URLs.
 
 ### Gerador de gadgets com IA (`aiPrompt.ts`, `widgetBrain.ts`, `aiService.ts`)

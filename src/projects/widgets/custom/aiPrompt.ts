@@ -34,7 +34,14 @@ export const WIDGET_TECH_RULES = `## COMO O WIDGET FUNCIONA (regras obrigatória
   - WidgetAPI.setConfig(chave, valor) → salva uma preferência (contadores, textos, escolhas)
   - WidgetAPI.requestResize(largura, altura) → pede para redimensionar
   - WidgetAPI.getTheme() / WidgetAPI.onThemeChange(function (tema) { ... })
+  - WidgetAPI.particles({ preset, count, colors, speed, size, opacity, layer, target }) → partículas prontas num canvas (ver abaixo)
   - WidgetAPI.emitReady() → OBRIGATÓRIO no final, quando o widget terminar de carregar
+- Partículas: SEMPRE use WidgetAPI.particles. NUNCA crie partículas na mão (dezenas de divs, @keyframes por partícula, canvas próprio): é isso que fica feio, invisível ou pesado.
+  - presets: "stars" (estrelas piscando), "sparkles" (brilhos), "snow" (neve), "hearts" (corações subindo), "sakura" (pétalas caindo), "embers" (brasas), "dark" (partículas sombrias vermelho/roxo, para temas dark/góticos), "ash" (cinzas), "bubbles" (bolhas), "fireflies" (vaga-lumes), "confetti" (confete), "rain" (chuva).
+  - opções (todas opcionais): count (até 150), colors (lista de cores que combinem com o widget), speed e size (multiplicadores, 1 = normal), opacity (0–1), layer: "front" (padrão, por cima, sem bloquear cliques) ou "back" (atrás do conteúdo, por cima do fundo do container), target (elemento ou seletor; padrão = container principal).
+  - devolve um controle: .burst(evento) solta uma explosão no ponto do clique, .setPreset(nome), .setColors(lista), .setCount(n), .stop(), .start().
+  - exemplo: var fx = WidgetAPI.particles({ preset: "dark", colors: ["#c1121f", "#7b2cbf"], count: 40 }); botao.addEventListener("click", function (e) { fx.burst(e); });
+  - Já respeita prefers-reduced-motion, pausa quando o widget fica oculto e se ajusta ao tamanho sozinho.
 - JavaScript defensivo: comece numa função start() chamada quando o DOM estiver pronto, confira se cada elemento existe antes de usar e nunca deixe um erro quebrar o widget.
 - Nunca invente dados falsos (temperatura, CPU, notícias...). Se algo depende da internet e falhar, mostre uma mensagem amigável.
 - Nunca invente URLs de imagens (imgur e afins quebram). Prefira desenhar com SVG/CSS. Use uma URL de imagem só se a usuária enviar uma.
@@ -51,7 +58,7 @@ export const WIDGET_DESIGN_GUIDE = `## PADRÃO VISUAL (o widget precisa parecer 
 - Profundidade: fundo em camadas (gradiente + brilho radial + leve textura/padrão), vidro fosco com backdrop-filter, borda interna clara (inset box-shadow) e sombra externa suave. Cantos de 20–28px.
 - Paleta coesa de 2–3 cores por tema, com contraste legível (texto claro em fundo escuro ou o contrário). Nunca use azul/cinza padrão do navegador.
 - Controles bonitos: botões arredondados com gradiente ou vidro, ícones em SVG inline (nunca emojis como único ícone de botão), estados :hover e :active (scale 0.96), cursor pointer, foco visível.
-- Vida: micro-animações suaves (entrada com fade/slide, transições de 200–300ms, um detalhe animado sutil como brilho, partículas ou respiração). Respeite prefers-reduced-motion.
+- Vida: micro-animações suaves (entrada com fade/slide, transições de 200–300ms, um detalhe animado sutil como brilho, partículas com WidgetAPI.particles ou respiração). Respeite prefers-reduced-motion.
 - Espaçamento generoso e consistente (múltiplos de 4px), alinhamentos perfeitos, nada encostado na borda.
 - Decoração com propósito: SVGs desenhados à mão (corações, estrelas, flores, personagens) combinando com o tema do pedido.
 - Ícones precisam representar o que significam (sol = círculo com raios, nuvem, gotas de chuva, floco de neve, raio...). Cada situação tem o seu ícone; nunca repita um ícone genérico (✓, círculo) para coisas diferentes. Se um SVG bom ficar difícil, um emoji grande e bem posicionado é melhor do que um ícone errado.

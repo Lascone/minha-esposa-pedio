@@ -8,6 +8,7 @@ import { useSnesCustomizerStore, SNES_SKINS } from "../console/snesCustomizer";
 import { invoke } from "@tauri-apps/api/core";
 import { resolveAssetRefs } from "./widgetAssets";
 import { extractCssImports, fontLinkTags } from "./googleFonts";
+import { PARTICLES_RUNTIME } from "./particlesRuntime";
 
 interface WidgetSandboxProps {
   pkg: CustomWidgetPackage;
@@ -330,6 +331,8 @@ export const WidgetSandbox: React.FC<WidgetSandboxProps> = ({
           }, "*");
         }
       };
+
+      ${PARTICLES_RUNTIME}
 
       // Listen for parent messages
       window.addEventListener("message", function(e) {
