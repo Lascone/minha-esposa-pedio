@@ -113,8 +113,21 @@ export const App: React.FC = () => {
     let unlistenAutoclickPick: (() => void) | undefined;
     let unlistenWidgetsToggle: (() => void) | undefined;
 
+    // The overlay and every widget window load this same App. A hotkey event reaches all of
+    // them; a second start used to fail and then stop the engine. Only the main window acts.
+    const ownsAutoclickHotkey = () => {
+      const hash = window.location.hash;
+      if (/overlay|\/widget\/|\/companion\//.test(hash)) return false;
+      try {
+        return getCurrentWebviewWindow().label === "main";
+      } catch {
+        return true;
+      }
+    };
+
     // 1. AutoClick Start request from native hotkey
     listen("autoclick-start-requested", () => {
+      if (!ownsAutoclickHotkey()) return;
       const s = useAutoClickStore.getState();
       if (!s.isRunning) {
         s.startAutoClick();
@@ -127,6 +140,7 @@ export const App: React.FC = () => {
 
     // F7: save the cursor and make the next quick click use that exact point.
     listen("autoclick-pick-position", async () => {
+      if (!ownsAutoclickHotkey()) return;
       const [x, y] = await InputService.getCursorPos();
       const s = useAutoClickStore.getState();
       s.setFixedPosition(x, y);
@@ -144,6 +158,7 @@ export const App: React.FC = () => {
 
     // 2. AutoClick Status update from native hotkey / engine
     listen<boolean>("autoclick-status-changed", (event) => {
+      if (!ownsAutoclickHotkey()) return;
       const isRunningNative = event.payload;
       const s = useAutoClickStore.getState();
       if (!isRunningNative && s.isRunning) {

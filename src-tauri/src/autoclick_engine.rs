@@ -213,8 +213,10 @@ impl AutoClickEngine {
     }
 
     pub fn start(&self, new_config: AutoClickEngineConfig) -> Result<(), String> {
-        if self.is_running.load(Ordering::SeqCst) {
-            return Err("Auto clicker já está em execução".to_string());
+        // One physical Insert press is delivered to every webview. The second start used to
+        // fail with "already running", and that caller then stopped the engine it had just started.
+        if self.is_running.swap(true, Ordering::SeqCst) {
+            return Ok(());
         }
 
         {
@@ -223,7 +225,6 @@ impl AutoClickEngine {
         }
 
         self.click_count.store(0, Ordering::SeqCst);
-        self.is_running.store(true, Ordering::SeqCst);
         self.is_paused.store(false, Ordering::SeqCst);
 
         let is_running = self.is_running.clone();

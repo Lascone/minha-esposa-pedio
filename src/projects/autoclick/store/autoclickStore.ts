@@ -18,6 +18,8 @@ import { InputService } from "@/core/services/automation/InputService";
 
 /** Bumped by stop/emergency so a pending start countdown gives up instead of starting late. */
 let countdownToken = 0;
+/** Two start calls in the same moment must not both reach the engine. */
+let startInFlight = false;
 
 /** Quick click must not inherit the multi-point list, or a fixed coordinate is never used. */
 export function autoclickRunMode(tab: string): "quick" | "multipoint" | "timeline" {
@@ -509,8 +511,9 @@ export const useAutoClickStore = create<AutoClickState>()(
 
       startAutoClick: async () => {
         const s = get();
-        if (s.isRunning) return;
-
+        if (s.isRunning || startInFlight) return;
+        startInFlight = true;
+        try {
         // Visual Countdown if delay configured
         const token = ++countdownToken;
         if (s.startDelaySeconds > 0) {
@@ -570,11 +573,13 @@ export const useAutoClickStore = create<AutoClickState>()(
             max_runtime_minutes: 60,
           });
         } catch (e: any) {
+          const msg = String(e?.message || e);
+          if (/já está em execução/i.test(msg)) return;
           await InputService.stop().catch(() => {});
           set({
             isRunning: false,
             isPaused: false,
-            statusMessage: `Não consegui começar a clicar: ${e?.message || e}`,
+            statusMessage: `Não consegui começar a clicar: ${msg}`,
           });
           return;
         }
@@ -627,6 +632,9 @@ export const useAutoClickStore = create<AutoClickState>()(
             }
           }
         }, 250);
+        } finally {
+          startInFlight = false;
+        }
       },
 
       stopAutoClick: async (reason = "Usuário parou") => {

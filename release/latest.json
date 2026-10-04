@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.24",
-    "notes":  "Insert não desliga mais no mesmo aperto. A posição fixa do auto click passa a ser usada de verdade, inclusive com F7 e Mirar na Tela.",
-    "pub_date":  "2026-10-04T07:41:42.0800269Z",
-    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.24/Pedi.para.meu.marido_1.3.24_x64-setup.exe",
-    "fileName":  "Pedi.para.meu.marido_1.3.24_x64-setup.exe",
-    "size":  3173876
+    "version":  "1.3.25",
+    "notes":  "O Insert não desliga mais na hora: só a janela principal inicia o auto click, e uma segunda tentativa não para o que acabou de começar.",
+    "pub_date":  "2026-10-04T07:56:38.5015106Z",
+    "url":  "https://github.com/Lascone/minha-esposa-pedio/releases/download/v1.3.25/Pedi.para.meu.marido_1.3.25_x64-setup.exe",
+    "fileName":  "Pedi.para.meu.marido_1.3.25_x64-setup.exe",
+    "size":  3174813
 }
