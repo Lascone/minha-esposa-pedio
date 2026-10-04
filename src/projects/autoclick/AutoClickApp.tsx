@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Zap,
   Crosshair,
@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useAutoClickStore } from "./store/autoclickStore";
 import { AutoClickTab } from "./types";
-import { InputService } from "@/core/services/automation/InputService";
 
 // Views
 import { QuickClickView } from "./components/QuickClickView";
@@ -32,52 +31,12 @@ export const AutoClickApp: React.FC = () => {
     activeTab,
     setActiveTab,
     isRunning,
-    startAutoClick,
-    stopAutoClick,
-    emergencyStop,
     hotkeyStartStop,
-    hotkeyEmergencyStop,
   } = useAutoClickStore();
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedPointIdToPick, setSelectedPointIdToPick] = useState<string | null>(null);
 
-
-  // Window-level hotkey listener (immediate reaction when window is focused)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const currentKey = (hotkeyStartStop || "INSERT").toUpperCase();
-      const pressedKey = e.key.toUpperCase();
-
-      const isStartStopMatch =
-        pressedKey === currentKey ||
-        (currentKey === "INSERT" && (e.key === "Insert" || e.code === "Insert"));
-
-      if (isStartStopMatch) {
-        e.preventDefault();
-        if (isRunning) {
-          stopAutoClick("Atalho de Teclado");
-        } else {
-          startAutoClick();
-        }
-        return;
-      }
-
-      const emergencyKey = (hotkeyEmergencyStop || "Shift+Escape").toUpperCase();
-      const isShiftEscape = e.shiftKey && (e.key === "Escape" || e.code === "Escape");
-      const isEmergencyMatch =
-        isShiftEscape ||
-        pressedKey === emergencyKey;
-
-      if (isEmergencyMatch && isRunning) {
-        e.preventDefault();
-        emergencyStop();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [hotkeyStartStop, hotkeyEmergencyStop, isRunning, startAutoClick, stopAutoClick, emergencyStop]);
 
   const tabs: { id: AutoClickTab; label: string; icon: React.ReactNode }[] = [
     { id: "quick", label: "Rápido", icon: <Zap size={14} /> },

@@ -26,6 +26,7 @@ import { checkForUpdates, UpdateInfo } from "./core/services/updateService";
 import { UpdateModal } from "./core/components/UpdateModal";
 import { syncAllSavedShortcutsToBackend } from "./core/stores/shortcutsStore";
 import { useAutoClickStore } from "./projects/autoclick/store/autoclickStore";
+import { InputService } from "./core/services/automation/InputService";
 
 export const App: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
@@ -109,6 +110,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     let unlistenAutoclickStart: (() => void) | undefined;
     let unlistenAutoclickStatus: (() => void) | undefined;
+    let unlistenAutoclickPick: (() => void) | undefined;
     let unlistenWidgetsToggle: (() => void) | undefined;
 
     // 1. AutoClick Start request from native hotkey
@@ -120,6 +122,23 @@ export const App: React.FC = () => {
     })
       .then((fn) => {
         unlistenAutoclickStart = fn;
+      })
+      .catch(() => {});
+
+    // F7: save the cursor and make the next quick click use that exact point.
+    listen("autoclick-pick-position", async () => {
+      const [x, y] = await InputService.getCursorPos();
+      const s = useAutoClickStore.getState();
+      s.setFixedPosition(x, y);
+      s.setPositionMode("fixed");
+      useAutoClickStore.setState({
+        statusMessage: s.isRunning
+          ? `Posição salva (X=${x}, Y=${y}). Vale na próxima vez que começar.`
+          : `Posição fixa: X=${x}, Y=${y}. O auto click vai clicar aí.`,
+      });
+    })
+      .then((fn) => {
+        unlistenAutoclickPick = fn;
       })
       .catch(() => {});
 
@@ -148,6 +167,7 @@ export const App: React.FC = () => {
     return () => {
       if (unlistenAutoclickStart) unlistenAutoclickStart();
       if (unlistenAutoclickStatus) unlistenAutoclickStatus();
+      if (unlistenAutoclickPick) unlistenAutoclickPick();
       if (unlistenWidgetsToggle) unlistenWidgetsToggle();
     };
   }, []);

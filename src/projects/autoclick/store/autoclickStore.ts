@@ -19,6 +19,13 @@ import { InputService } from "@/core/services/automation/InputService";
 /** Bumped by stop/emergency so a pending start countdown gives up instead of starting late. */
 let countdownToken = 0;
 
+/** Quick click must not inherit the multi-point list, or a fixed coordinate is never used. */
+export function autoclickRunMode(tab: string): "quick" | "multipoint" | "timeline" {
+  if (tab === "multipoint") return "multipoint";
+  if (tab === "builder") return "timeline";
+  return "quick";
+}
+
 export const AUTOCLICK_SCHEMA_VERSION = 1;
 
 export const AUTOCLICK_PRESETS: Partial<AutoClickProfile>[] = [
@@ -368,6 +375,9 @@ export const useAutoClickStore = create<AutoClickState>()(
         if (cleanEmergency) {
           InputService.registerEmergencyHotkey(cleanEmergency);
         }
+        if (updates.pick) {
+          InputService.registerPickHotkey(updates.pick);
+        }
       },
       cornerFailsafe: true,
       setCornerFailsafe: (enabled) => set({ cornerFailsafe: enabled }),
@@ -520,6 +530,8 @@ export const useAutoClickStore = create<AutoClickState>()(
           statusMessage: "Comecei a clicar ✨",
         });
 
+        const runMode = autoclickRunMode(s.activeTab);
+
         // Convert store state to Native engine config
         try {
           await InputService.start({
@@ -540,7 +552,7 @@ export const useAutoClickStore = create<AutoClickState>()(
             repeat_count: s.repeatCount,
             repeat_duration_seconds: s.repeatDurationSeconds,
             start_delay_seconds: 0,
-            multi_points: s.multiPoints.map((p) => ({
+            multi_points: runMode === "multipoint" ? s.multiPoints.map((p) => ({
               id: p.id,
               x: p.x,
               y: p.y,
@@ -551,8 +563,8 @@ export const useAutoClickStore = create<AutoClickState>()(
               delay_after_ms: p.delayAfterMs,
               repeat_times: p.repeatTimes,
               enabled: p.enabled,
-            })),
-            timeline_actions: s.activeTab === "builder" ? s.timelineActions : [],
+            })) : [],
+            timeline_actions: runMode === "timeline" ? s.timelineActions : [],
             simulation_mode: s.simulationMode,
             corner_failsafe: s.cornerFailsafe,
             max_runtime_minutes: 60,

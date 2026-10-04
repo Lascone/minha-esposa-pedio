@@ -82,10 +82,10 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     id: "autoclick_pick_coordinate",
     category: "autoclick",
     label: "Capturar Coordenada do Mouse",
-    description: "Salva a posição exata (X, Y) atual do cursor para uso no clique multi-ponto.",
+    description: "Salva onde o mouse está e faz o clique rápido acertar sempre esse ponto.",
     defaultKey: "F7",
     currentKey: "F7",
-    isGlobal: false,
+    isGlobal: true,
   },
 
   // Widgets da Área de Trabalho
@@ -173,6 +173,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
             crosshair_toggle_overlay: "crosshair_toggle",
             autoclick_start_stop: "autoclick_start_stop",
             autoclick_emergency_stop: "emergency_stop_all",
+            autoclick_pick_coordinate: "autoclick_pick_position",
             widgets_toggle_all: "widgets_toggle_all",
           };
 
@@ -252,6 +253,7 @@ export const syncAllSavedShortcutsToBackend = async () => {
     crosshair_toggle_overlay: "crosshair_toggle",
     autoclick_start_stop: "autoclick_start_stop",
     autoclick_emergency_stop: "emergency_stop_all",
+    autoclick_pick_coordinate: "autoclick_pick_position",
     widgets_toggle_all: "widgets_toggle_all",
   };
 

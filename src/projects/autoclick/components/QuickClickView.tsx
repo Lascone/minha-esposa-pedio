@@ -119,7 +119,11 @@ export const QuickClickView: React.FC<{ onOpenPicker: () => void }> = ({ onOpenP
             </div>
 
             <div className="flex items-center gap-2 text-xs text-theme-text-muted mt-0.5">
-              <span>{sessionClicks.toLocaleString()} cliques na sessão</span>
+              {statusMessage.startsWith("Posição") || statusMessage.startsWith("Captura") ? (
+                <span className="text-pink-500 font-semibold">{statusMessage}</span>
+              ) : (
+                <span>{sessionClicks.toLocaleString()} cliques na sessão</span>
+              )}
               {timerDriftMs > 0 && isRunning && (
                 <>
                   <span>•</span>

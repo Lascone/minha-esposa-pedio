@@ -110,6 +110,18 @@ export class InputService {
     }
   }
 
+  static async captureClick(): Promise<[number, number]> {
+    return await invoke<[number, number]>("autoclick_capture_click");
+  }
+
+  static async registerPickHotkey(key: string): Promise<void> {
+    try {
+      await invoke("register_action_shortcut", { action: "autoclick_pick_position", key });
+    } catch (e) {
+      console.warn("[InputService] registerPickHotkey fallback:", e);
+    }
+  }
+
   static async registerEmergencyHotkey(key: string): Promise<void> {
     try {
       await invoke("autoclick_register_emergency_hotkey", { key });

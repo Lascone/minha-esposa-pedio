@@ -695,9 +695,15 @@ impl AutoClickEngine {
             MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEINPUT,
         };
 
-        if let (Some(px), Some(py)) = (x, y) {
-            Self::set_cursor_pos_native(px, py);
-        }
+        // A fixed point has to travel with the click itself. SetCursorPos alone loses
+        // to the next physical mouse move, so the click landed wherever the cursor was.
+        let placed = match (x, y) {
+            (Some(px), Some(py)) => {
+                Self::set_cursor_pos_native(px, py);
+                Some(Self::to_absolute_desktop(px, py))
+            }
+            _ => None,
+        };
 
         let (down_flag, up_flag) = match button {
             MouseButton::Left => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
@@ -712,16 +718,27 @@ impl AutoClickEngine {
             ClickType::Hold => 1,
         };
 
+        let (dx, dy, move_flags) = match placed {
+            Some((ax, ay)) => (
+                ax,
+                ay,
+                windows_sys::Win32::UI::Input::KeyboardAndMouse::MOUSEEVENTF_MOVE
+                    | windows_sys::Win32::UI::Input::KeyboardAndMouse::MOUSEEVENTF_ABSOLUTE
+                    | windows_sys::Win32::UI::Input::KeyboardAndMouse::MOUSEEVENTF_VIRTUALDESK,
+            ),
+            None => (0, 0, 0),
+        };
+
         for i in 0..loops {
             unsafe {
                 let mut input_down = INPUT {
                     r#type: INPUT_MOUSE,
                     Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                         mi: MOUSEINPUT {
-                            dx: 0,
-                            dy: 0,
+                            dx,
+                            dy,
                             mouseData: 0,
-                            dwFlags: down_flag,
+                            dwFlags: down_flag | move_flags,
                             time: 0,
                             dwExtraInfo: 0,
                         },
@@ -735,10 +752,10 @@ impl AutoClickEngine {
                         r#type: INPUT_MOUSE,
                         Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                             mi: MOUSEINPUT {
-                                dx: 0,
-                                dy: 0,
+                                dx,
+                                dy,
                                 mouseData: 0,
-                                dwFlags: up_flag,
+                                dwFlags: up_flag | move_flags,
                                 time: 0,
                                 dwExtraInfo: 0,
                             },
@@ -761,6 +778,25 @@ impl AutoClickEngine {
         _x: Option<i32>,
         _y: Option<i32>,
     ) {
+    }
+
+    /// Maps a screen point onto the 0–65535 virtual desktop that SendInput absolute moves use.
+    #[cfg(windows)]
+    fn to_absolute_desktop(x: i32, y: i32) -> (i32, i32) {
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetSystemMetrics;
+        const SM_XVIRTUALSCREEN: i32 = 76;
+        const SM_YVIRTUALSCREEN: i32 = 77;
+        const SM_CXVIRTUALSCREEN: i32 = 78;
+        const SM_CYVIRTUALSCREEN: i32 = 79;
+        unsafe {
+            let origin_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            let origin_y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            let width = GetSystemMetrics(SM_CXVIRTUALSCREEN).max(2);
+            let height = GetSystemMetrics(SM_CYVIRTUALSCREEN).max(2);
+            let ax = (((x - origin_x) as i64 * 65535) / (width as i64 - 1)).clamp(0, 65535) as i32;
+            let ay = (((y - origin_y) as i64 * 65535) / (height as i64 - 1)).clamp(0, 65535) as i32;
+            (ax, ay)
+        }
     }
 
     #[cfg(windows)]

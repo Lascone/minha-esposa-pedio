@@ -17,5 +17,5 @@ A emissão de eventos utiliza `SendInput` com a estrutura `INPUT` configurada co
 
 ## 3. Posicionamento
 1. **Cursor Atual**: Não altera as coordenadas atuais do cursor do Windows (`GetCursorPos`).
-2. **Posição Fixa**: Chama `SetCursorPos(x, y)` antes de emitir o evento de clique.
+2. **Posição Fixa**: Move com `SetCursorPos` e, no mesmo `SendInput` do clique, manda `MOUSEEVENTF_MOVE | ABSOLUTE | VIRTUALDESK`. Sem o movimento absoluto, o próximo movimento físico do mouse faz o clique cair onde o cursor estiver. O clique rápido só usa essa posição quando a aba ativa não é Multi-Pontos nem Sequências.
 3. **Área Randômica**: Gera um ponto pseudo-aleatório `(rx, ry)` dentro do retângulo delimitado por `[x1, y1, x2, y2]`.

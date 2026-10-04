@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -229,6 +229,19 @@ fn get_dispatcher() -> &'static std::sync::Mutex<ShortcutDispatcher> {
 fn dispatch_action(app: &AppHandle, action: &str) {
     match action {
         "autoclick_start_stop" => {
+            // Insert is also delivered to the focused window, and a held key repeats.
+            // One physical press used to start and then immediately stop.
+            static LAST_TOGGLE_MS: AtomicU64 = AtomicU64::new(0);
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let prev = LAST_TOGGLE_MS.load(Ordering::SeqCst);
+            if now.saturating_sub(prev) < 400 {
+                return;
+            }
+            LAST_TOGGLE_MS.store(now, Ordering::SeqCst);
+
             let engine = get_autoclick_engine();
             if engine.get_status().running {
                 engine.stop(Some("Atalho Global (Parar)".to_string()));
@@ -237,6 +250,9 @@ fn dispatch_action(app: &AppHandle, action: &str) {
             } else {
                 let _ = app.emit("autoclick-start-requested", ());
             }
+        }
+        "autoclick_pick_position" => {
+            let _ = app.emit("autoclick-pick-position", ());
         }
         "emergency_stop_all" => {
             // Parada de Emergência Universal: para AutoClick e solta todos os botões/teclas
@@ -368,6 +384,50 @@ fn autoclick_emergency_stop() -> Result<(), String> {
 #[tauri::command]
 fn autoclick_get_cursor_pos() -> Result<(i32, i32), String> {
     Ok(autoclick_engine::AutoClickEngine::get_cursor_pos_native())
+}
+
+/// Waits for the next left click anywhere on the screen and returns that point.
+/// The click that opened the picker is ignored. Escape cancels.
+#[tauri::command(async)]
+fn autoclick_capture_click() -> Result<(i32, i32), String> {
+    #[cfg(windows)]
+    {
+        use std::thread;
+        use std::time::{Duration, Instant};
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+
+        const VK_LBUTTON: i32 = 0x01;
+        const VK_ESCAPE: i32 = 0x1B;
+        let held = |vk: i32| unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 };
+
+        let arm = Instant::now();
+        while held(VK_LBUTTON) {
+            if arm.elapsed() > Duration::from_secs(2) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        let wait = Instant::now();
+        while wait.elapsed() < Duration::from_secs(20) {
+            if held(VK_ESCAPE) {
+                return Err("cancelado".to_string());
+            }
+            if held(VK_LBUTTON) {
+                let pos = autoclick_engine::AutoClickEngine::get_cursor_pos_native();
+                while held(VK_LBUTTON) && wait.elapsed() < Duration::from_secs(20) {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                return Ok(pos);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        return Err("tempo esgotado".to_string());
+    }
+    #[cfg(not(windows))]
+    {
+        Err("Captura de posição só funciona no Windows.".to_string())
+    }
 }
 
 #[tauri::command]
@@ -571,6 +631,7 @@ pub fn run() {
             autoclick_get_status,
             autoclick_emergency_stop,
             autoclick_get_cursor_pos,
+            autoclick_capture_click,
             autoclick_get_windows,
             autoclick_register_hotkey,
             autoclick_register_emergency_hotkey,
@@ -683,6 +744,7 @@ pub fn run() {
             // Registra atalhos padrão no Despachante Central Unificado
             let default_shortcuts = [
                 ("autoclick_start_stop", "Insert"),
+                ("autoclick_pick_position", "F7"),
                 ("emergency_stop_all", "Shift+Escape"),
                 ("widgets_toggle_all", "F8"),
                 ("crosshair_toggle", "F10"),
